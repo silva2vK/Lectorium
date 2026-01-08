@@ -25,9 +25,25 @@ export function useDriveFiles(
   const { data: files = [], isLoading, error: queryError, refetch } = useQuery({
     queryKey: ['drive-files', mode, currentFolder, accessToken],
     queryFn: async () => {
-      // Modo Default exige token
-      if (mode === 'default' && !accessToken) {
-        throw new Error("DRIVE_TOKEN_EXPIRED");
+      // Modo Default (Navegador de Arquivos)
+      if (mode === 'default') {
+        // 1. Visitante (Sem Token): Retorna apenas arquivos locais/offline
+        if (!accessToken) {
+            return await listOfflineFiles();
+        }
+
+        // 2. Usuário Logado: Tenta buscar na nuvem
+        try {
+            return await listDriveContents(accessToken, currentFolder);
+        } catch (e: any) {
+            // Se o token expirou explicitamente, lançamos o erro para a UI pedir re-login
+            if (e.message === 'DRIVE_TOKEN_EXPIRED' || e.message.includes('401')) {
+                throw e;
+            }
+            // Para qualquer outro erro (ex: sem internet), fazemos fallback para arquivos locais
+            console.warn("Fallback para offline (Erro de rede ou API):", e);
+            return await listOfflineFiles();
+        }
       }
 
       if (mode === 'offline') {
@@ -47,8 +63,7 @@ export function useDriveFiles(
             try {
                 cloudMaps = await searchMindMaps(accessToken);
             } catch (e: any) {
-                // CRITICAL FIX: Se o erro for de autenticação, relança para a UI tratar.
-                // Antes, isso era silenciado, fazendo o app parecer "offline" no Drive.
+                // Se der erro de auth, relança para a UI tratar.
                 if (e.message === 'DRIVE_TOKEN_EXPIRED' || e.message.includes('401')) {
                     throw e;
                 }
@@ -78,8 +93,7 @@ export function useDriveFiles(
         return await listLocalFiles(localDirectoryHandle);
       }
       
-      // Default Mode
-      return await listDriveContents(accessToken, currentFolder);
+      return [];
     },
     // Se der erro de auth, dispara callback
     meta: {
