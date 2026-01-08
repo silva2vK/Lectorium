@@ -38,6 +38,7 @@ interface Props {
   fileBlob?: Blob;
   isPopup?: boolean;
   onToggleNavigation?: () => void;
+  onToggleMenu?: () => void; // Added for compatibility with App.tsx commonProps
   onAuthError?: () => void;
 }
 
@@ -54,7 +55,7 @@ interface PdfViewerContentProps extends Props {
 }
 
 const PdfViewerContent: React.FC<PdfViewerContentProps> = ({ 
-  accessToken, fileId, fileName, fileParents, onBack, originalBlob, setOriginalBlob, pdfDoc, pageDimensions, jumpToPageRef, onToggleNavigation,
+  accessToken, fileId, fileName, fileParents, onBack, originalBlob, setOriginalBlob, pdfDoc, pageDimensions, jumpToPageRef, onToggleNavigation, onToggleMenu,
   conflictDetected, isCheckingIntegrity, hasPageMismatch, resolveConflict 
 }) => {
   const scale = usePdfStore(state => state.scale);
@@ -93,6 +94,9 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
   const visualContentRef = useRef<HTMLDivElement>(null);
 
   const { handlers: gestureHandlers } = usePdfGestures(visualContentRef);
+
+  // Normalize navigation trigger (App uses onToggleMenu, internal uses onToggleNavigation)
+  const handleToggleNav = onToggleNavigation || onToggleMenu;
 
   useEffect(() => {
     jumpToPageRef.current = (page: number) => {
@@ -309,7 +313,7 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
         numPages={numPages + docPageOffset}
         isSaving={isSaving}
         isFullscreen={isFullscreen}
-        onToggleNavigation={onToggleNavigation}
+        onToggleNavigation={handleToggleNav}
         onBack={onBack}
         onSave={() => setShowSaveModal(true)}
         onToggleFullscreen={toggleFullscreen}

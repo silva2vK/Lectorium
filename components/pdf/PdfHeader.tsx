@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ArrowLeft, Menu, Save, Minimize, Maximize } from 'lucide-react';
+import { ArrowLeft, Save, Minimize, Maximize, PanelLeft } from 'lucide-react';
 
 interface PdfHeaderProps {
   isVisible: boolean;
@@ -37,7 +37,15 @@ export const PdfHeader: React.FC<PdfHeaderProps> = ({
         >
         <div className="bg-[#0a0a0a] border border-[#333] flex items-center justify-between px-2 py-1.5 rounded-full shadow-2xl relative z-20">
             <div className="flex items-center gap-1 pl-1">
-                {onToggleNavigation && <button onClick={onToggleNavigation} className="p-2.5 hover:bg-white/10 rounded-full text-white/80 hover:text-white transition-colors active:scale-95"><Menu size={20}/></button>}
+                {onToggleNavigation && (
+                  <button 
+                    onClick={onToggleNavigation} 
+                    className="p-2.5 hover:bg-white/10 rounded-full text-white/80 hover:text-white transition-colors active:scale-95 group relative"
+                    title="Painel de Arquivos (Sidebar)"
+                  >
+                    <PanelLeft size={20} />
+                  </button>
+                )}
                 <button onClick={onBack} className="p-2.5 hover:bg-white/10 rounded-full text-white/80 hover:text-white transition-colors active:scale-95"><ArrowLeft size={20}/></button>
                 <div className="h-6 w-px bg-white/10 mx-1"></div>
                 <div className="flex flex-col px-2 max-w-[150px] md:max-w-[400px]">

@@ -1,9 +1,17 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* RESET TAP HIGHLIGHT */
 * { -webkit-tap-highlight-color: transparent; }
+
+/* GLOBAL FONT WEIGHT ADJUSTMENT */
+body {
+  font-weight: 500; /* Engrossa a letra padrão (400 -> 500) */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
 :root {
   --safe-top: env(safe-area-inset-top, 0px);
@@ -62,6 +70,7 @@ html.high-contrast-text body {
   font-size: 18px !important; 
   line-height: 1.6 !important;
   letter-spacing: 0.03em;
+  font-weight: 700 !important; /* Força negrito no modo alto contraste */
 }
 
 html.high-contrast-text .text-text-sec,

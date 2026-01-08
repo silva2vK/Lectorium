@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Home, FolderOpen, LogOut, User as UserIcon, X, Palette, ChevronDown, ChevronRight, Workflow, DownloadCloud, CheckCircle, Loader2, LayoutGrid, Cloud, CloudOff, LogIn, Wrench, Key, Scale, Monitor, Smartphone, Upload, Trash2, RefreshCw, FileText, Maximize, Minimize, Sliders, Zap, Database, Cpu, Image as ImageIcon, Contrast } from 'lucide-react';
 import { User } from 'firebase/auth';
@@ -160,7 +161,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <div key={file.id} className={`group relative flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer ${activeTab === file.id ? 'bg-surface text-brand border border-zinc-500' : 'text-white hover:bg-white/5'}`} onClick={() => handleNavigation(file.id)}>
                       {file.name.endsWith('.mindmap') ? <Workflow size={18} className="text-purple-400" /> : <FileText size={18} className="text-brand" />}
                       <span className="truncate text-base flex-1">{file.name}</span>
-                      <button onClick={(e) => { e.stopPropagation(); onCloseFile(file.id); }} className="p-1 opacity-0 group-hover:opacity-100 hover:text-red-500"><X size={16} /></button>
+                      <button onClick={(e) => { e.stopPropagation(); onCloseFile(file.id); }} className="p-1 text-zinc-500 hover:text-red-500 transition-colors"><X size={16} /></button>
                     </div>
                 ))}
               </div>

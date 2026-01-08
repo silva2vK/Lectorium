@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { DriveFile } from '../types';
 import { getRecentFiles, getStorageEstimate, clearAppStorage, StorageBreakdown, runJanitor, getWallpaper } from '../services/storageService';
@@ -256,7 +257,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <div className="absolute inset-0 bg-gradient-to-br from-bg/20 via-bg/40 to-bg/90 z-10" />
       </div>
 
-      <div className="relative z-10 h-full overflow-y-auto p-4 md:p-12 custom-scrollbar">
+      <div className="relative z-10 h-full overflow-y-auto p-4 md:px-12 md:py-9 custom-scrollbar">
           <div className="mb-6 md:mb-10 flex flex-wrap justify-between items-center gap-4">
             <button 
                 onClick={onToggleMenu} 
