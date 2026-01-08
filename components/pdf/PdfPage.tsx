@@ -125,7 +125,14 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({ pageNumber, filterV
 
             <PdfCanvasLayer pageProxy={pageProxy} scale={scale} isVisible={isVisible} pageNumber={pageNumber} fileId={fileId} pageColor={settings.pageColor} disableColorFilter={settings.disableColorFilter} width={pageDimensions?.width || 800} height={pageDimensions?.height || 1100} onRendered={() => setRendered(true)} />
             <PdfInkLayer annotations={annotations} pageNumber={pageNumber} scale={scale} width={pageDimensions?.width || 800} height={pageDimensions?.height || 1100} />
-            <canvas ref={activeInkCanvasRef} className="absolute top-0 left-0 pointer-events-none z-[36]" />
+            
+            {/* Canvas Ativo para Desenho em Tempo Real (Z-Index 36 > InkLayer 35) */}
+            <canvas 
+                ref={activeInkCanvasRef} 
+                className="absolute top-0 left-0 pointer-events-none z-[36]" 
+                width={pageDimensions?.width || 800}
+                height={pageDimensions?.height || 1100}
+            />
 
             {settings.showConfidenceOverlay && ocrData.length > 0 && rendered && (
                 <div className="absolute inset-0 z-20 pointer-events-none">
