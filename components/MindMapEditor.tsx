@@ -3,9 +3,9 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { 
   Plus, Minus, Trash2, Type, Menu, Save, Loader2, Link, Download, WifiOff, 
   Undo, Redo, Square, Image as ImageIcon, X, Palette, Scaling, ChevronUp,
-  Edit2, Check, CornerDownRight, Sparkles
+  Edit2, Check, CornerDownRight, Sparkles, CloudUpload
 } from 'lucide-react';
-import { updateDriveFile, downloadDriveFile } from '../services/driveService';
+import { updateDriveFile, downloadDriveFile, uploadFileToDrive } from '../services/driveService';
 import { saveOfflineFile } from '../services/storageService';
 import { MindMapNode, MindMapEdge, MindMapViewport, MindMapData } from '../types';
 import { AiChatPanel } from './shared/AiChatPanel';
@@ -141,7 +141,7 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
         setIsLoading(true);
         let blobToRead = fileBlob;
 
-        if (!blobToRead && accessToken && !isLocalFile) {
+        if (!blobToRead && accessToken && !fileId.startsWith('local-')) {
              try { blobToRead = await downloadDriveFile(accessToken, fileId); } catch (e) { console.error(e); }
         }
 
@@ -225,7 +225,8 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
     if (isLoading || nodes.length === 0) return;
     setHasUnsavedChanges(true);
     
-    if (!isLocalFile && navigator.onLine) {
+    // Autosave apenas se não for local puro e tiver token
+    if (!fileId.startsWith('local-') && accessToken && navigator.onLine) {
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = setTimeout(saveToDrive, 3000); 
     }
@@ -233,16 +234,32 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
   }, [nodes, edges, viewport]); // Syncs when viewport state finally settles
 
   const saveToDrive = async () => {
-      if (!accessToken || isLocalFile) return;
+      if (!accessToken) {
+          // Fallback para save local se não houver token
+          saveToAppStorage();
+          return;
+      }
+
       setIsSaving(true);
       const data: MindMapData = { nodes, edges, viewport };
       const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      
       try {
-          await updateDriveFile(accessToken, fileId, blob, 'application/json');
+          if (fileId.startsWith('local-')) {
+              // Create New (Upload)
+              await uploadFileToDrive(accessToken, blob, fileName, [], 'application/json');
+              // Nota: Como não atualizamos o fileId da prop, isso cria uma cópia na nuvem.
+              // O ideal seria o App atualizar o ID, mas para UX imediata, notificamos:
+              alert("Mapa salvo no Google Drive com sucesso!");
+          } else {
+              // Update Existing
+              await updateDriveFile(accessToken, fileId, blob, 'application/json');
+          }
           setHasUnsavedChanges(false);
       } catch (e: any) {
-          console.error("Autosave failed", e);
+          console.error("Save failed", e);
           if (e.message === "Unauthorized" && onAuthError) onAuthError();
+          else alert("Erro ao salvar na nuvem: " + e.message);
       } finally {
           setIsSaving(false);
       }
@@ -802,7 +819,8 @@ ${JSON.stringify({
                     </div>
                 )}
             </div>
-            {(isLocalFile || !navigator.onLine) && (
+            {/* Indicador Offline - Só exibe se REALMENTE não houver rede */}
+            {!navigator.onLine && (
                 <div className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 rounded-lg text-xs font-bold">
                     <WifiOff size={14} /> Offline
                 </div>
@@ -819,11 +837,11 @@ ${JSON.stringify({
             </button>
             
             <button 
-                onClick={isLocalFile ? saveToAppStorage : saveToDrive} 
+                onClick={accessToken ? saveToDrive : saveToAppStorage} 
                 className="flex items-center gap-2 px-4 py-2.5 bg-brand text-bg rounded-xl font-bold hover:brightness-110 transition-all"
-                title={isLocalFile ? "Salvar no Aplicativo (Local)" : "Salvar no Drive"}
+                title={accessToken ? (isLocalFile ? "Enviar para o Drive" : "Salvar no Drive") : "Salvar Localmente"}
             >
-                {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                {isSaving ? <Loader2 size={18} className="animate-spin" /> : (accessToken && isLocalFile ? <CloudUpload size={18} /> : <Save size={18} />)}
                 <span className="hidden sm:inline">Salvar</span>
             </button>
         </div>

@@ -121,7 +121,7 @@ export const usePdfInput = ({
 
     const handlePointerMove = (e: React.PointerEvent) => {
         // Coalesced Events: Chrome agrupa eventos de alta frequência (120hz+).
-        const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+        const events = (e as any).getCoalescedEvents ? (e as any).getCoalescedEvents() : [e];
 
         if (isBrushingRef.current) {
             const { x, y } = getCoords(e);

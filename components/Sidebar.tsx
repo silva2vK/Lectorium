@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Home, FolderOpen, LogOut, User as UserIcon, X, Palette, ChevronDown, ChevronRight, Workflow, DownloadCloud, CheckCircle, Loader2, LayoutGrid, Cloud, CloudOff, LogIn, Wrench, Key, Scale, Monitor, Smartphone, Upload, Trash2, RefreshCw, FileText, Maximize, Minimize, Sliders, Zap, Database, Cpu, Image as ImageIcon, Contrast } from 'lucide-react';
+import { Home, FolderOpen, LogOut, User as UserIcon, X, Palette, ChevronDown, ChevronRight, Workflow, DownloadCloud, CheckCircle, Loader2, LayoutGrid, Cloud, CloudOff, LogIn, Wrench, Key, Scale, Monitor, Smartphone, Upload, Trash2, RefreshCw, FileText, Maximize, Minimize, Zap, Database, Cpu, Image as ImageIcon, Contrast } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { DriveFile } from '../types';
@@ -36,7 +36,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isImmersive, onToggleImmersive
 }) => {
   const [isThemesOpen, setIsThemesOpen] = useState(false);
-  const [isLayoutOpen, setIsLayoutOpen] = useState(false);
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
   const [showOfflineModal, setShowOfflineModal] = useState(false);
   const [showDebugModal, setShowDebugModal] = useState(false);
@@ -52,8 +51,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [highContrast, setHighContrast] = useState(() => {
       return localStorage.getItem('high-contrast-text') === 'true';
   });
-
-  const { dashboardScale, setDashboardScale } = useGlobalContext();
 
   const loadWallpapers = async () => {
     const lBlob = await getWallpaper('landscape');
@@ -196,19 +193,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="flex items-center justify-between flex-1 ml-4"><span className="text-base">Temas</span>{isThemesOpen ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}</div>
             </button>
             {isThemesOpen && <div className="pl-12 py-2"><ThemeSwitcher /></div>}
-
-            <button onClick={() => setIsLayoutOpen(!isLayoutOpen)} className="w-full p-3 rounded-xl flex items-center px-4 text-white hover:bg-white/5">
-              <Sliders size={24} />
-              <div className="flex items-center justify-between flex-1 ml-4"><span className="text-base">Layout</span>{isLayoutOpen ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}</div>
-            </button>
-            {isLayoutOpen && (
-              <div className="pl-12 pr-4 py-4 space-y-4">
-                 <div className="space-y-2">
-                     <div className="flex justify-between text-sm text-white"><span>Interface</span><span className="text-brand font-bold">{dashboardScale}x</span></div>
-                     <input type="range" min="1" max="5" value={dashboardScale} onChange={(e) => setDashboardScale(parseInt(e.target.value))} className="w-full h-1 bg-white/10 rounded-lg appearance-none accent-brand" />
-                 </div>
-              </div>
-            )}
 
             <button onClick={() => setIsCustomizeOpen(!isCustomizeOpen)} className="w-full p-3 rounded-xl flex items-center px-4 text-white hover:bg-white/5">
               <ImageIcon size={24} />

@@ -6,7 +6,8 @@ import {
   Touchpad, AlertTriangle, ShieldCheck,
   CheckCircle2, Pen, Highlighter, ArrowRight,
   Globe, Chrome, Compass, Flame, Shield, Zap, 
-  Layers, Disc, Smartphone, ArrowLeft, Wrench, RefreshCw, AlertCircle
+  Layers, Disc, Smartphone, ArrowLeft, Wrench, RefreshCw, AlertCircle,
+  Cpu, Terminal, Battery
 } from 'lucide-react';
 
 interface Props {
@@ -58,72 +59,6 @@ const SECTIONS = [
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    )
-  },
-  {
-    id: 'troubleshoot',
-    title: 'Solução de Problemas',
-    icon: Wrench,
-    content: (
-      <div className="space-y-6">
-        <h3 className="text-lg font-bold text-white mb-4">Diagnóstico e Correção Rápida</h3>
-        
-        <div className="space-y-4">
-          
-          {/* ERRO 1: Auth */}
-          <div className="bg-[#2c2c2c] p-4 rounded-xl border border-gray-700">
-            <div className="flex items-center gap-2 text-yellow-500 font-bold text-sm mb-2">
-              <AlertCircle size={16} /> Erro "Não foi possível salvar" ou "403 Forbidden"
-            </div>
-            <p className="text-xs text-gray-300 mb-3">
-              Isso acontece quando o Lectorium perde a permissão de escrever no seu Google Drive. Geralmente ocorre se a sessão expirou ou se você desmarcou as caixas de permissão no login.
-            </p>
-            <div className="bg-black/30 p-2 rounded border border-gray-600 text-xs text-green-400 font-mono flex items-center gap-2">
-              <RefreshCw size={12} /> Solução: Faça Logout e Login novamente, marcando TODAS as caixas do Google.
-            </div>
-          </div>
-
-          {/* ERRO 2: Local Files */}
-          <div className="bg-[#2c2c2c] p-4 rounded-xl border border-gray-700">
-            <div className="flex items-center gap-2 text-blue-400 font-bold text-sm mb-2">
-              <FileText size={16} /> Arquivos Locais não salvam no Drive
-            </div>
-            <p className="text-xs text-gray-300 mb-3">
-              Por segurança, o navegador isola arquivos abertos do disco ("Abrir Local"). Eles vivem apenas na memória temporária da aba.
-            </p>
-            <div className="bg-black/30 p-2 rounded border border-gray-600 text-xs text-white">
-              <strong>Solução:</strong> Use a opção "Salvar como Cópia" ou "Salvar no Drive" dentro do menu do editor para fazer o upload definitivo.
-            </div>
-          </div>
-
-          {/* ERRO 3: AI Quota */}
-          <div className="bg-[#2c2c2c] p-4 rounded-xl border border-gray-700">
-            <div className="flex items-center gap-2 text-purple-400 font-bold text-sm mb-2">
-              <Workflow size={16} /> A IA parou de responder (Erro 429)
-            </div>
-            <p className="text-xs text-gray-300 mb-3">
-              O modelo Gemini possui limites de requisições por minuto na camada gratuita. Se você processou muitas páginas rapidamente, o Google bloqueia temporariamente.
-            </p>
-            <div className="bg-black/30 p-2 rounded border border-gray-600 text-xs text-white">
-              <strong>Solução:</strong> Aguarde 1 ou 2 minutos e tente novamente. Para uso pesado, adicione sua própria API Key nas configurações.
-            </div>
-          </div>
-
-          {/* ERRO 4: Cache */}
-          <div className="bg-[#2c2c2c] p-4 rounded-xl border border-gray-700">
-            <div className="flex items-center gap-2 text-red-400 font-bold text-sm mb-2">
-              <AlertTriangle size={16} /> Interface travada ou branca
-            </div>
-            <p className="text-xs text-gray-300 mb-3">
-              Atualizações do aplicativo podem conflitar com dados antigos no cache do navegador.
-            </p>
-            <div className="bg-black/30 p-2 rounded border border-gray-600 text-xs text-white">
-              <strong>Solução:</strong> Vá em Configurações (Menu Lateral) {'>'} Armazenamento {'>'} Redefinir Aplicação.
-            </div>
-          </div>
-
         </div>
       </div>
     )
@@ -206,6 +141,240 @@ const SECTIONS = [
               <p className="text-[10px] text-gray-500 mt-2 flex items-center gap-1">
                 <AlertTriangle size={10} className="text-yellow-500"/> Arquivos locais requerem "Salvar como Cópia".
               </p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    )
+  },
+  {
+    id: 'tuning',
+    title: 'Tuning & Performance',
+    icon: Zap,
+    content: (
+      <div className="space-y-6">
+        
+        {/* DISCLAIMER */}
+        <div className="bg-red-900/10 border border-red-500/30 p-4 rounded-xl flex items-start gap-3">
+            <AlertTriangle size={20} className="text-red-500 shrink-0 mt-0.5" />
+            <div>
+                <h4 className="text-sm font-bold text-red-400 mb-1 uppercase tracking-wider">Aviso de Risco</h4>
+                <p className="text-xs text-red-200/80 leading-relaxed text-justify">
+                    As configurações abaixo alteram o motor de renderização do navegador. 
+                    Embora testadas, elas podem causar instabilidade. 
+                    <strong>O usuário assume total responsabilidade ao modificar flags experimentais.</strong>
+                </p>
+            </div>
+        </div>
+
+        {/* CHROMIUM SECTION (CHROME & VIVALDI) */}
+        <div className="bg-[#1a1a1a] border border-blue-500/30 rounded-xl overflow-hidden">
+            <div className="bg-blue-500/10 p-3 flex items-center gap-2 border-b border-blue-500/20">
+                <div className="flex -space-x-1">
+                    <Chrome size={18} className="text-blue-400" />
+                    <Layers size={18} className="text-red-400" />
+                </div>
+                <span className="text-white font-bold text-sm">Protocolo Chromium (Chrome & Vivaldi)</span>
+            </div>
+            
+            <div className="p-5 space-y-4">
+                <p className="text-xs text-gray-300 leading-relaxed">
+                    Estas configurações forçam o uso da GPU para renderizar os PDFs e a interface, liberando a CPU para a Inteligência Artificial.
+                </p>
+
+                <div className="space-y-2">
+                    <div className="bg-black/40 p-2 rounded border border-gray-700 flex justify-between items-center">
+                        <span className="text-xs text-gray-400 font-mono">Chrome</span>
+                        <code className="text-xs text-blue-400 font-bold bg-blue-900/20 px-2 py-0.5 rounded">chrome://flags</code>
+                    </div>
+                    <div className="bg-black/40 p-2 rounded border border-gray-700 flex justify-between items-center">
+                        <span className="text-xs text-gray-400 font-mono">Vivaldi</span>
+                        <code className="text-xs text-red-400 font-bold bg-red-900/20 px-2 py-0.5 rounded">vivaldi://flags</code>
+                    </div>
+                    
+                    <div className="bg-[#252525] rounded-lg border border-[#333] overflow-hidden">
+                        <table className="w-full text-left text-[10px]">
+                            <thead className="bg-black/20 text-gray-500 uppercase font-bold">
+                                <tr>
+                                    <th className="p-2 border-r border-[#333]">Pesquisar Flag (#)</th>
+                                    <th className="p-2 border-r border-[#333] w-16">Mudar para</th>
+                                    <th className="p-2">Motivo</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#333] text-gray-300">
+                                <tr>
+                                    <td className="p-2 font-mono text-blue-300 border-r border-[#333]">gpu-rasterization</td>
+                                    <td className="p-2 text-green-400 font-bold border-r border-[#333]">Enabled</td>
+                                    <td className="p-2">Desenha o PDF usando a placa de vídeo.</td>
+                                </tr>
+                                <tr>
+                                    <td className="p-2 font-mono text-blue-300 border-r border-[#333]">enable-zero-copy</td>
+                                    <td className="p-2 text-green-400 font-bold border-r border-[#333]">Enabled</td>
+                                    <td className="p-2">Escreve direto na memória GPU (Menos RAM).</td>
+                                </tr>
+                                <tr>
+                                    <td className="p-2 font-mono text-blue-300 border-r border-[#333]">enable-parallel-downloading</td>
+                                    <td className="p-2 text-green-400 font-bold border-r border-[#333]">Enabled</td>
+                                    <td className="p-2">Acelera download de PDFs grandes.</td>
+                                </tr>
+                                <tr>
+                                    <td className="p-2 font-mono text-blue-300 border-r border-[#333]">smooth-scrolling</td>
+                                    <td className="p-2 text-yellow-400 font-bold border-r border-[#333]">Disabled</td>
+                                    <td className="p-2">Opcional. Remove o "efeito elástico" para resposta tátil instantânea.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {/* FIREFOX SECTION */}
+        <div className="bg-[#1a1a1a] border border-orange-500/30 rounded-xl overflow-hidden">
+            <div className="bg-orange-500/10 p-3 flex items-center gap-2 border-b border-orange-500/20">
+                <Flame size={18} className="text-orange-500" />
+                <span className="text-white font-bold text-sm">Protocolo Firefox (Android)</span>
+            </div>
+            
+            <div className="p-5 space-y-4">
+                <p className="text-xs text-gray-300 leading-relaxed">
+                    O Firefox padrão bloqueia configurações avançadas. Para habilitar 60fps no PDF e OCR rápido, 
+                    recomenda-se o uso do <strong>Firefox Nightly</strong>.
+                </p>
+
+                <div className="space-y-2">
+                    <div className="bg-black/40 p-2 rounded border border-gray-700 flex justify-between items-center">
+                        <span className="text-xs text-gray-400 font-mono">Endereço de Config</span>
+                        <code className="text-xs text-green-400 font-bold bg-green-900/20 px-2 py-0.5 rounded">about:config</code>
+                    </div>
+                    
+                    <div className="bg-[#252525] rounded-lg border border-[#333] overflow-hidden">
+                        <table className="w-full text-left text-[10px]">
+                            <thead className="bg-black/20 text-gray-500 uppercase font-bold">
+                                <tr>
+                                    <th className="p-2 border-r border-[#333]">Flag (Pesquisar)</th>
+                                    <th className="p-2 border-r border-[#333] w-16">Valor</th>
+                                    <th className="p-2">Efeito</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#333] text-gray-300">
+                                <tr>
+                                    <td className="p-2 font-mono text-orange-300 border-r border-[#333]">gfx.webrender.all</td>
+                                    <td className="p-2 text-green-400 font-bold border-r border-[#333]">true</td>
+                                    <td className="p-2">Aceleração GPU total (Fluidez)</td>
+                                </tr>
+                                <tr>
+                                    <td className="p-2 font-mono text-orange-300 border-r border-[#333]">layers.acceleration.force-enabled</td>
+                                    <td className="p-2 text-green-400 font-bold border-r border-[#333]">true</td>
+                                    <td className="p-2">Evita lag em PDFs grandes</td>
+                                </tr>
+                                <tr>
+                                    <td className="p-2 font-mono text-orange-300 border-r border-[#333]">javascript.options.wasm_simd</td>
+                                    <td className="p-2 text-green-400 font-bold border-r border-[#333]">true</td>
+                                    <td className="p-2">Acelera o motor de IA/OCR</td>
+                                </tr>
+                                <tr>
+                                    <td className="p-2 font-mono text-orange-300 border-r border-[#333]">javascript.options.shared_memory</td>
+                                    <td className="p-2 text-green-400 font-bold border-r border-[#333]">true</td>
+                                    <td className="p-2">Multithreading eficiente</td>
+                                </tr>
+                                <tr>
+                                    <td className="p-2 font-mono text-orange-300 border-r border-[#333]">apz.allow_zooming</td>
+                                    <td className="p-2 text-red-400 font-bold border-r border-[#333]">false</td>
+                                    <td className="p-2">Impede conflito de zoom duplo</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div className="flex gap-2">
+                    <div className="flex-1 bg-[#252525] p-3 rounded-lg border border-[#333]">
+                        <div className="flex items-center gap-2 mb-1 text-purple-400 text-xs font-bold">
+                            <Layers size={14} /> Extensões
+                        </div>
+                        <p className="text-[10px] text-gray-400">
+                            Use <strong>uBlock Origin</strong> para limpar scripts de fundo.
+                            <br/>
+                            <span className="text-red-400">NÃO USE Dark Reader</span> (causa lag severo).
+                        </p>
+                    </div>
+                    <div className="flex-1 bg-[#252525] p-3 rounded-lg border border-[#333]">
+                        <div className="flex items-center gap-2 mb-1 text-green-400 text-xs font-bold">
+                            <Battery size={14} /> Android
+                        </div>
+                        <p className="text-[10px] text-gray-400">
+                            Configure a bateria do App para <strong>"Não Restrito"</strong>.
+                            Vital para o OCR não morrer em segundo plano.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+      </div>
+    )
+  },
+  {
+    id: 'troubleshoot',
+    title: 'Solução de Problemas',
+    icon: Wrench,
+    content: (
+      <div className="space-y-6">
+        <h3 className="text-lg font-bold text-white mb-4">Diagnóstico e Correção Rápida</h3>
+        
+        <div className="space-y-4">
+          
+          {/* ERRO 1: Auth */}
+          <div className="bg-[#2c2c2c] p-4 rounded-xl border border-gray-700">
+            <div className="flex items-center gap-2 text-yellow-500 font-bold text-sm mb-2">
+              <AlertCircle size={16} /> Erro "Não foi possível salvar" ou "403 Forbidden"
+            </div>
+            <p className="text-xs text-gray-300 mb-3">
+              Isso acontece quando o Lectorium perde a permissão de escrever no seu Google Drive. Geralmente ocorre se a sessão expirou ou se você desmarcou as caixas de permissão no login.
+            </p>
+            <div className="bg-black/30 p-2 rounded border border-gray-600 text-xs text-green-400 font-mono flex items-center gap-2">
+              <RefreshCw size={12} /> Solução: Faça Logout e Login novamente, marcando TODAS as caixas do Google.
+            </div>
+          </div>
+
+          {/* ERRO 2: Local Files */}
+          <div className="bg-[#2c2c2c] p-4 rounded-xl border border-gray-700">
+            <div className="flex items-center gap-2 text-blue-400 font-bold text-sm mb-2">
+              <FileText size={16} /> Arquivos Locais não salvam no Drive
+            </div>
+            <p className="text-xs text-gray-300 mb-3">
+              Por segurança, o navegador isola arquivos abertos do disco ("Abrir Local"). Eles vivem apenas na memória temporária da aba.
+            </p>
+            <div className="bg-black/30 p-2 rounded border border-gray-600 text-xs text-white">
+              <strong>Solução:</strong> Use a opção "Salvar como Cópia" ou "Salvar no Drive" dentro do menu do editor para fazer o upload definitivo.
+            </div>
+          </div>
+
+          {/* ERRO 3: AI Quota */}
+          <div className="bg-[#2c2c2c] p-4 rounded-xl border border-gray-700">
+            <div className="flex items-center gap-2 text-purple-400 font-bold text-sm mb-2">
+              <Workflow size={16} /> A IA parou de responder (Erro 429)
+            </div>
+            <p className="text-xs text-gray-300 mb-3">
+              O modelo Gemini possui limites de requisições por minuto na camada gratuita. Se você processou muitas páginas rapidamente, o Google bloqueia temporariamente.
+            </p>
+            <div className="bg-black/30 p-2 rounded border border-gray-600 text-xs text-white">
+              <strong>Solução:</strong> Aguarde 1 ou 2 minutos e tente novamente. Para uso pesado, adicione sua própria API Key nas configurações.
+            </div>
+          </div>
+
+          {/* ERRO 4: Cache */}
+          <div className="bg-[#2c2c2c] p-4 rounded-xl border border-gray-700">
+            <div className="flex items-center gap-2 text-red-400 font-bold text-sm mb-2">
+              <AlertTriangle size={16} /> Interface travada ou branca
+            </div>
+            <p className="text-xs text-gray-300 mb-3">
+              Atualizações do aplicativo podem conflitar com dados antigos no cache do navegador.
+            </p>
+            <div className="bg-black/30 p-2 rounded border border-gray-600 text-xs text-white">
+              <strong>Solução:</strong> Vá em Configurações (Menu Lateral) {'>'} Armazenamento {'>'} Redefinir Aplicação.
             </div>
           </div>
 

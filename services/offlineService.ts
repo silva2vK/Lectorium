@@ -13,14 +13,17 @@ interface ResourceGroup {
   urls: string[]; 
   keywords: string[]; 
   required?: boolean;
+  estimatedSize: number; // Tamanho em bytes
 }
 
+// 1MB = 1048576 bytes
 export const AVAILABLE_RESOURCES: ResourceGroup[] = [
   {
     id: 'core',
     label: 'Núcleo do Sistema',
-    description: 'Interface, Fontes do Google e Lógica Principal. (~2.5MB)',
+    description: 'Interface, Fontes do Google e Lógica Principal.',
     required: true,
+    estimatedSize: 5.5 * 1024 * 1024, // Ajustado para refletir chunks do React/Firebase
     keywords: ['react', 'firebase', 'lucide', 'tailwind', 'idb', 'zustand'], 
     urls: [
       '/',
@@ -35,8 +38,9 @@ export const AVAILABLE_RESOURCES: ResourceGroup[] = [
   {
     id: 'pdf_office',
     label: 'Motores de Documentos',
-    description: 'Renderização de PDF e editor de DOCX (Native Canvas). (~4.2MB)',
+    description: 'Renderização de PDF e editor de DOCX (Native Canvas).',
     required: true,
+    estimatedSize: 8.2 * 1024 * 1024, // Ajustado considerando Worker + Maps
     keywords: ['pdfjs-dist', 'pdf-lib', 'docx', 'jszip'],
     urls: [
       'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/web/pdf_viewer.css',
@@ -46,8 +50,9 @@ export const AVAILABLE_RESOURCES: ResourceGroup[] = [
   {
     id: 'math_science',
     label: 'Ciência e Dados',
-    description: 'Suporte a fórmulas KaTeX, diagramas Mermaid e Gráficos. (~3.8MB)',
+    description: 'Suporte a fórmulas KaTeX, diagramas Mermaid e Gráficos.',
     required: false,
+    estimatedSize: 4.8 * 1024 * 1024,
     keywords: ['katex', 'mermaid', 'recharts', 'qrcode'],
     urls: [
       'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css',
@@ -60,8 +65,9 @@ export const AVAILABLE_RESOURCES: ResourceGroup[] = [
   {
     id: 'ai_assets',
     label: 'Assets de IA',
-    description: 'Prompts pré-compilados e lógica de processamento visual Gemini. (~1MB)',
+    description: 'Prompts pré-compilados e lógica de processamento visual Gemini.',
     required: false,
+    estimatedSize: 1.5 * 1024 * 1024,
     keywords: ['genai', 'vision'],
     urls: []
   }
@@ -74,10 +80,12 @@ function identifyCategory(url: string): ResourceCategory {
   return 'core';
 }
 
-function formatSize(bytes: number): string {
-    if (bytes === 0) return "0 KB";
-    const mb = bytes / (1024 * 1024);
-    return mb < 1 ? `${(bytes / 1024).toFixed(0)} KB` : `${mb.toFixed(1)} MB`;
+export function formatSize(bytes: number): string {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 export async function deleteOfflineResources(): Promise<void> {
@@ -92,7 +100,6 @@ export async function cacheAppResources(
   onProgress?: (progress: number) => void
 ): Promise<string> {
   const cache = await caches.open(CACHE_NAME);
-  let totalBytesActual = 0;
   const finalUrlsToCache = new Set<string>();
 
   AVAILABLE_RESOURCES.forEach(group => {
@@ -127,27 +134,53 @@ export async function cacheAppResources(
   const urlsArray = Array.from(finalUrlsToCache);
   let completed = 0;
   
-  for (let i = 0; i < urlsArray.length; i += 4) {
-      const chunk = urlsArray.slice(i, i + 4);
+  // Limite de concorrência para evitar erros de rede em lote
+  const CONCURRENCY = 6;
+  
+  for (let i = 0; i < urlsArray.length; i += CONCURRENCY) {
+      const chunk = urlsArray.slice(i, i + CONCURRENCY);
       await Promise.all(chunk.map(async (url) => {
           try {
-              const res = await fetch(url, { cache: 'reload' });
-              if (res.ok) {
-                  const blob = await res.clone().blob();
-                  totalBytesActual += blob.size;
+              // Tenta fetch com CORS para garantir que o blob seja válido e mensurável
+              // Se falhar (alguns CDNs), tenta sem CORS (opaque), mas armazena igual.
+              let res;
+              try {
+                  res = await fetch(url, { cache: 'reload', mode: 'cors' });
+              } catch (corsErr) {
+                  res = await fetch(url, { cache: 'reload', mode: 'no-cors' });
+              }
+              
+              if (res && (res.ok || res.type === 'opaque')) {
                   await cache.put(url, res);
               }
-          } catch (e) {} finally {
+          } catch (e) {
+              console.warn(`[Offline] Falha ao cachear: ${url}`, e);
+          } finally {
               completed++;
               if (onProgress) onProgress(Math.round((completed / urlsArray.length) * 100));
           }
       }));
   }
 
-  return formatSize(totalBytesActual);
+  // Retorna o tamanho total real usando a API de Storage, que é mais precisa para opacos
+  const total = await getOfflineCacheSize();
+  return total || "Desconhecido";
 }
 
 export async function getOfflineCacheSize(): Promise<string | null> {
+  // Estratégia Prioritária: Storage Manager (Chrome/Edge/Firefox Modernos)
+  // Isso retorna o uso REAL em disco de toda a origem (Cache + IDB)
+  if (navigator.storage && navigator.storage.estimate) {
+      try {
+          const estimate = await navigator.storage.estimate();
+          // Retornamos o uso total, pois é o que importa para "Em uso" no contexto PWA
+          if (estimate.usage) return formatSize(estimate.usage);
+      } catch (e) {
+          console.warn("Storage estimate failed", e);
+      }
+  }
+
+  // Fallback: Iteração manual (Menos preciso para Opaque Responses)
   if (!('caches' in window)) return null;
   const keys = await caches.keys();
   let totalBytes = 0;
@@ -156,7 +189,12 @@ export async function getOfflineCacheSize(): Promise<string | null> {
     const requests = await cache.keys();
     for (const req of requests) {
       const res = await cache.match(req);
-      if (res) totalBytes += (await res.clone().blob()).size;
+      if (res) {
+          try {
+            const blob = await res.clone().blob();
+            totalBytes += blob.size;
+          } catch(e) {}
+      }
     }
   }
   return totalBytes > 0 ? formatSize(totalBytes) : null;

@@ -4,8 +4,9 @@ import { Editor } from '@tiptap/react';
 import JSZip from 'jszip';
 import { updateDriveFile, uploadFileToDrive } from '../services/driveService';
 import { 
-  saveOfflineFile, addToSyncQueue, cacheDocumentData, 
-  acquireFileLock, releaseFileLock, saveDocVersion 
+  saveOfflineFile, addToSyncQueue, 
+  acquireFileLock, releaseFileLock, saveDocVersion,
+  cacheDocumentData
 } from '../services/storageService';
 import { generateDocxBlob } from '../services/docxService';
 import { packLectoriumFile } from '../services/lectService';
@@ -29,11 +30,18 @@ export const useDocSaver = ({ fileId, accessToken, isLocalFile, currentName, fil
   const [isOfflineSaved, setIsOfflineSaved] = useState(false);
   const [originalZip, setOriginalZip] = useState<JSZip | undefined>(undefined);
   
+  // Rastreia o ID real do Drive caso um arquivo local seja promovido para a nuvem nesta sessão
+  const [promotedDriveId, setPromotedDriveId] = useState<string | null>(null);
+  
   // Rate limit para versões (evita criar versão a cada auto-save de 3s)
   const lastVersionTime = useRef(0);
 
   const save = async (editor: Editor, pageSettings?: PageSettings, comments?: CommentData[], references?: Reference[]) => {
       setIsSaving(true);
+      
+      // Determina o ID efetivo (se já foi salvo no Drive nesta sessão, usa o novo ID)
+      const effectiveFileId = promotedDriveId || fileId;
+      const isStillLocalId = effectiveFileId.startsWith('local-') || effectiveFileId.startsWith('new-');
       
       const isLect = currentName.endsWith(MIME_TYPES.LECT_EXT);
       let blob: Blob;
@@ -78,65 +86,67 @@ export const useDocSaver = ({ fileId, accessToken, isLocalFile, currentName, fil
       if (now - lastVersionTime.current > 5 * 60 * 1000) {
           const author = auth.currentUser?.displayName || 'Você';
           // Fire and forget, não bloqueia o save principal
+          // Nota: Salvamos versões locais com o ID original para manter histórico consistente na sessão
           saveDocVersion(fileId, jsonContent, author, "Salvamento Automático").catch(e => console.warn("Failed to save version snapshot", e));
           lastVersionTime.current = now;
       }
 
-      // Caso 1: Arquivo Local (Sem necessidade de locks complexos por enquanto)
-      if (isLocalFile) {
-          // Em modo local, o save geralmente é um download explícito ou cache
-          // Aqui apenas atualizamos status para feedback visual se usado em contexto de auto-save
+      // Caso 0: Usuário deslogado e online (Modo Visitante estrito)
+      // Se não tem token e tem internet, não podemos salvar na nuvem.
+      // Apenas baixa se for solicitado explicitamente (o que não acontece nesta função save, que é autosave/ctrl+s)
+      if (isLocalFile && !accessToken && navigator.onLine) {
+          // Apenas salva no IDB local para não perder dados se fechar a aba
+          await saveOfflineFile({ id: fileId, name: nameToSave, mimeType: mimeType, parents: fileParents }, blob);
           setSaveStatus('saved');
           setIsSaving(false);
-          // O download real é disparado pela UI chamando save com handleDownload, mas se for auto-save, paramos aqui.
-          // Se fosse Native File System API, escreveríamos no handle aqui.
           return;
       }
 
       // Tenta adquirir o Lock para evitar conflito com background sync
-      // Implementa uma pequena espera de retry se estiver travado
-      let lockAcquired = await acquireFileLock(fileId);
+      let lockAcquired = await acquireFileLock(effectiveFileId);
       if (!lockAcquired) {
-          // Aguarda 500ms e tenta novamente uma vez antes de falhar
+          // Retry simples
           await new Promise(r => setTimeout(r, 500));
-          lockAcquired = await acquireFileLock(fileId);
+          lockAcquired = await acquireFileLock(effectiveFileId);
       }
 
       if (!lockAcquired) {
           console.warn("[Saver] Arquivo está sendo sincronizado em segundo plano. Aguarde um instante.");
-          // Se não conseguir o lock, ainda atualizamos o cache local para que a sincronização seguinte pegue a versão nova
-          try {
-              await cacheDocumentData(fileId, {
-                  content: jsonContent,
-                  contentType: 'json',
-                  settings: pageSettings,
-                  comments: comments,
-                  references: references
-              });
-          } catch(e) {}
           setIsSaving(false);
           return;
       }
 
       try {
-          // Atualiza o Cache Local (Atomicidade Local)
+          // Atualiza cache de renderização (Documento para reabertura rápida)
           try {
-              await cacheDocumentData(fileId, {
+              await cacheDocumentData(fileId, { // Mantém ID original no cache de sessão
                   content: jsonContent,
                   contentType: 'json',
                   settings: pageSettings,
                   comments: comments,
                   references: references
               });
-          } catch (e) {
-              console.warn("Failed to update cache on save", e);
-          }
+          } catch (e) {}
 
           // Caso 2: Sem Internet -> Offline Mode
           if (!navigator.onLine) {
               try {
-                  await saveOfflineFile({ id: fileId, name: nameToSave, mimeType: mimeType, parents: fileParents }, blob);
-                  await addToSyncQueue({ fileId: fileId, action: 'update', blob: blob, name: nameToSave, mimeType: mimeType, parents: fileParents });
+                  // Salva o blob localmente
+                  await saveOfflineFile({ id: effectiveFileId, name: nameToSave, mimeType: mimeType, parents: fileParents }, blob);
+                  
+                  // Enfileira para sync
+                  // Se o ID ainda é local (local-...), a ação é 'create'. Se já foi promovido ou é do drive, é 'update'.
+                  const action = isStillLocalId ? 'create' : 'update';
+                  
+                  await addToSyncQueue({ 
+                      fileId: effectiveFileId, 
+                      action: action, 
+                      blob: blob, 
+                      name: nameToSave, 
+                      mimeType: mimeType, 
+                      parents: fileParents 
+                  });
+                  
                   setSaveStatus('saved');
                   setIsOfflineSaved(true);
               } catch (e) {
@@ -146,34 +156,50 @@ export const useDocSaver = ({ fileId, accessToken, isLocalFile, currentName, fil
               return;
           }
 
-          // Caso 3: Online -> Drive
-          try {
-              // Se o arquivo é novo (criado localmente mas agora sendo salvo no drive), usamos uploadFileToDrive na primeira vez?
-              // O App trata "local-" como isLocalFile=true, mas se quisermos "Salvar no Drive" explicitamente,
-              // a lógica estaria no botão "Salvar cópia". 
-              // A função updateDriveFile assume que o ID já existe no Drive.
-              
-              await updateDriveFile(accessToken, fileId, blob, mimeType);
-              setSaveStatus('saved');
-              setIsOfflineSaved(false);
-          } catch (e: any) {
-              console.error("Drive save failed", e);
-              if (e.message !== "Unauthorized") {
-                  try {
-                      await saveOfflineFile({ id: fileId, name: nameToSave, mimeType: mimeType, parents: fileParents }, blob);
-                      await addToSyncQueue({ fileId: fileId, action: 'update', blob: blob, name: nameToSave, mimeType: mimeType, parents: fileParents });
+          // Caso 3: Online -> Drive (Com ou sem Token)
+          if (accessToken) {
+              try {
+                  if (isStillLocalId) {
+                      // CRIAÇÃO (Upload Inicial)
+                      // O arquivo é local mas estamos online e logados. Promove para o Drive.
+                      const result = await uploadFileToDrive(accessToken, blob, nameToSave, fileParents, mimeType);
+                      
+                      // Importante: Guardamos o novo ID para que o próximo save seja um UPDATE
+                      setPromotedDriveId(result.id);
+                      
+                      // Também atualizamos o arquivo offline com o novo ID para consistência futura
+                      // (Isso cria uma duplicata temporária no IDB com o ID novo, o que é bom para cache)
+                      await saveOfflineFile({ id: result.id, name: nameToSave, mimeType, parents: fileParents }, blob);
+                      
                       setSaveStatus('saved');
-                      setIsOfflineSaved(true);
-                  } catch (offlineErr) {
-                      setSaveStatus('error');
+                      setIsOfflineSaved(false);
+                  } else {
+                      // ATUALIZAÇÃO (Patch)
+                      await updateDriveFile(accessToken, effectiveFileId, blob, mimeType);
+                      setSaveStatus('saved');
+                      setIsOfflineSaved(false);
                   }
-              } else {
-                  setSaveStatus('error');
-                  if (onAuthError) onAuthError();
+              } catch (e: any) {
+                  console.error("Drive save failed", e);
+                  // Fallback para offline se falhar (ex: token expirado momentaneamente ou erro de rede 5xx)
+                  if (e.message !== "Unauthorized") {
+                      try {
+                          await saveOfflineFile({ id: effectiveFileId, name: nameToSave, mimeType: mimeType, parents: fileParents }, blob);
+                          const action = isStillLocalId ? 'create' : 'update';
+                          await addToSyncQueue({ fileId: effectiveFileId, action, blob, name: nameToSave, mimeType, parents: fileParents });
+                          setSaveStatus('saved');
+                          setIsOfflineSaved(true);
+                      } catch (offlineErr) {
+                          setSaveStatus('error');
+                      }
+                  } else {
+                      setSaveStatus('error');
+                      if (onAuthError) onAuthError();
+                  }
               }
           }
       } finally {
-          await releaseFileLock(fileId);
+          await releaseFileLock(effectiveFileId);
           setIsSaving(false);
       }
   };
@@ -212,25 +238,21 @@ export const useDocSaver = ({ fileId, accessToken, isLocalFile, currentName, fil
       setIsSaving(true);
       const jsonContent = editor.getJSON();
       
-      // 1. Dados estruturados para o app (Carregamento rápido)
       const lectData = { content: jsonContent, pageSettings, comments };
       const lectName = currentName.replace('.docx', '') + MIME_TYPES.LECT_EXT;
 
       try {
-          // 2. Gerar Snapshot DOCX para backup dentro do container (Interoperabilidade)
-          // Isso garante que o arquivo .lect tenha uma cópia legível por Word dentro dele (source.bin)
           const docxSnapshot = await generateDocxBlob(jsonContent, pageSettings, comments, [], originalZip);
 
-          // 3. Empacotar tudo
           const blob = await packLectoriumFile(
               'document', 
               lectData, 
               currentName, 
-              {}, // Assets map (futuro: extrair imagens do JSON para aqui)
-              docxSnapshot // Passa o DOCX como sourceBlob
+              {}, 
+              docxSnapshot 
           );
 
-          if (isLocalFile || !navigator.onLine) {
+          if ((isLocalFile && !promotedDriveId) || !navigator.onLine || !accessToken) {
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
               a.href = url;
@@ -240,7 +262,6 @@ export const useDocSaver = ({ fileId, accessToken, isLocalFile, currentName, fil
               URL.revokeObjectURL(url);
               document.body.removeChild(a);
           } else {
-              // AQUI ESTÁ A CORREÇÃO: Usar fileParents ao invés de array vazio
               await uploadFileToDrive(
                   accessToken, 
                   blob, 

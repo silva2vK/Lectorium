@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { X, Download, Database, Check, Server, Calculator, FileText, Trash2, HardDrive } from 'lucide-react';
-import { AVAILABLE_RESOURCES, ResourceCategory } from '../services/offlineService';
+import { AVAILABLE_RESOURCES, ResourceCategory, formatSize } from '../services/offlineService';
 
 interface Props {
   isOpen: boolean;
@@ -16,14 +16,28 @@ interface Props {
 const ICONS: Record<string, React.ElementType> = {
   'core': Server,
   'pdf_office': FileText,
-  'tools': Calculator
+  'math_science': Calculator
 };
 
 export const OfflineDownloadModal: React.FC<Props> = ({ 
   isOpen, onClose, onConfirm, onClear, currentSize, isDownloading = false, progress = 0 
 }) => {
-  const [selected, setSelected] = useState<Set<ResourceCategory>>(new Set(['core', 'pdf_office', 'tools']));
+  const [selected, setSelected] = useState<Set<ResourceCategory>>(new Set(['core', 'pdf_office', 'math_science']));
 
+  // Cálculo dinâmico do tamanho estimado (para o botão)
+  const estimatedTotal = useMemo(() => {
+    let total = 0;
+    AVAILABLE_RESOURCES.forEach(res => {
+        if (res.required || selected.has(res.id)) {
+            total += res.estimatedSize;
+        }
+    });
+    return formatSize(total);
+  }, [selected]);
+
+  // Se o download terminou, o currentSize deve refletir a realidade
+  // Se ainda estiver pequeno, significa que o storage nativo ainda não atualizou ou o usuário tem poucos arquivos.
+  
   if (!isOpen) return null;
 
   const toggleCategory = (id: ResourceCategory, required?: boolean) => {
@@ -54,14 +68,14 @@ export const OfflineDownloadModal: React.FC<Props> = ({
             <h3 className="text-xl font-bold text-text">Recursos Offline</h3>
             {currentSize && (
               <p className="text-xs text-brand font-bold flex items-center gap-1 mt-0.5">
-                <HardDrive size={10} /> Em uso: {currentSize}
+                <HardDrive size={10} /> Ocupado em Disco: {currentSize}
               </p>
             )}
           </div>
         </div>
 
         <p className="text-text-sec text-sm mb-6 leading-relaxed">
-          Otimize o armazenamento escolhendo o que baixar. 
+          Baixe os módulos essenciais para usar o Lectorium sem internet.
         </p>
 
         {isDownloading ? (
@@ -73,7 +87,7 @@ export const OfflineDownloadModal: React.FC<Props> = ({
                 />
              </div>
              <p className="text-sm font-bold text-white animate-pulse">Baixando recursos... {progress}%</p>
-             <p className="text-xs text-text-sec">Por favor, aguarde.</p>
+             <p className="text-xs text-text-sec">Isso pode levar alguns segundos.</p>
           </div>
         ) : (
           <>
@@ -103,9 +117,14 @@ export const OfflineDownloadModal: React.FC<Props> = ({
                         <span className={`font-bold text-sm ${isSelected ? 'text-text' : 'text-text-sec'}`}>
                           {group.label}
                         </span>
-                        {group.required && (
-                          <span className="text-[10px] uppercase bg-[#333] text-gray-400 px-1.5 py-0.5 rounded font-bold">Obrigatório</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-text-sec font-mono">
+                                ~{formatSize(group.estimatedSize)}
+                            </span>
+                            {group.required && (
+                              <span className="text-[9px] uppercase bg-[#333] text-gray-400 px-1.5 py-0.5 rounded font-bold">Req</span>
+                            )}
+                        </div>
                       </div>
                       <p className="text-xs text-text-sec leading-relaxed">{group.description}</p>
                     </div>
@@ -120,22 +139,22 @@ export const OfflineDownloadModal: React.FC<Props> = ({
                 className="w-full py-3 bg-brand text-bg rounded-xl font-bold text-sm hover:brightness-110 transition-all flex items-center justify-center gap-2"
               >
                 <Download size={18} />
-                {currentSize ? 'Atualizar Recursos' : 'Baixar Tudo'}
+                {currentSize ? 'Atualizar Recursos' : 'Baixar Seleção'}
               </button>
               
               {currentSize && (
                 <button 
-                  onClick={() => { if(confirm('Isso apagará os arquivos do sistema para uso offline. Continuar?')) onClear(); }}
+                  onClick={() => { if(confirm('Isso apagará o cache da aplicação. Continuar?')) onClear(); }}
                   className="w-full py-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl font-bold text-xs hover:bg-red-500/20 transition-all flex items-center justify-center gap-2"
                 >
                   <Trash2 size={14} />
-                  Remover Recursos Offline
+                  Limpar Cache
                 </button>
               )}
             </div>
             
             <p className="text-[10px] text-center text-text-sec mt-3 opacity-60">
-              Download total estimado: ~5MB. Recomendado usar Wi-Fi.
+              Download estimado da seleção: <strong>{estimatedTotal}</strong>.
             </p>
           </>
         )}

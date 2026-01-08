@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Annotation, SemanticLensData, OcrMetrics } from '../types';
@@ -67,7 +66,7 @@ interface PdfContextState {
   isTranslationMode: boolean;
   toggleTranslationMode: () => void;
   numPages: number;
-  generateSearchIndex: (text: string) => void;
+  generateSearchIndex: (text: string) => Promise<void>;
   ocrStatusMap: Record<number, string>;
   triggerOcr: (page: number) => void;
   updateOcrWord: (page: number, index: number, newText: string) => void;
@@ -315,7 +314,7 @@ export const PdfProvider: React.FC<any> = ({
     triggerTranslation: translationMutation.mutate, 
     isTranslationMode, toggleTranslationMode: () => setIsTranslationMode(!isTranslationMode),
     numPages, 
-    generateSearchIndex: ragIndexMutation.mutate,
+    generateSearchIndex: async (text: string) => { await ragIndexMutation.mutateAsync(text); },
     ocrStatusMap, 
     triggerOcr: async (p: number) => {
         setOcrStatusMap(v => ({...v, [p]: 'processing'}));

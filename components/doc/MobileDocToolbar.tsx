@@ -14,6 +14,7 @@ interface Props {
   totalPages: number;
   onJumpToPage: (page: number) => void;
   onAddFootnote: () => void;
+  onInsertImage: () => void;
 }
 
 const FONTS = [
