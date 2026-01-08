@@ -1,5 +1,5 @@
 {
-  "id": "lectorium",
+  "id": "https://lectorium-c43.pages.dev/",
   "scope": "/",
   "name": "Lectorium",
   "short_name": "Lectorium",
@@ -41,16 +41,32 @@
       "purpose": "maskable"
     }
   ],
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Lectorium Workspace Desktop"
+    },
+    {
+      "src": "/screenshots/mobile.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Lectorium Mobile Reader"
+    }
+  ],
   "shortcuts": [
     {
       "name": "Meus Arquivos",
       "short_name": "Arquivos",
       "description": "Abrir lista de arquivos do Drive",
-      "url": "/?mode=browser&utm_source=pwa",
+      "url": "/?mode=browser&utm_source=shortcut",
       "icons": [
         {
           "src": "/icons/shortcut-files.svg",
-          "sizes": "any",
+          "sizes": "192x192",
           "type": "image/svg+xml"
         }
       ]
@@ -59,11 +75,11 @@
       "name": "Novo Mapa Mental",
       "short_name": "Mapa Mental",
       "description": "Criar um novo mapa mental",
-      "url": "/?mode=mindmaps&utm_source=pwa",
+      "url": "/?mode=mindmaps&action=create&utm_source=shortcut",
       "icons": [
         {
           "src": "/icons/shortcut-mindmap.svg",
-          "sizes": "any",
+          "sizes": "192x192",
           "type": "image/svg+xml"
         }
       ]
@@ -74,7 +90,8 @@
       "action": "/?source=filehandler",
       "accept": {
         "application/pdf": [".pdf"],
-        "application/json": [".mindmap", ".json"]
+        "application/json": [".mindmap", ".json"],
+        "application/vnd.lectorium": [".lect"]
       },
       "icons": [
         {
@@ -85,5 +102,23 @@
       ],
       "launch_type": "single-client"
     }
-  ]
+  ],
+  "share_target": {
+    "action": "/?source=share_target",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "share_title",
+      "text": "share_text",
+      "url": "share_url"
+    }
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+lectorium",
+      "url": "/?link=%s"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
 }

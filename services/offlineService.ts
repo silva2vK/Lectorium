@@ -69,8 +69,14 @@ export const AVAILABLE_RESOURCES: ResourceGroup[] = [
 
 function identifyCategory(url: string): ResourceCategory {
   const lowerUrl = url.toLowerCase();
-  if (AVAILABLE_RESOURCES[2].keywords.some(k => lowerUrl.includes(k))) return 'math_science';
-  if (AVAILABLE_RESOURCES[1].keywords.some(k => lowerUrl.includes(k))) return 'pdf_office';
+  
+  // Busca dinâmica por ID para evitar quebra se a ordem do array mudar
+  const mathGroup = AVAILABLE_RESOURCES.find(r => r.id === 'math_science');
+  if (mathGroup?.keywords.some(k => lowerUrl.includes(k))) return 'math_science';
+  
+  const pdfGroup = AVAILABLE_RESOURCES.find(r => r.id === 'pdf_office');
+  if (pdfGroup?.keywords.some(k => lowerUrl.includes(k))) return 'pdf_office';
+  
   return 'core';
 }
 

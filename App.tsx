@@ -119,161 +119,6 @@ const AppContent = () => {
   const [showSecretThemeModal, setShowSecretThemeModal] = useState(false);
   const { isOcrRunning, addNotification } = useGlobalContext();
 
-  const handleAuthError = useCallback(() => {
-      setAccessToken(null);
-      setShowReauthToast(true);
-  }, []);
-
-  const handleToggleSyncStrategy = useCallback((strategy: 'smart' | 'online') => { setSyncStrategy(strategy); localStorage.setItem('sync_strategy', strategy); }, []);
-
-  const handleLogin = useCallback(async () => {
-    try {
-      const result = await signInWithGoogleDrive();
-      if (result.accessToken) { saveDriveToken(result.accessToken); setAccessToken(result.accessToken); setShowReauthToast(false); }
-    } catch (e) { alert("Não foi possível conectar ao Google Drive."); }
-  }, []);
-
-  const handleReauth = useCallback(async () => {
-    try { const result = await signInWithGoogleDrive(); if (result.accessToken) { saveDriveToken(result.accessToken); setAccessToken(result.accessToken); setShowReauthToast(false); } } catch (error) { console.error("Falha na reconexão:", error); }
-  }, []);
-
-  const { syncStatus } = useSync({ accessToken, onAuthError: handleAuthError });
-
-  // Onboarding Checks
-  const checkOnboarding = useCallback(() => {
-      const legalAccepted = localStorage.getItem('legal_terms_accepted_v1');
-      const guideSeen = localStorage.getItem('onboarding_guide_seen');
-      const cookiesAccepted = localStorage.getItem('cookie_consent_accepted');
-
-      if (!cookiesAccepted) {
-          // Cookie component handles itself
-          return;
-      }
-
-      if (!legalAccepted) {
-          setOnboardingStep('legal');
-          setShowLegalModal(true);
-          return;
-      }
-
-      if (!guideSeen) {
-          setOnboardingStep('guide');
-          setShowGuideModal(true);
-          return;
-      }
-
-      setOnboardingStep('none');
-  }, []);
-
-  // Init & Theme Application
-  useEffect(() => {
-    const init = async () => {
-        const params = new URLSearchParams(window.location.search);
-        
-        // Deep Link: Suporte a links diretos para Termos/Privacidade
-        const legalParam = params.get('legal');
-        if (legalParam === 'privacy' || legalParam === 'terms') {
-            setLegalModalTab(legalParam as LegalTab);
-            setShowLegalModal(true);
-            // Limpa a URL para estética PWA
-            window.history.replaceState({}, document.title, "/");
-        }
-
-        if (params.get('protocol') === 'genesis') {
-            setShowSecretThemeModal(true);
-            window.history.replaceState({}, document.title, "/");
-        }
-
-        const root = document.documentElement;
-        const godModeTheme = localStorage.getItem('god_mode_theme');
-        
-        if (godModeTheme) {
-            try {
-                const parsed = JSON.parse(godModeTheme);
-                if (parsed.vars) {
-                    Object.entries(parsed.vars).forEach(([key, value]) => {
-                        root.style.setProperty(key, value as string);
-                    });
-                    root.classList.add('custom');
-                }
-            } catch (e) { console.warn("Erro ao carregar tema secreto"); }
-        } else {
-            const savedTheme = localStorage.getItem('app-theme') || 'forest';
-            const customColor = localStorage.getItem('custom-theme-brand');
-            
-            // Limpa classes antes de aplicar
-            root.className = ''; 
-            if (savedTheme !== 'forest') {
-                root.classList.add(savedTheme);
-                if (savedTheme === 'custom' && customColor) {
-                    root.style.setProperty('--custom-brand', customColor);
-                }
-            }
-        }
-
-        await performAppUpdateCleanup();
-        await runJanitor(); 
-        const storedHandle = await getLocalDirectoryHandle();
-        if (storedHandle) setSavedLocalDirHandle(storedHandle);
-
-        checkOnboarding();
-
-        // Check Fullscreen Preference
-        const fsPref = localStorage.getItem('fullscreen_pref');
-        if (fsPref === 'true' && !document.fullscreenElement) {
-            // Pequeno delay para garantir que o layout carregou
-            setTimeout(() => setShowFullscreenPrompt(true), 1000);
-        }
-    };
-    init();
-    
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (!currentUser) { setAccessToken(null); setOpenFiles([]); setActiveTab('dashboard'); } 
-      else { const storedToken = getValidDriveToken(); if (storedToken) setAccessToken(storedToken); }
-    });
-
-    const handleTokenUpdate = (e: Event) => {
-        const customEvent = e as CustomEvent;
-        if (customEvent.detail && customEvent.detail.token) {
-            setAccessToken(customEvent.detail.token);
-            setShowReauthToast(false);
-        }
-    };
-    window.addEventListener(DRIVE_TOKEN_EVENT, handleTokenUpdate);
-
-    return () => {
-        unsubscribeAuth();
-        window.removeEventListener(DRIVE_TOKEN_EVENT, handleTokenUpdate);
-    };
-  }, [checkOnboarding]);
-
-  const handleCookieAccepted = () => {
-      // Quando cookie é aceito, dispara verificação dos próximos passos
-      checkOnboarding();
-  };
-
-  const handleLegalAccepted = () => {
-      localStorage.setItem('legal_terms_accepted_v1', 'true');
-      setShowLegalModal(false);
-      checkOnboarding(); // Verifica próximo passo (Guia)
-  };
-
-  const handleGuideCompleted = () => {
-      localStorage.setItem('onboarding_guide_seen', 'true');
-      setShowGuideModal(false);
-      checkOnboarding();
-  };
-
-  const handleOpenLocalFolder = useCallback(async () => {
-    try { const handle = await openDirectoryPicker(); if (handle) { setLocalDirHandle(handle); setSavedLocalDirHandle(handle); await saveLocalDirectoryHandle(handle); setActiveTab('local-fs'); } } catch (e: any) { if (e.name !== 'AbortError') alert(e.message); }
-  }, []);
-
-  const handleReconnectLocalFolder = useCallback(async () => {
-      if (!savedLocalDirHandle) return;
-      try { const granted = await verifyPermission(savedLocalDirHandle, true); if (granted) { setLocalDirHandle(savedLocalDirHandle); setActiveTab('local-fs'); } else { alert("Acesso negado."); setSavedLocalDirHandle(null); } } catch (e) { handleOpenLocalFolder(); }
-  }, [savedLocalDirHandle, handleOpenLocalFolder]);
-
   const handleOpenFile = useCallback(async (file: DriveFile, background: boolean = false) => {
     if (isOcrRunning && openFiles.length >= 1) {
         addNotification("Processamento em segundo plano ativo. Limite de 1 aba aberta para estabilidade.", "error");
@@ -314,6 +159,175 @@ const AppContent = () => {
         }
     }
   }, [accessToken, syncStrategy, isOcrRunning, openFiles.length, addNotification]);
+
+  const handleCreateFileFromBlob = useCallback((blob: Blob, name: string, mimeType: string) => { handleOpenFile({ id: `local-${Date.now()}`, name, mimeType, blob }); }, [handleOpenFile]);
+
+  // Init & Routing
+  useEffect(() => {
+    const init = async () => {
+        const params = new URLSearchParams(window.location.search);
+        
+        // --- SHARE TARGET HANDLER ---
+        const shareTitle = params.get('share_title');
+        const shareText = params.get('share_text');
+        const shareUrl = params.get('share_url');
+
+        if (shareTitle || shareText || shareUrl) {
+            const content = [shareTitle, shareText, shareUrl].filter(Boolean).join('\n\n');
+            const fileId = `shared-note-${Date.now()}`;
+            const blob = new Blob([content], { type: 'text/plain' });
+            
+            // Auto-create note file
+            handleCreateFileFromBlob(blob, `Nota Compartilhada ${new Date().toLocaleTimeString()}.txt`, 'text/plain');
+            
+            // Clean URL
+            window.history.replaceState({}, document.title, "/");
+        }
+
+        // --- DEEP LINKING (Legal, Mode) ---
+        const legalParam = params.get('legal');
+        if (legalParam === 'privacy' || legalParam === 'terms') {
+            setLegalModalTab(legalParam as LegalTab);
+            setShowLegalModal(true);
+            window.history.replaceState({}, document.title, "/");
+        }
+
+        if (params.get('protocol') === 'genesis') {
+            setShowSecretThemeModal(true);
+            window.history.replaceState({}, document.title, "/");
+        }
+
+        // --- THEME ---
+        const root = document.documentElement;
+        const godModeTheme = localStorage.getItem('god_mode_theme');
+        
+        if (godModeTheme) {
+            try {
+                const parsed = JSON.parse(godModeTheme);
+                if (parsed.vars) {
+                    Object.entries(parsed.vars).forEach(([key, value]) => {
+                        root.style.setProperty(key, value as string);
+                    });
+                    root.classList.add('custom');
+                }
+            } catch (e) { console.warn("Erro ao carregar tema secreto"); }
+        } else {
+            const savedTheme = localStorage.getItem('app-theme') || 'forest';
+            const customColor = localStorage.getItem('custom-theme-brand');
+            root.className = ''; 
+            if (savedTheme !== 'forest') {
+                root.classList.add(savedTheme);
+                if (savedTheme === 'custom' && customColor) {
+                    root.style.setProperty('--custom-brand', customColor);
+                }
+            }
+        }
+
+        await performAppUpdateCleanup();
+        await runJanitor(); 
+        const storedHandle = await getLocalDirectoryHandle();
+        if (storedHandle) setSavedLocalDirHandle(storedHandle);
+
+        checkOnboarding();
+
+        // Check Fullscreen Preference
+        const fsPref = localStorage.getItem('fullscreen_pref');
+        if (fsPref === 'true' && !document.fullscreenElement) {
+            setTimeout(() => setShowFullscreenPrompt(true), 1000);
+        }
+    };
+    init();
+    
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (!currentUser) { setAccessToken(null); setOpenFiles([]); setActiveTab('dashboard'); } 
+      else { const storedToken = getValidDriveToken(); if (storedToken) setAccessToken(storedToken); }
+    });
+
+    const handleTokenUpdate = (e: Event) => {
+        const customEvent = e as CustomEvent;
+        if (customEvent.detail && customEvent.detail.token) {
+            setAccessToken(customEvent.detail.token);
+            setShowReauthToast(false);
+        }
+    };
+    window.addEventListener(DRIVE_TOKEN_EVENT, handleTokenUpdate);
+
+    return () => {
+        unsubscribeAuth();
+        window.removeEventListener(DRIVE_TOKEN_EVENT, handleTokenUpdate);
+    };
+  }, [handleCreateFileFromBlob]); // Add dependency for handleCreateFileFromBlob
+
+  const handleAuthError = useCallback(() => {
+      setAccessToken(null);
+      setShowReauthToast(true);
+  }, []);
+
+  const handleToggleSyncStrategy = useCallback((strategy: 'smart' | 'online') => { setSyncStrategy(strategy); localStorage.setItem('sync_strategy', strategy); }, []);
+
+  const handleLogin = useCallback(async () => {
+    try {
+      const result = await signInWithGoogleDrive();
+      if (result.accessToken) { saveDriveToken(result.accessToken); setAccessToken(result.accessToken); setShowReauthToast(false); }
+    } catch (e) { alert("Não foi possível conectar ao Google Drive."); }
+  }, []);
+
+  const handleReauth = useCallback(async () => {
+    try { const result = await signInWithGoogleDrive(); if (result.accessToken) { saveDriveToken(result.accessToken); setAccessToken(result.accessToken); setShowReauthToast(false); } } catch (error) { console.error("Falha na reconexão:", error); }
+  }, []);
+
+  const { syncStatus } = useSync({ accessToken, onAuthError: handleAuthError });
+
+  const checkOnboarding = useCallback(() => {
+      const legalAccepted = localStorage.getItem('legal_terms_accepted_v1');
+      const guideSeen = localStorage.getItem('onboarding_guide_seen');
+      const cookiesAccepted = localStorage.getItem('cookie_consent_accepted');
+
+      if (!cookiesAccepted) {
+          // Cookie component handles itself
+          return;
+      }
+
+      if (!legalAccepted) {
+          setOnboardingStep('legal');
+          setShowLegalModal(true);
+          return;
+      }
+
+      if (!guideSeen) {
+          setOnboardingStep('guide');
+          setShowGuideModal(true);
+          return;
+      }
+
+      setOnboardingStep('none');
+  }, []);
+
+  const handleCookieAccepted = () => {
+      checkOnboarding();
+  };
+
+  const handleLegalAccepted = () => {
+      localStorage.setItem('legal_terms_accepted_v1', 'true');
+      setShowLegalModal(false);
+      checkOnboarding(); 
+  };
+
+  const handleGuideCompleted = () => {
+      localStorage.setItem('onboarding_guide_seen', 'true');
+      setShowGuideModal(false);
+      checkOnboarding();
+  };
+
+  const handleOpenLocalFolder = useCallback(async () => {
+    try { const handle = await openDirectoryPicker(); if (handle) { setLocalDirHandle(handle); setSavedLocalDirHandle(handle); await saveLocalDirectoryHandle(handle); setActiveTab('local-fs'); } } catch (e: any) { if (e.name !== 'AbortError') alert(e.message); }
+  }, []);
+
+  const handleReconnectLocalFolder = useCallback(async () => {
+      if (!savedLocalDirHandle) return;
+      try { const granted = await verifyPermission(savedLocalDirHandle, true); if (granted) { setLocalDirHandle(savedLocalDirHandle); setActiveTab('local-fs'); } else { alert("Acesso negado."); setSavedLocalDirHandle(null); } } catch (e) { handleOpenLocalFolder(); }
+  }, [savedLocalDirHandle, handleOpenLocalFolder]);
 
   useEffect(() => {
       const handler = (e: Event) => {
@@ -363,8 +377,6 @@ const AppContent = () => {
     handleOpenFile({ id: fileId, name: 'Novo Documento.docx', mimeType: MIME_TYPES.DOCX, blob: blob, parents: parentId ? [parentId] : [] });
   }, [handleOpenFile]);
 
-  const handleCreateFileFromBlob = useCallback((blob: Blob, name: string, mimeType: string) => { handleOpenFile({ id: `local-${Date.now()}`, name, mimeType, blob }); }, [handleOpenFile]);
-
   const handleCloseFile = useCallback((id: string) => {
     setOpenFiles(prev => { const next = prev.filter(f => f.id !== id); if (activeTab === id) setActiveTab(next.length ? next[next.length - 1].id : 'dashboard'); return next; });
   }, [activeTab]);
@@ -392,7 +404,6 @@ const AppContent = () => {
           if (!isLocal) {
               await renameDriveFile(accessToken!, fileId, safeName);
           }
-          // Update local state
           setOpenFiles(prev => prev.map(f => f.id === fileId ? { ...f, name: safeName } : f));
           addNotification("Arquivo renomeado.", "success");
       } catch (e) {
@@ -461,7 +472,6 @@ const AppContent = () => {
         </main>
         {showReauthToast && <ReauthToast onReauth={handleReauth} onClose={() => setShowReauthToast(false)} />}
         
-        {/* Onboarding Modals Chain */}
         <LegalModal 
             isOpen={showLegalModal} 
             onClose={onboardingStep === 'legal' ? handleLegalAccepted : () => setShowLegalModal(false)} 
@@ -474,7 +484,6 @@ const AppContent = () => {
             isMandatory={onboardingStep === 'guide'}
         />
 
-        {/* Fullscreen Prompt */}
         {showFullscreenPrompt && (
             <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
                 <div className="bg-[#1e1e1e] border border-brand/30 rounded-2xl shadow-2xl p-6 max-w-sm w-full relative">
