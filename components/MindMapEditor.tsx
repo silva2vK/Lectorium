@@ -2,24 +2,15 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { 
   Plus, Minus, Trash2, Type, Menu, Save, Loader2, Link, Download, WifiOff, 
-  Undo, Redo, Square, Circle as CircleIcon, StickyNote, 
-  Sparkles, Image as ImageIcon, X, Palette, Scaling, ChevronUp,
-  ToggleLeft, Hexagon, Edit2, Check
+  Undo, Redo, Square, Image as ImageIcon, X, Palette, Scaling, ChevronUp,
+  Edit2, Check, CornerDownRight, Sparkles
 } from 'lucide-react';
 import { updateDriveFile, downloadDriveFile } from '../services/driveService';
 import { saveOfflineFile } from '../services/storageService';
-import { MindMapNode, MindMapEdge, MindMapViewport, MindMapData, NodeShape } from '../types';
+import { MindMapNode, MindMapEdge, MindMapViewport, MindMapData } from '../types';
 import { AiChatPanel } from './shared/AiChatPanel';
 
 // --- Constants & Styles ---
-const SHAPES: { id: NodeShape, icon: React.ElementType }[] = [
-  { id: 'rectangle', icon: Square },
-  { id: 'circle', icon: CircleIcon },
-  { id: 'sticky', icon: StickyNote },
-  { id: 'pill', icon: ToggleLeft }, 
-  { id: 'hexagon', icon: Hexagon }, 
-];
-
 const COLORS = [
   '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', 
   '#3b82f6', '#a855f7', '#ec4899', '#ffffff', '#1e293b'
@@ -46,7 +37,12 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
   // --- State ---
   const [nodes, setNodes] = useState<MindMapNode[]>([]);
   const [edges, setEdges] = useState<MindMapEdge[]>([]);
+  
+  // Viewport State (React - Source of Truth for Static Render)
   const [viewport, setViewport] = useState<MindMapViewport>({ x: 0, y: 0, zoom: 1 });
+  
+  // Viewport Ref (Mutable - For High Performance Gestures 60fps)
+  const viewportRef = useRef<MindMapViewport>({ x: 0, y: 0, zoom: 1 });
   
   const [historyPast, setHistoryPast] = useState<HistoryState[]>([]);
   const [historyFuture, setHistoryFuture] = useState<HistoryState[]>([]);
@@ -87,9 +83,12 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
+  const contentLayerRef = useRef<HTMLDivElement>(null); // Ref for GPU Transform
+  const gridLayerRef = useRef<HTMLDivElement>(null);    // Ref for Grid Background
   const editInputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wheelDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- Styles Injection ---
   useEffect(() => {
@@ -114,6 +113,25 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
   useEffect(() => {
       setTempName(fileName.replace('.mindmap', ''));
   }, [fileName]);
+
+  // Sync Ref with State on Load/Changes
+  useEffect(() => {
+      viewportRef.current = viewport;
+      // Apply initial visual state immediately
+      applyVisualTransform();
+  }, [viewport]); // Only when 'viewport' state changes (not ref)
+
+  // Direct DOM Manipulation Helper (60fps)
+  const applyVisualTransform = () => {
+      const v = viewportRef.current;
+      if (contentLayerRef.current) {
+          contentLayerRef.current.style.transform = `translate(${v.x}px, ${v.y}px) scale(${v.zoom})`;
+      }
+      if (gridLayerRef.current) {
+          gridLayerRef.current.style.backgroundSize = `${40 * v.zoom}px ${40 * v.zoom}px`;
+          gridLayerRef.current.style.backgroundPosition = `${v.x}px ${v.y}px`;
+      }
+  };
 
   // --- Initialization ---
   useEffect(() => {
@@ -153,7 +171,6 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
   }, [fileId, fileBlob]);
 
   const initDefaultMap = () => {
-      // Tamanho padrão aumentado e formato base quadrado
       setNodes([{
         id: `root-${Date.now()}`,
         text: "Ideia Central",
@@ -163,10 +180,45 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
         isRoot: true,
         scale: 1.2,
         fontSize: 24, 
-        shape: 'rectangle' // Alterado para rectangle
+        shape: 'rectangle' 
       }]);
       setViewport({ x: window.innerWidth / 2, y: window.innerHeight / 2, zoom: 1 });
   };
+
+  // --- Auto-Expand Listener (Dynamic Sizing) ---
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        const nodeElements = document.querySelectorAll('.mindmap-node-container');
+        let updates: { id: string, w: number, h: number }[] = [];
+
+        nodeElements.forEach((el) => {
+            const id = el.getAttribute('data-node-id');
+            if (!id) return;
+
+            const htmlEl = el as HTMLElement;
+            const currentW = htmlEl.offsetWidth;
+            const currentH = htmlEl.offsetHeight;
+
+            const stateNode = nodes.find(n => n.id === id);
+            if (!stateNode) return;
+
+            if (Math.abs(currentW - stateNode.width) > 5 || Math.abs(currentH - stateNode.height) > 5) {
+                if (editingNodeId !== id && dragNodeId !== id) {
+                    updates.push({ id, w: currentW, h: currentH });
+                }
+            }
+        });
+
+        if (updates.length > 0) {
+            setNodes(prev => prev.map(n => {
+                const update = updates.find(u => u.id === n.id);
+                return update ? { ...n, width: update.w, height: update.h } : n;
+            }));
+        }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [nodes, editingNodeId, dragNodeId]);
 
   // --- Autosave ---
   useEffect(() => {
@@ -178,7 +230,7 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
         saveTimeoutRef.current = setTimeout(saveToDrive, 3000); 
     }
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
-  }, [nodes, edges, viewport]);
+  }, [nodes, edges, viewport]); // Syncs when viewport state finally settles
 
   const saveToDrive = async () => {
       if (!accessToken || isLocalFile) return;
@@ -265,15 +317,20 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
   const screenToWorld = (sx: number, sy: number) => {
     if (!containerRef.current) return { x: 0, y: 0 };
     const rect = containerRef.current.getBoundingClientRect();
+    // Use ref values for accurate current state during gestures
+    const v = viewportRef.current;
     return {
-      x: (sx - rect.left - viewport.x) / viewport.zoom,
-      y: (sy - rect.top - viewport.y) / viewport.zoom
+      x: (sx - rect.left - v.x) / v.zoom,
+      y: (sy - rect.top - v.y) / v.zoom
     };
   };
 
   // --- Interaction Logic ---
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    // Capture pointer to track movement outside container and ensure 'up' event fires
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     
     if (pointersRef.current.size === 1) {
@@ -284,11 +341,11 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
         setSelectedNodeId(null);
         setShowColorPicker(false);
         setSelectedEdgeId(null);
-        // Se clicar fora, tenta salvar edição pendente
         if (editingNodeId) {
             commitEdit(editingNodeId, editText);
         }
     } else {
+        // Multi-touch mode (Zoom/Pinch)
         setIsDraggingCanvas(false); 
         prevPinchDistRef.current = null;
     }
@@ -299,6 +356,7 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
     
     const pointers = Array.from(pointersRef.current.values()) as { x: number; y: number }[];
 
+    // --- PINCH ZOOM LOGIC (Transient Update) ---
     if (pointers.length === 2) {
         const p1 = pointers[0];
         const p2 = pointers[1];
@@ -308,27 +366,41 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
         
         if (prevPinchDistRef.current && prevPinchCenterRef.current) {
             const rect = containerRef.current!.getBoundingClientRect();
+            
+            // Use Mutable Ref values
+            const v = viewportRef.current;
             const scaleDiff = dist / prevPinchDistRef.current;
-            const newZoom = Math.min(Math.max(0.1, viewport.zoom * scaleDiff), 5);
+            const newZoom = Math.min(Math.max(0.1, v.zoom * scaleDiff), 5);
             
             const relativeCenterX = centerX - rect.left;
             const relativeCenterY = centerY - rect.top;
-            const worldX = (relativeCenterX - viewport.x) / viewport.zoom;
-            const worldY = (relativeCenterY - viewport.y) / viewport.zoom;
+            
+            // Calculate world point under pinch center
+            const worldX = (relativeCenterX - v.x) / v.zoom;
+            const worldY = (relativeCenterY - v.y) / v.zoom;
+            
+            // New offset to keep world point under center
             const newX = relativeCenterX - (worldX * newZoom);
             const newY = relativeCenterY - (worldY * newZoom);
 
-            setViewport({ x: newX, y: newY, zoom: newZoom });
+            // Update REF and DOM only (No React Render)
+            viewportRef.current = { x: newX, y: newY, zoom: newZoom };
+            applyVisualTransform();
         }
         prevPinchDistRef.current = dist;
         prevPinchCenterRef.current = { x: centerX, y: centerY };
         return;
     }
 
+    // --- PAN LOGIC (Transient Update) ---
     if (isDraggingCanvas && pointersRef.current.size === 1) {
         const dx = e.clientX - dragStart.x;
         const dy = e.clientY - dragStart.y;
-        setViewport(prev => ({ ...prev, x: prev.x + dx, y: prev.y + dy }));
+        
+        const v = viewportRef.current;
+        viewportRef.current = { ...v, x: v.x + dx, y: v.y + dy };
+        applyVisualTransform();
+        
         setDragStart({ x: e.clientX, y: e.clientY });
         return;
     }
@@ -353,10 +425,32 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
 
   const handlePointerUp = (e: React.PointerEvent) => {
     pointersRef.current.delete(e.pointerId);
-    if (pointersRef.current.size < 2) {
+    try { (e.target as HTMLElement).releasePointerCapture(e.pointerId); } catch(e){}
+    
+    // Sync React State when gestures end
+    if (pointersRef.current.size === 0) {
+        // All fingers lifted
+        setIsDraggingCanvas(false);
+
+        // Only set state if significantly different to avoid loop
+        if (
+            Math.abs(viewportRef.current.x - viewport.x) > 0.1 || 
+            Math.abs(viewportRef.current.y - viewport.y) > 0.1 || 
+            Math.abs(viewportRef.current.zoom - viewport.zoom) > 0.001
+        ) {
+            setViewport({ ...viewportRef.current });
+        }
         prevPinchDistRef.current = null;
         prevPinchCenterRef.current = null;
+    } else if (pointersRef.current.size === 1) {
+        // Smooth Transition: Pinch (2) -> Pan (1)
+        // Resume panning with the remaining finger
+        const p = pointersRef.current.values().next().value;
+        setDragStart({ x: p.x, y: p.y });
+        setIsDraggingCanvas(true);
+        prevPinchDistRef.current = null;
     }
+
     if (dragNodeId && dragSnapshotRef.current) {
         const old = dragSnapshotRef.current.nodes.find(n => n.id === dragNodeId);
         const curr = nodes.find(n => n.id === dragNodeId);
@@ -364,28 +458,40 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
             recordHistory();
         }
     }
-    setIsDraggingCanvas(false);
+    
     setDragNodeId(null);
     setIsResizingNode(false);
     dragSnapshotRef.current = null;
   };
 
   const handleWheel = (e: React.WheelEvent) => {
+    const v = viewportRef.current;
+    
     if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         const rect = containerRef.current!.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
-        const worldX = (mouseX - viewport.x) / viewport.zoom;
-        const worldY = (mouseY - viewport.y) / viewport.zoom;
+        const worldX = (mouseX - v.x) / v.zoom;
+        const worldY = (mouseY - v.y) / v.zoom;
         const zoomFactor = 1 - e.deltaY * 0.002;
-        const newZoom = Math.min(Math.max(0.1, viewport.zoom * zoomFactor), 5);
+        const newZoom = Math.min(Math.max(0.1, v.zoom * zoomFactor), 5);
         const newX = mouseX - worldX * newZoom;
         const newY = mouseY - worldY * newZoom;
-        setViewport({ x: newX, y: newY, zoom: newZoom });
+        
+        viewportRef.current = { x: newX, y: newY, zoom: newZoom };
     } else {
-        setViewport(prev => ({ ...prev, x: prev.x - e.deltaX, y: prev.y - e.deltaY }));
+        viewportRef.current = { ...v, x: v.x - e.deltaX, y: v.y - e.deltaY };
     }
+    
+    // Direct DOM update
+    applyVisualTransform();
+
+    // Debounced State Sync
+    if (wheelDebounceRef.current) clearTimeout(wheelDebounceRef.current);
+    wheelDebounceRef.current = setTimeout(() => {
+        setViewport({ ...viewportRef.current });
+    }, 200);
   };
 
   const handleNodeDown = (e: React.PointerEvent, id: string) => {
@@ -402,7 +508,6 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
     setSelectedEdgeId(null);
     setDragNodeId(id);
     
-    // Se estava editando outro nó, salva
     if (editingNodeId && editingNodeId !== id) {
         commitEdit(editingNodeId, editText);
     }
@@ -455,41 +560,23 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
 
       recordHistory();
       const newNodeId = `node-${Date.now()}`;
-      
       const siblings = nodes.filter(n => n.parentId === parentId);
       const count = siblings.length;
       const offsetX = 240; 
       const safeY = count === 0 ? 0 : (count * 90) - 45; 
 
       const newNode: MindMapNode = {
-          id: newNodeId,
-          text: "Novo Item",
-          x: parent.x + offsetX,
-          y: parent.y + safeY,
-          width: 180, 
-          height: 70, 
-          color: parent.color, 
-          parentId: parent.id,
-          scale: 1,
-          fontSize: 16, 
-          shape: parent.shape || 'rectangle' // Herança de formato
+          id: newNodeId, text: "Novo Item", x: parent.x + offsetX, y: parent.y + safeY,
+          width: 180, height: 70, color: parent.color, parentId: parent.id, scale: 1, fontSize: 16, shape: 'rectangle'
       };
 
-      const newEdge: MindMapEdge = {
-          id: `edge-${Date.now()}`,
-          from: parent.id,
-          to: newNodeId
-      };
+      const newEdge: MindMapEdge = { id: `edge-${Date.now()}`, from: parent.id, to: newNodeId };
 
       setNodes(prev => [...prev, newNode]);
       setEdges(prev => [...prev, newEdge]);
       setSelectedNodeId(newNodeId);
       
-      // Atraso para garantir renderização antes de focar
-      setTimeout(() => {
-          setEditingNodeId(newNodeId);
-          setEditText("Novo Item");
-      }, 50);
+      setTimeout(() => { setEditingNodeId(newNodeId); setEditText("Novo Item"); }, 50);
   };
 
   const deleteSelection = () => {
@@ -521,22 +608,15 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
       
       if (newScale < 1) newScale = 1;
       if (newScale > 10) newScale = 10;
-
       if (newScale === currentScale) return;
 
       const baseW = node.width / currentScale;
       const baseH = node.height / currentScale;
-
       const newW = baseW * newScale;
       const newH = baseH * newScale;
 
       recordHistory();
-      setNodes(prev => prev.map(n => n.id === selectedNodeId ? { 
-          ...n, 
-          imageScale: newScale,
-          width: newW,
-          height: newH
-      } : n));
+      setNodes(prev => prev.map(n => n.id === selectedNodeId ? { ...n, imageScale: newScale, width: newW, height: newH } : n));
   };
 
   const increaseFontSize = () => {
@@ -553,12 +633,7 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
       if (file && selectedNodeId) {
           const reader = new FileReader();
           reader.onload = (evt) => {
-              updateNodeStyle({ 
-                  imageUrl: evt.target?.result as string, 
-                  height: 150, 
-                  width: 150,
-                  imageScale: 1
-              });
+              updateNodeStyle({ imageUrl: evt.target?.result as string, height: 150, width: 150, imageScale: 1 });
           };
           reader.readAsDataURL(file);
       }
@@ -613,23 +688,21 @@ ${JSON.stringify({
       const isSelected = selectedNodeId === node.id;
       const isEditing = editingNodeId === node.id;
       
-      let borderRadius = '8px';
-      if (node.shape === 'pill') borderRadius = '9999px';
-      if (node.shape === 'circle') borderRadius = '50%';
-      
-      const isSticky = node.shape === 'sticky';
-      const bgColor = isSticky ? node.color : 'var(--bg-surface)';
-      
-      const baseClasses = `absolute flex flex-col items-center justify-center p-2 group transition-shadow duration-200 select-none bg-surface border-2`;
+      const baseClasses = `absolute flex flex-col items-center justify-center p-2 group transition-shadow duration-200 select-none bg-surface border-2 mindmap-node-container rounded-xl`;
       const selectedClasses = isSelected ? `ring-2 ring-offset-2 ring-offset-black ring-[${node.color}]` : 'hover:shadow-lg border-border';
 
       return (
           <div
             key={node.id}
             className={`${baseClasses} ${selectedClasses}`}
+            data-node-id={node.id}
             style={{
-                left: node.x, top: node.y, width: node.width, height: node.height,
-                borderRadius,
+                left: node.x, top: node.y, 
+                width: 'fit-content', 
+                height: 'fit-content',
+                minWidth: node.width, 
+                minHeight: node.height,
+                maxWidth: '600px', 
                 borderColor: node.color,
                 zIndex: isSelected ? 10 : 1,
                 cursor: linkingSourceId ? 'crosshair' : 'grab',
@@ -641,7 +714,7 @@ ${JSON.stringify({
                 setEditText(node.text); 
             }}
           >
-              <div className={`w-full h-full flex flex-col items-center justify-center overflow-hidden`}>
+              <div className={`w-full h-full flex flex-col items-center justify-center`}>
                   {node.imageUrl && <img src={node.imageUrl} className="w-full h-2/3 object-cover rounded-sm mb-1 pointer-events-none" alt="" />}
                   
                   {isEditing ? (
@@ -661,81 +734,28 @@ ${JSON.stringify({
                             }
                         }}
                         onPointerDown={e => e.stopPropagation()} 
-                        className="w-full h-full bg-transparent outline-none text-center resize-none p-1"
+                        className="w-full h-full bg-transparent outline-none text-center resize-none p-1 min-w-[120px]"
                         style={{ color: 'var(--text-main)', fontSize: node.fontSize || 14 }}
+                        rows={1}
+                        onInput={(e) => {
+                            const target = e.target as HTMLTextAreaElement;
+                            target.style.height = 'auto';
+                            target.style.height = target.scrollHeight + 'px';
+                        }}
                       />
                   ) : (
-                      <span className="text-center w-full break-words leading-tight" style={{ color: 'var(--text-main)', fontSize: node.fontSize || 14, fontWeight: node.isRoot ? 'bold' : 'normal' }}>
-                          {node.text || (isSticky ? "Nota" : "")}
+                      <span className="text-center w-full break-words leading-tight whitespace-pre-wrap" style={{ color: 'var(--text-main)', fontSize: node.fontSize || 14, fontWeight: node.isRoot ? 'bold' : 'normal' }}>
+                          {node.text}
                       </span>
                   )}
               </div>
 
-              {isSelected && !isDraggingCanvas && node.shape !== 'circle' && (
+              {isSelected && !isDraggingCanvas && (
                   <div 
                     className="absolute bottom-0 right-0 w-6 h-6 flex items-end justify-end p-0.5 cursor-nwse-resize opacity-50 hover:opacity-100 touch-none"
                     onPointerDown={(e) => handleResizeDown(e, node.id)}
                   >
                       <Scaling size={12} className="text-text-sec" />
-                  </div>
-              )}
-
-              {isSelected && !isEditing && !isDraggingCanvas && !isResizingNode && (
-                  <div 
-                    className="absolute -top-16 left-1/2 -translate-x-1/2 flex gap-1 bg-[#1e1e1e] border border-[#333] p-1.5 rounded-xl animate-in fade-in zoom-in duration-200"
-                    onPointerDown={e => e.stopPropagation()}
-                  >
-                      <div className="relative">
-                          <button 
-                            onClick={() => setShowColorPicker(!showColorPicker)} 
-                            className="p-1.5 hover:bg-white/10 rounded text-pink-400 relative" 
-                            title="Cor"
-                          >
-                              <Palette size={16}/>
-                          </button>
-                          
-                          {showColorPicker && (
-                              <div className="absolute top-full left-0 mt-2 p-2 bg-[#252525] border border-[#444] rounded-lg grid grid-cols-5 gap-2 z-[60] w-[180px]">
-                                  {COLORS.map(c => (
-                                      <button 
-                                        key={c}
-                                        onClick={() => { updateNodeStyle({ color: c }); setShowColorPicker(false); }}
-                                        className="w-8 h-8 rounded-full border border-white/20 hover:scale-110 transition-transform"
-                                        style={{ backgroundColor: c }}
-                                      />
-                                  ))}
-                              </div>
-                          )}
-                      </div>
-
-                      <button onClick={increaseFontSize} className="p-1.5 hover:bg-white/10 rounded text-white flex items-center gap-0.5" title="Aumentar Fonte">
-                          <Type size={16} />
-                          <ChevronUp size={10} />
-                      </button>
-
-                      <div className="w-px h-4 bg-white/10 self-center mx-0.5"></div>
-                      
-                      <button onClick={() => createChildNode(node.id)} className="p-1.5 hover:bg-white/10 rounded text-green-400 font-bold" title="Adicionar Filho"><Plus size={18}/></button>
-                      <button onClick={startLinking.bind(null, node.id)} className="p-1.5 hover:bg-white/10 rounded text-yellow-400" title="Conectar"><Link size={16}/></button>
-                      <div className="w-px h-4 bg-white/10 self-center mx-0.5"></div>
-                      <button onClick={() => fileInputRef.current?.click()} className="p-1.5 hover:bg-white/10 rounded text-blue-400" title="Imagem"><ImageIcon size={16}/></button>
-                      
-                      {node.imageUrl && (
-                          <>
-                              <div className="w-px h-4 bg-white/10 self-center mx-0.5"></div>
-                              <div className="flex items-center gap-1 bg-white/5 rounded px-1">
-                                  <button onClick={() => updateImageScale(-1)} className="p-1 hover:bg-white/10 rounded text-white" title="Reduzir Imagem">
-                                      <Minus size={12} />
-                                  </button>
-                                  <span className="text-[10px] w-8 text-center text-white font-mono">{ (node.imageScale || 1) * 100 }%</span>
-                                  <button onClick={() => updateImageScale(1)} className="p-1 hover:bg-white/10 rounded text-white" title="Aumentar Imagem">
-                                      <Plus size={12} />
-                                  </button>
-                              </div>
-                          </>
-                      )}
-
-                      {!node.isRoot && <button onClick={deleteSelection} className="p-1.5 hover:bg-red-500/20 rounded text-red-400 ml-1" title="Excluir"><Trash2 size={16}/></button>}
                   </div>
               )}
           </div>
@@ -746,8 +766,9 @@ ${JSON.stringify({
     <div className="w-full h-full bg-[#000000] relative overflow-hidden flex flex-col font-sans select-none text-text">
         <div className="absolute inset-0 bg-[#050505] z-0" />
         
-        {/* Grid de Pontos Brancos Infinito */}
+        {/* Infinite Grid - Rendered via Ref for Performance */}
         <div 
+            ref={gridLayerRef}
             className="absolute inset-0 pointer-events-none z-0"
             style={{
                 backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.35) 1.5px, transparent 1.5px)',
@@ -797,7 +818,6 @@ ${JSON.stringify({
                 <Download size={20} />
             </button>
             
-            {/* Save Button: Context Aware (Cloud or Local) */}
             <button 
                 onClick={isLocalFile ? saveToAppStorage : saveToDrive} 
                 className="flex items-center gap-2 px-4 py-2.5 bg-brand text-bg rounded-xl font-bold hover:brightness-110 transition-all"
@@ -808,7 +828,7 @@ ${JSON.stringify({
             </button>
         </div>
 
-        {/* Main Canvas */}
+        {/* Main Canvas - GPU Accelerated via Ref */}
         <div 
             ref={containerRef}
             className={`w-full h-full touch-none ${isDraggingCanvas ? 'cursor-grabbing' : 'cursor-default'}`}
@@ -820,7 +840,8 @@ ${JSON.stringify({
             onWheel={handleWheel}
         >
             <div 
-                className="w-full h-full transform-gpu origin-top-left"
+                ref={contentLayerRef}
+                className="w-full h-full transform-gpu origin-top-left will-change-transform"
                 style={{ transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})` }}
             >
                 <svg className="absolute top-0 left-0 overflow-visible" style={{ width: 1, height: 1 }}>
@@ -836,43 +857,89 @@ ${JSON.stringify({
             </div>
         </div>
 
-        {/* Bottom Toolbar - GitHub Style */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#0d1117] border border-[#30363d] p-1.5 rounded-md flex items-center gap-1 shadow-xl ui-layer animate-in slide-in-from-bottom-10">
+        {/* Bottom Toolbar - Contextual */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#0d1117] border border-[#30363d] p-1.5 rounded-xl flex items-center gap-1 shadow-2xl ui-layer animate-in slide-in-from-bottom-10 ring-1 ring-white/10">
             <div className="flex gap-1 pr-2 border-r border-[#30363d]">
-                <button onClick={undo} disabled={historyPast.length===0} className={`p-2 rounded-md ${historyPast.length ? 'hover:bg-[#21262d] text-[#c9d1d9]' : 'text-zinc-600'}`}><Undo size={20}/></button>
-                <button onClick={redo} disabled={historyFuture.length===0} className={`p-2 rounded-md ${historyFuture.length ? 'hover:bg-[#21262d] text-[#c9d1d9]' : 'text-zinc-600'}`}><Redo size={20}/></button>
+                <button onClick={undo} disabled={historyPast.length===0} className={`p-2 rounded-lg ${historyPast.length ? 'hover:bg-[#21262d] text-[#c9d1d9]' : 'text-zinc-600'}`} title="Desfazer"><Undo size={20}/></button>
+                <button onClick={redo} disabled={historyFuture.length===0} className={`p-2 rounded-lg ${historyFuture.length ? 'hover:bg-[#21262d] text-[#c9d1d9]' : 'text-zinc-600'}`} title="Refazer"><Redo size={20}/></button>
             </div>
             
-            <div className="flex gap-1">
-                <button onClick={() => {
-                    recordHistory();
-                    setNodes(prev => [...prev, {
-                        id: `node-${Date.now()}`,
-                        text: "Novo Item",
-                        x: (window.innerWidth/2 - viewport.x)/viewport.zoom,
-                        y: (window.innerHeight/2 - viewport.y)/viewport.zoom,
-                        width: 180, height: 70, // Aumentado
-                        color: '#a855f7',
-                        scale: 1,
-                        fontSize: 16,
-                        shape: 'rectangle' // Alterado para rectangle
-                    }]);
-                }} className="p-2 bg-brand text-bg rounded-md hover:brightness-110"><Plus size={22}/></button>
-            </div>
-
-            <div className="w-px h-6 bg-[#30363d] mx-1"></div>
-
-            <div className="flex gap-1">
-                {SHAPES.map(s => (
-                    <button 
-                        key={s.id} 
-                        onClick={() => selectedNodeId && updateNodeStyle({ shape: s.id })}
-                        className={`p-2 rounded-md text-[#c9d1d9] hover:text-white hover:bg-[#21262d] ${selectedNodeId && nodes.find(n => n.id === selectedNodeId)?.shape === s.id ? 'bg-[#21262d] text-brand' : ''}`}
-                    >
-                        <s.icon size={18} />
+            {!selectedNodeId ? (
+                <div className="flex gap-1 pl-1">
+                    <button onClick={() => {
+                        recordHistory();
+                        setNodes(prev => [...prev, {
+                            id: `node-${Date.now()}`,
+                            text: "Novo Item",
+                            x: (window.innerWidth/2 - viewport.x)/viewport.zoom,
+                            y: (window.innerHeight/2 - viewport.y)/viewport.zoom,
+                            width: 180, height: 70,
+                            color: '#a855f7',
+                            scale: 1,
+                            fontSize: 16,
+                            shape: 'rectangle'
+                        }]);
+                    }} className="flex items-center gap-2 px-3 py-2 bg-brand text-bg rounded-lg hover:brightness-110 font-bold text-sm">
+                        <Plus size={18}/> Novo Nó
                     </button>
-                ))}
-            </div>
+                </div>
+            ) : (
+                <div className="flex gap-1 pl-1 items-center relative">
+                    <button onClick={() => selectedNodeId && createChildNode(selectedNodeId)} className="p-2 hover:bg-[#21262d] rounded-lg text-green-400" title="Adicionar Filho">
+                        <CornerDownRight size={20}/>
+                    </button>
+                    
+                    <button onClick={startLinking.bind(null, selectedNodeId)} className="p-2 hover:bg-[#21262d] rounded-lg text-yellow-400" title="Conectar">
+                        <Link size={18}/>
+                    </button>
+
+                    <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-[#21262d] rounded-lg text-blue-400" title="Imagem">
+                        <ImageIcon size={18}/>
+                    </button>
+
+                    <div className="w-px h-6 bg-[#30363d] mx-1"></div>
+
+                    {/* Style Controls */}
+                    <div className="relative">
+                        <button 
+                            onClick={() => setShowColorPicker(!showColorPicker)} 
+                            className="p-2 hover:bg-[#21262d] rounded-lg text-pink-400" 
+                            title="Cor"
+                        >
+                            <Palette size={18}/>
+                        </button>
+                        {showColorPicker && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-2 bg-[#1e1e1e] border border-[#30363d] rounded-lg grid grid-cols-5 gap-2 z-50 w-[160px] shadow-xl animate-in zoom-in-95">
+                                {COLORS.map(c => (
+                                    <button 
+                                    key={c}
+                                    onClick={() => { updateNodeStyle({ color: c }); setShowColorPicker(false); }}
+                                    className="w-6 h-6 rounded-full border border-white/20 hover:scale-110 transition-transform"
+                                    style={{ backgroundColor: c }}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <button onClick={increaseFontSize} className="p-2 hover:bg-[#21262d] rounded-lg text-white" title="Aumentar Fonte">
+                        <Type size={18} />
+                    </button>
+
+                    {nodes.find(n => n.id === selectedNodeId)?.imageUrl && (
+                        <div className="flex items-center gap-1 bg-white/5 rounded px-1 ml-1">
+                            <button onClick={() => updateImageScale(-1)} className="p-1 hover:bg-white/10 rounded text-white"><Minus size={12}/></button>
+                            <button onClick={() => updateImageScale(1)} className="p-1 hover:bg-white/10 rounded text-white"><Plus size={12}/></button>
+                        </div>
+                    )}
+
+                    <div className="w-px h-6 bg-[#30363d] mx-1"></div>
+
+                    <button onClick={deleteSelection} className="p-2 hover:bg-red-500/20 rounded-lg text-red-400" title="Excluir">
+                        <Trash2 size={18}/>
+                    </button>
+                </div>
+            )}
         </div>
 
         {/* Sidebar Sexta-feira */}
