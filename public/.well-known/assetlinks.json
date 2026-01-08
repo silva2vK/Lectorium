@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "dev.pages.lectorium_6zn.twa",
+        "sha256_cert_fingerprints": ["14:7D:23:D7:1C:95:CD:7B:4A:25:75:C0:46:9E:5A:87:D7:7C:E0:F3:D3:6B:45:9A:D9:A3:16:23:64:67:A6:52"]
+      }
+    }]

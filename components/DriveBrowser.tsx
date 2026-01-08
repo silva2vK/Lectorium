@@ -1,0 +1,321 @@
+import React, { useState, useMemo, useCallback } from 'react';
+import { 
+  ArrowLeft, Loader2, RefreshCw, Menu, Cloud, Plus, HardDrive, Sparkles, Lock, LogIn, X
+} from 'lucide-react';
+import { DriveFile, MIME_TYPES } from '../types';
+import { downloadDriveFile } from '../services/driveService';
+import { saveOfflineFile, toggleFilePin } from '../services/storageService';
+import { MoveFileModal } from './MoveFileModal';
+import { MindMapGeneratorModal } from './modals/MindMapGeneratorModal';
+import { FileItem } from './drive/FileItem';
+import { useDriveFiles } from '../hooks/useDriveFiles';
+import { AiChatPanel } from './shared/AiChatPanel';
+
+interface Props {
+  accessToken: string;
+  onSelectFile: (file: DriveFile, background?: boolean) => Promise<void> | void;
+  onLogout: () => void;
+  onAuthError: () => void;
+  onToggleMenu: () => void;
+  mode?: 'default' | 'mindmaps' | 'offline' | 'local';
+  onCreateMindMap?: (parentId?: string) => void; 
+  onGenerateMindMapWithAi?: (topic: string) => void;
+  localDirectoryHandle?: any;
+  onLogin?: () => void;
+  expandingFileId?: string | null;
+}
+
+export const DriveBrowser: React.FC<Props> = ({ 
+  accessToken, onSelectFile, onLogout, onAuthError, 
+  onToggleMenu, mode = 'default', onCreateMindMap, onGenerateMindMapWithAi, localDirectoryHandle,
+  onLogin, expandingFileId
+}) => {
+  // Use custom hook for logic (Now powered by TanStack Query)
+  const {
+    files,
+    loading,
+    currentFolder,
+    folderHistory,
+    authError,
+    offlineFileIds,
+    pinnedFileIds,
+    updateCacheStatus,
+    loadFiles,
+    handleFolderClick,
+    handleNavigateUp,
+    renameFile,
+    deleteFile,
+    isMutating
+  } = useDriveFiles(accessToken, mode as 'default' | 'mindmaps' | 'offline' | 'local', localDirectoryHandle, onAuthError);
+
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [localActionLoading, setLocalActionLoading] = useState(false);
+  const [openingFileId, setOpeningFileId] = useState<string | null>(null);
+  const [moveFileModalOpen, setMoveFileModalOpen] = useState(false);
+  const [fileToMove, setFileToMove] = useState<DriveFile | null>(null);
+  const [showGeneratorModal, setShowGeneratorModal] = useState(false);
+  
+  // AI Sidebar State
+  const [showAiSidebar, setShowAiSidebar] = useState(false);
+
+  const handleTogglePin = useCallback(async (file: DriveFile) => {
+      const isPinned = pinnedFileIds.has(file.id);
+      setActiveMenuId(null);
+      try {
+          if (!offlineFileIds.has(file.id) && !isPinned) {
+              if (file.mimeType === MIME_TYPES.FOLDER) {
+                  await saveOfflineFile(file, null, true);
+              } else {
+                  setLocalActionLoading(true);
+                  const blob = await downloadDriveFile(accessToken, file.id, file.mimeType);
+                  await saveOfflineFile(file, blob, true);
+              }
+          } else {
+              await toggleFilePin(file.id, !isPinned);
+          }
+          updateCacheStatus();
+      } catch (e) { alert("Erro ao fixar."); } finally { setLocalActionLoading(false); }
+  }, [accessToken, offlineFileIds, pinnedFileIds, updateCacheStatus]);
+
+  const handleRename = useCallback(async (file: DriveFile) => {
+      setActiveMenuId(null);
+      const newName = window.prompt("Novo nome:", file.name);
+      if (newName && newName !== file.name) {
+          try {
+              // Usa a mutação do React Query (invalidação automática)
+              await renameFile({ fileId: file.id, newName });
+          } catch (e: any) {
+              alert("Erro ao renomear arquivo: " + e.message);
+          }
+      }
+  }, [renameFile]);
+
+  const handleDelete = useCallback(async (file: DriveFile) => { 
+      if (confirm(`Tem certeza que deseja excluir "${file.name}"?`)) {
+          try {
+              // Usa a mutação do React Query
+              await deleteFile(file.id);
+          } catch (e: any) {
+              alert("Erro ao excluir: " + e.message);
+          }
+      }
+  }, [deleteFile]);
+  
+  const handleShare = useCallback(async (file: DriveFile) => { 
+      setActiveMenuId(null); 
+      
+      if (file.mimeType === MIME_TYPES.FOLDER) {
+          window.open(`https://drive.google.com/file/d/${file.id}/share`, '_blank');
+          return;
+      }
+
+      setLocalActionLoading(true);
+      try {
+          let blob = file.blob;
+          if (!blob && !file.id.startsWith('local-')) {
+               blob = await downloadDriveFile(accessToken, file.id, file.mimeType);
+          }
+
+          if (blob) {
+              const fileObj = new File([blob], file.name, { type: file.mimeType });
+              if (navigator.canShare && navigator.canShare({ files: [fileObj] })) {
+                  await navigator.share({
+                      files: [fileObj],
+                      title: file.name,
+                      text: 'Arquivo compartilhado via Lectorium'
+                  });
+              } else {
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = file.name;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+              }
+          } else {
+              window.open(`https://drive.google.com/file/d/${file.id}/share`, '_blank');
+          }
+      } catch (e) {
+          console.error("Erro ao compartilhar", e);
+          window.open(`https://drive.google.com/file/d/${file.id}/share`, '_blank');
+      } finally {
+          setLocalActionLoading(false);
+      }
+  }, [accessToken]);
+
+  const handleMove = useCallback((file: DriveFile) => { 
+      setActiveMenuId(null); setFileToMove(file); setMoveFileModalOpen(true); 
+  }, []);
+
+  const handleSelect = useCallback(async (file: DriveFile, background?: boolean) => {
+      if (openingFileId) return;
+      if (file.mimeType === MIME_TYPES.FOLDER) handleFolderClick(file); 
+      else {
+          if (!background) setOpeningFileId(file.id);
+          try { await onSelectFile(file, background); } catch (e) { console.error(e); } finally { setOpeningFileId(null); }
+      }
+  }, [handleFolderClick, onSelectFile, openingFileId]);
+
+  const handleCreateNew = () => { 
+      if (onCreateMindMap) { 
+          const parentId = currentFolder === 'root' ? undefined : currentFolder; 
+          onCreateMindMap(parentId); 
+      } 
+  };
+
+  const handleAiGenerateConfirm = (text: string) => {
+    if (text && onGenerateMindMapWithAi) {
+        onGenerateMindMapWithAi(text);
+        setShowGeneratorModal(false);
+        setShowAiSidebar(false);
+    }
+  };
+
+  const headerTitle = useMemo(() => {
+      if (mode === 'offline') return 'Fixados e Recentes';
+      if (mode === 'mindmaps') return 'Mapas Mentais';
+      if (mode === 'local') return localDirectoryHandle?.name || 'Pasta Local';
+      return folderHistory[folderHistory.length - 1].name;
+  }, [mode, folderHistory, localDirectoryHandle]);
+
+  const openingFileName = useMemo(() => { 
+      if (!openingFileId) return null; 
+      return files.find(f => f.id === openingFileId)?.name || "arquivo"; 
+  }, [openingFileId, files]);
+
+  // Contexto para a IA
+  const browserContext = useMemo(() => {
+      const fileNames = files.slice(0, 50).map(f => `- ${f.name} (${f.mimeType === MIME_TYPES.FOLDER ? 'Pasta' : 'Arquivo'})`).join('\n');
+      return `CONTEXTO DO NAVEGADOR DE ARQUIVOS:
+Você está visualizando a pasta/modo: "${headerTitle}".
+Arquivos visíveis (amostra):
+${fileNames}
+
+${files.length === 0 ? "A pasta está vazia." : ""}
+
+O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúdos.`;
+  }, [files, headerTitle]);
+
+  const isLoading = loading || isMutating || localActionLoading;
+
+  return (
+    <div className="flex flex-col h-full bg-bg text-text relative overflow-hidden">
+      <div className="p-4 md:p-6 border-b border-border flex items-center justify-between sticky top-0 bg-bg z-20 shrink-0">
+         <div className="flex items-center gap-3 overflow-hidden">
+             <button onClick={onToggleMenu} className="p-2 -ml-2 text-text-sec hover:text-text rounded-full hover:bg-white/5 active:scale-95"><Menu size={24} /></button>
+             {folderHistory.length > 1 && mode === 'default' && <button onClick={handleNavigateUp} className="p-2 -ml-2 text-text-sec hover:text-text rounded-full hover:bg-white/5 active:scale-95"><ArrowLeft size={24} /></button>}
+             <div className="flex flex-col min-w-0"><div className="flex items-center gap-2">{mode === 'local' && <HardDrive size={16} className="text-orange-400" />}<h1 className="text-xl font-bold truncate">{headerTitle}</h1></div><span className="text-[10px] text-text-sec flex items-center gap-1">{mode === 'local' ? 'Armazenamento do Dispositivo' : <><Cloud size={10} /> Smart Sync Ativo</>}</span></div>
+         </div>
+         <div className="flex items-center gap-2">
+             <button 
+                onClick={() => setShowAiSidebar(!showAiSidebar)} 
+                className={`p-2 rounded-xl border transition-all active:scale-95 ${showAiSidebar ? 'bg-brand/20 text-brand border-brand/50 shadow-[0_0_10px_rgba(74,222,128,0.2)]' : 'bg-surface text-text-sec border-border hover:text-white'}`} 
+                title="Sexta-feira (IA)"
+             >
+                <Sparkles size={20} />
+             </button>
+             
+             {(mode === 'mindmaps' || mode === 'default') && !authError && onCreateMindMap && (
+                 <button onClick={handleCreateNew} className="flex items-center gap-2 bg-brand text-bg px-3 py-2 rounded-lg font-bold text-xs hover:brightness-110 shadow-lg transition-all animate-in fade-in active:scale-95">
+                     <Plus size={16} /><span className="hidden sm:inline">Novo</span>
+                 </button>
+             )}
+             <button onClick={() => loadFiles()} className="p-2 text-text-sec hover:text-text rounded-full hover:bg-white/5 active:scale-95"><RefreshCw size={20} className={isLoading ? "animate-spin" : ""} /></button>
+         </div>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar relative">
+         {authError ? (
+             <div className="flex flex-col items-center justify-center h-full py-12 animate-in fade-in text-center">
+                 <div className="bg-yellow-500/10 p-6 rounded-full mb-4 border border-yellow-500/20 shadow-[0_0_30px_-10px_rgba(234,179,8,0.2)]">
+                     <Lock className="text-yellow-500" size={48} />
+                 </div>
+                 <h3 className="text-xl font-bold text-white mb-2">Conexão Expirada</h3>
+                 <p className="text-sm text-text-sec max-w-sm mb-8 leading-relaxed">
+                     Para acessar seus arquivos na nuvem, você precisa renovar sua conexão com o Google Drive.
+                 </p>
+                 <button 
+                    onClick={onLogin} 
+                    className="flex items-center gap-3 bg-brand text-[#0b141a] px-8 py-3 rounded-xl font-bold hover:brightness-110 transition-all shadow-lg hover:scale-105 active:scale-95"
+                 >
+                     <LogIn size={20} /> Conectar ao Drive
+                 </button>
+                 <p className="text-[10px] text-text-sec mt-6 opacity-60">
+                    Seus arquivos offline continuam acessíveis no menu lateral.
+                 </p>
+             </div>
+         ) : loading && files.length === 0 ? (
+             <div className="flex items-center justify-center h-64"><Loader2 size={32} className="animate-spin text-brand" /></div>
+         ) : (
+             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                 {files.map(file => (
+                     <FileItem 
+                        key={file.id} 
+                        file={file} 
+                        onSelect={handleSelect} 
+                        onTogglePin={handleTogglePin} 
+                        onDelete={handleDelete} 
+                        onShare={handleShare} 
+                        onMove={handleMove} 
+                        onRename={handleRename} 
+                        isOffline={offlineFileIds.has(file.id)} 
+                        isPinned={pinnedFileIds.has(file.id)} 
+                        isActiveMenu={activeMenuId === file.id} 
+                        setActiveMenu={setActiveMenuId} 
+                        isLocalMode={mode === 'local'} 
+                        accessToken={accessToken} 
+                        isExpanding={expandingFileId === file.id}
+                     />
+                 ))}
+                 {files.length === 0 && !loading && (
+                     <div className="col-span-full text-center py-12 text-text-sec opacity-50">{mode === 'mindmaps' ? 'Nenhum mapa mental encontrado.' : 'Esta pasta está vazia.'}</div>
+                 )}
+             </div>
+         )}
+      </div>
+      
+      {/* Sidebar Sexta-feira */}
+      {showAiSidebar && (
+          <div className="absolute inset-y-0 right-0 z-50 w-96 bg-[#1e1e1e] border-l border-[#444746] shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+              <div className="flex items-center justify-between p-4 border-b border-[#444746] bg-surface">
+                  <h3 className="font-bold text-[#e3e3e3] flex items-center gap-2 text-sm uppercase tracking-widest">
+                      <Sparkles size={18} className="text-brand" />
+                      Sexta-feira
+                  </h3>
+                  <button onClick={() => setShowAiSidebar(false)} className="text-gray-400 hover:text-white p-1">
+                      <X size={20} />
+                  </button>
+              </div>
+              <div className="flex-1 overflow-hidden flex flex-col">
+                  {mode === 'mindmaps' && onGenerateMindMapWithAi && (
+                      <div className="p-4 border-b border-[#444746] bg-brand/5">
+                          <button 
+                            onClick={() => setShowGeneratorModal(true)} 
+                            className="w-full py-3 bg-brand text-[#0b141a] rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all shadow-lg active:scale-95"
+                          >
+                              <Sparkles size={16} /> Gerar Estrutura com IA
+                          </button>
+                          <p className="text-[10px] text-text-sec mt-2 text-center leading-tight">
+                              Descreva um tópico e a IA criará o mapa mental completo para você.
+                          </p>
+                      </div>
+                  )}
+                  <AiChatPanel 
+                      contextText={browserContext} 
+                      documentName={headerTitle} 
+                      fileId="browser-context" 
+                  />
+              </div>
+          </div>
+      )}
+
+      {(isMutating || localActionLoading) && !openingFileId && <div className="absolute inset-0 z-50 bg-bg/50 flex items-center justify-center"><Loader2 size={40} className="animate-spin text-brand" /></div>}
+      {openingFileId && <div className="absolute inset-0 z-[60] bg-bg/90 flex flex-col items-center justify-center animate-in fade-in duration-300"><div className="relative mb-6"><div className="absolute inset-0 bg-brand/20 rounded-full blur-xl animate-pulse"></div><div className="relative bg-surface p-4 rounded-full border border-brand/30"><Cloud size={40} className="text-brand animate-pulse" /></div><div className="absolute -bottom-2 -right-2 bg-bg rounded-full p-1 border border-border"><Loader2 size={20} className="animate-spin text-white" /></div></div><h3 className="text-xl font-bold text-white mb-2">Abrindo Arquivo</h3><p className="text-sm text-text-sec max-w-xs text-center truncate px-4">{openingFileName || "Carregando..."}</p><div className="mt-8 flex gap-2"><div className="w-2 h-2 rounded-full bg-brand animate-bounce [animation-delay:-0.3s]"></div><div className="w-2 h-2 rounded-full bg-brand animate-bounce [animation-delay:-0.15s]"></div><div className="w-2 h-2 rounded-full bg-brand animate-bounce"></div></div></div>}
+      
+      <MoveFileModal isOpen={moveFileModalOpen} onClose={() => setMoveFileModalOpen(false)} fileToMove={fileToMove} accessToken={accessToken} onMoveSuccess={() => { loadFiles(); setFileToMove(null); }} />
+      <MindMapGeneratorModal isOpen={showGeneratorModal} onClose={() => setShowGeneratorModal(false)} onGenerate={handleAiGenerateConfirm} />
+    </div>
+  );
+};
