@@ -46,14 +46,23 @@ export function useDriveFiles(
         if (accessToken && navigator.onLine) {
             try {
                 cloudMaps = await searchMindMaps(accessToken);
-            } catch (e) {
-                console.warn("Cloud fetch skipped for mindmaps (offline or auth issue).");
+            } catch (e: any) {
+                // CRITICAL FIX: Se o erro for de autenticação, relança para a UI tratar.
+                // Antes, isso era silenciado, fazendo o app parecer "offline" no Drive.
+                if (e.message === 'DRIVE_TOKEN_EXPIRED' || e.message.includes('401')) {
+                    throw e;
+                }
+                console.warn("Cloud fetch skipped for mindmaps (network or unknown error).", e);
             }
         }
 
-        // Merge
+        // Merge (Prioriza Cloud se existir conflito de ID, ou mescla inteligente)
         const fileMap = new Map<string, DriveFile>();
+        
+        // Adiciona locais primeiro
         localMaps.forEach(f => fileMap.set(f.id, f));
+        
+        // Adiciona/Sobrescreve com nuvem (cloudMaps geralmente tem dados mais recentes de meta)
         cloudMaps.forEach(f => fileMap.set(f.id, f));
         
         const fetchedFiles = Array.from(fileMap.values());
@@ -79,6 +88,11 @@ export function useDriveFiles(
           onAuthError();
         }
       }
+    },
+    retry: (failureCount, error: any) => {
+        // Não retenta se for erro de auth, falha logo para pedir login
+        if (error.message === 'DRIVE_TOKEN_EXPIRED' || error.message.includes('401')) return false;
+        return failureCount < 2;
     }
   });
 
@@ -144,7 +158,7 @@ export function useDriveFiles(
     queryClient.invalidateQueries({ queryKey: ['offline-status'] });
   }, [queryClient]);
 
-  const authError = queryError?.message === 'DRIVE_TOKEN_EXPIRED';
+  const authError = queryError?.message === 'DRIVE_TOKEN_EXPIRED' || (queryError as any)?.message?.includes('401');
 
   return {
     files,

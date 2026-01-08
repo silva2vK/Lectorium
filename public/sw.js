@@ -6,6 +6,35 @@
 
 const CACHE_NAME = 'lectorium-offline-v6.3';
 
+// 1. INSTALAÇÃO: Força a ativação imediata (pula o estado 'waiting')
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+  
+  // Precache manual mínimo
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll([
+        '/',
+        '/index.html',
+        '/manifest.json',
+        '/icons/icon.svg'
+      ]);
+    })
+  );
+});
+
+// 2. ATIVAÇÃO: Toma o controle das abas abertas IMEDIATAMENTE (sem precisar de F5)
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(), // <--- CRÍTICO: Assume o controle da página imediatamente
+      caches.keys().then((names) => Promise.all(
+        names.filter(n => !n.includes(CACHE_NAME) && !n.includes('workbox')).map(n => caches.delete(n))
+      ))
+    ])
+  );
+});
+
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
@@ -29,8 +58,6 @@ if (typeof workbox !== 'undefined') {
   });
 
   // 1. Navegação (Offline Fallback Strategy)
-  // NetworkFirst garante que tentamos pegar a versão mais nova, 
-  // mas se falhar, o cache da página responde.
   workbox.routing.registerRoute(
     ({ request }) => request.mode === 'navigate',
     new workbox.strategies.NetworkFirst({ 
@@ -69,35 +96,8 @@ if (typeof workbox !== 'undefined') {
   );
 }
 
-// Handler de Instalação (Precache manual mínimo para garantir detecção do PWA Builder)
-self.addEventListener('install', (event) => {
-  self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll([
-        '/',
-        '/index.html',
-        '/manifest.json',
-        '/icons/icon.svg'
-      ]);
-    })
-  );
-});
-
-// Handler de Ativação (Limpeza)
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((names) => Promise.all(
-      names.filter(n => !n.includes(CACHE_NAME) && !n.includes('workbox')).map(n => caches.delete(n))
-    ))
-  );
-  self.clients.claim();
-});
-
 // Handler de Fetch Genérico (Fallback final)
-// Necessário para o PWA Builder validar "Offline Support" se o Workbox falhar na detecção estática
 self.addEventListener('fetch', (event) => {
-  // Apenas intervem se não for handled pelo Workbox ou se falhar
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => {
