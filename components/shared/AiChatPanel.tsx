@@ -29,10 +29,10 @@ const MessageItem: React.FC<{ m: ChatMessage }> = ({ m }) => {
 
     return (
       <div className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${m.role === 'user' ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' : 'bg-brand/10 border-brand/30 text-brand'}`}>
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${m.role === 'user' ? 'bg-blue-500/10 border-blue-500/30 text-blue-400' : 'bg-brand/10 border-brand/30 text-brand'} backdrop-blur-sm`}>
               {m.role === 'user' ? <User size={16} /> : <Bot size={16} />}
           </div>
-          <div className={`max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed ${m.role === 'user' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-surface border border-border text-text rounded-tl-none'}`}>
+          <div className={`max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed shadow-lg ${m.role === 'user' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-surface/90 border border-border/50 text-text rounded-tl-none backdrop-blur-md'}`}>
               <div className="whitespace-pre-wrap select-text selection:bg-brand/30 selection:text-white">{m.text}</div>
               
               {m.role === 'model' && m.text && (
@@ -104,7 +104,6 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
       
       try {
           // Combina texto básico com markdown da lente para o briefing
-          // Fix: Accessing markdown property on SemanticLensData type
           const semanticContent = Object.values(lensData).map((d: SemanticLensData) => d.markdown).join("\n\n");
           const combinedContext = semanticContent || contextText;
           const summary = await generateDocumentBriefing(combinedContext);
@@ -172,7 +171,6 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
             const hasSemantic = Object.keys(lensData).length > 0;
             if (hasSemantic) {
                 // Injeta um resumo do que a lente capturou se não houver contexto específico
-                // Fix: Accessing markdown property on SemanticLensData type
                 const semanticSample = Object.entries(lensData)
                     .slice(0, 5) // Pega as primeiras 5 páginas processadas como amostra
                     .map(([p, d]) => `[Pág ${p} - Estrutura]: ${(d as SemanticLensData).markdown.slice(0, 500)}...`)
@@ -211,8 +209,21 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
   }, [chatRequest, setChatRequest]);
 
   return (
-    <div className={`flex flex-col h-full bg-bg ${className}`}>
-      <div className="p-3 border-b border-border flex items-center justify-between bg-surface/50">
+    <div className={`flex flex-col h-full bg-[#050505] relative overflow-hidden ${className}`}>
+      {/* Background Effect - Infinite Grid */}
+      <div 
+          className="absolute inset-0 pointer-events-none z-0"
+          style={{
+              backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.25) 1.5px, transparent 1.5px)',
+              backgroundSize: '24px 24px'
+          }}
+      />
+      
+      {/* Subtle Bottom Gradient */}
+      <div className="absolute inset-0 z-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-[#050505]/80" />
+
+      {/* Header */}
+      <div className="p-3 border-b border-white/10 flex items-center justify-between bg-surface/80 backdrop-blur-md relative z-10 shadow-sm">
           <div className="flex items-center gap-2 text-brand">
               <MessageSquare size={16} />
               <span className="text-xs font-bold uppercase tracking-wider">Sexta-feira</span>
@@ -233,20 +244,24 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
           </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-black/20">
+      {/* Messages Area */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar relative z-10">
           {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-4 opacity-70">
-                  <Sparkles size={48} className="text-brand animate-pulse" />
+                  <div className="relative">
+                      <div className="absolute inset-0 bg-brand/20 blur-xl rounded-full"></div>
+                      <Sparkles size={48} className="text-brand animate-pulse relative z-10" />
+                  </div>
                   <div className="space-y-1">
-                      <p className="text-sm font-bold text-text">Sexta-feira pronta.</p>
+                      <p className="text-sm font-bold text-white">Sexta-feira pronta.</p>
                       <p className="text-xs text-text-sec">Lendo: {documentName}</p>
                       {Object.keys(lensData).length > 0 && (
-                          <div className="mt-2 px-2 py-1 bg-purple-500/10 border border-purple-500/20 rounded-lg text-[10px] text-purple-300 font-bold">
+                          <div className="mt-2 px-2 py-1 bg-purple-500/10 border border-purple-500/20 rounded-lg text-[10px] text-purple-300 font-bold backdrop-blur-sm">
                              <Sparkles size={10} className="inline mr-1" /> DADOS DA LENTE INTEGRADOS
                           </div>
                       )}
                   </div>
-                  <button onClick={handleGenerateBriefing} disabled={isGeneratingBriefing} className="mt-4 flex items-center gap-2 bg-[#2c2c2c] border border-gray-600 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-lg group">
+                  <button onClick={handleGenerateBriefing} disabled={isGeneratingBriefing} className="mt-4 flex items-center gap-2 bg-[#2c2c2c]/80 hover:bg-[#333] border border-gray-600 px-4 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-lg group backdrop-blur-sm">
                       {isGeneratingBriefing ? <Loader2 size={14} className="animate-spin" /> : <Podcast size={14} className="text-pink-400 group-hover:scale-110" />}
                       Gerar Guia de Estudo
                   </button>
@@ -255,10 +270,10 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
           {messages.map((m, i) => <MessageItem key={i} m={m} />)}
           {isLoading && messages[messages.length-1]?.role === 'user' && (
               <div className="flex gap-3 animate-in fade-in">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border bg-brand/10 border-brand/30 text-brand">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border bg-brand/10 border-brand/30 text-brand backdrop-blur-sm">
                       <FileSearch size={16} className="animate-pulse" />
                   </div>
-                  <div className="bg-surface border border-border rounded-2xl rounded-tl-none p-3 flex items-center gap-2">
+                  <div className="bg-surface/80 border border-border rounded-2xl rounded-tl-none p-3 flex items-center gap-2 backdrop-blur-sm">
                       <span className="text-xs text-text-sec italic">Processando...</span>
                       <div className="flex gap-1">
                           <div className="w-1 h-1 bg-brand rounded-full animate-bounce"></div>
@@ -269,10 +284,24 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
           )}
       </div>
 
-      <div className="p-4 border-t border-border bg-surface/30">
+      {/* Input Area */}
+      <div className="p-4 border-t border-white/10 bg-surface/80 backdrop-blur-md relative z-10">
           <div className="relative">
-              <textarea rows={1} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }} placeholder="Pergunte sobre o documento..." className="w-full bg-bg border border-border rounded-xl py-3 pl-4 pr-12 text-sm text-text focus:border-brand focus:ring-1 focus:ring-brand outline-none transition-all resize-none max-h-32" />
-              <button onClick={() => handleSend()} disabled={!input.trim() || isLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-brand text-bg rounded-lg hover:brightness-110 disabled:opacity-30 transition-all"><Send size={18} /></button>
+              <textarea 
+                rows={1} 
+                value={input} 
+                onChange={(e) => setInput(e.target.value)} 
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }} 
+                placeholder="Pergunte sobre o documento..." 
+                className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-4 pr-12 text-sm text-white focus:border-brand focus:ring-1 focus:ring-brand/50 outline-none transition-all resize-none max-h-32 placeholder:text-gray-500" 
+              />
+              <button 
+                onClick={() => handleSend()} 
+                disabled={!input.trim() || isLoading} 
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-brand text-[#0b141a] rounded-lg hover:brightness-110 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg shadow-brand/20"
+              >
+                <Send size={18} />
+              </button>
           </div>
       </div>
     </div>
