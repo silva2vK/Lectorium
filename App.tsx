@@ -131,14 +131,63 @@ const AppContent = () => {
         });
     }
 
-    if (!file.blob && !file.id.startsWith('local-') && !file.id.startsWith('native-')) {
-        const cached = await getOfflineFile(file.id);
-        if (cached) file.blob = cached; else if (navigator.onLine) {
-            if (!accessToken) { const valid = getValidDriveToken(); if (!valid) { setShowReauthToast(true); return; } setAccessToken(valid); }
-            try { const blob = await downloadDriveFile(accessToken || '', file.id, file.mimeType); if (syncStrategy === 'smart') await saveOfflineFile(file, blob); file.blob = blob; } catch (e: any) { if (e.message.includes('401')) { setShowReauthToast(true); return; } alert("Erro ao baixar arquivo."); return; }
+    // Lógica de Pré-carregamento Resiliente
+    // FIX: Permitir buscar cache para arquivos 'local-' (Recentes) que vêm sem blob
+    if (!file.blob && !file.id.startsWith('native-')) {
+        let fetchedBlob: Blob | undefined;
+        
+        // 1. Tenta Cache (Funciona para arquivos Cloud cacheados E arquivos Locais criados offline)
+        try {
+            fetchedBlob = await getOfflineFile(file.id);
+        } catch (e) {
+            console.warn("Erro ao ler cache offline:", e);
+        }
+
+        // 2. Se não tem cache, E NÃO É ARQUIVO LOCAL, tenta baixar da nuvem
+        if (!fetchedBlob && !file.id.startsWith('local-') && navigator.onLine) {
+            // Verifica/Renova Token
+            let tokenToUse = accessToken;
+            if (!tokenToUse) {
+                const valid = getValidDriveToken();
+                if (valid) {
+                    setAccessToken(valid);
+                    tokenToUse = valid;
+                } else {
+                    // Sem token: Não bloqueia! Apenas notifica.
+                    setShowReauthToast(true);
+                }
+            }
+
+            if (tokenToUse) {
+                try {
+                    const blob = await downloadDriveFile(tokenToUse, file.id, file.mimeType);
+                    if (syncStrategy === 'smart') {
+                        saveOfflineFile(file, blob).catch(err => console.warn("Erro ao salvar offline:", err));
+                    }
+                    fetchedBlob = blob;
+                } catch (e: any) {
+                    console.warn("Falha no download preliminar:", e);
+                    if (e.message.includes('401')) {
+                        setShowReauthToast(true);
+                    }
+                }
+            }
+        }
+
+        if (fetchedBlob) {
+            file.blob = fetchedBlob;
         }
     }
-    if (file.id.startsWith('native-') && file.handle && !file.blob) { try { file.blob = await file.handle.getFile(); } catch (e) { alert("Erro ao ler arquivo local."); return; } }
+
+    // Tratamento específico para arquivos nativos (File System Access API)
+    if (file.id.startsWith('native-') && file.handle && !file.blob) { 
+        try { 
+            file.blob = await file.handle.getFile(); 
+        } catch (e) { 
+            console.error("Erro ao ler arquivo nativo", e);
+        } 
+    }
+    
     addRecentFile(file);
     
     if (!background && document.startViewTransition) {
