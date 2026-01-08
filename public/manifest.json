@@ -3,70 +3,32 @@
   "scope": "/",
   "name": "Lectorium",
   "short_name": "Lectorium",
-  "description": "Um Workspace Acadêmico PWA local-first para visualizar PDFs do Google Drive, fazer anotações e gerir conhecimento.",
-  "lang": "pt-BR",
-  "dir": "ltr",
-  "start_url": "/?utm_source=pwa",
-  "display": "standalone",
-  "display_override": [
-    "window-controls-overlay",
-    "standalone",
-    "minimal-ui"
-  ],
-  "background_color": "#09090b",
-  "theme_color": "#09090b",
-  "orientation": "any",
-  "categories": [
-    "productivity",
-    "utilities",
-    "education"
-  ],
   "icons": [
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icons/maskable-icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ],
   "shortcuts": [
     {
       "name": "Meus Arquivos",
       "short_name": "Arquivos",
-      "description": "Abrir lista de arquivos do Drive",
       "url": "/?mode=browser&utm_source=pwa",
-      "icons": [
-        {
-          "src": "/icons/shortcut-files.svg",
-          "sizes": "any",
-          "type": "image/svg+xml"
-        }
-      ]
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Novo Mapa Mental",
       "short_name": "Mapa Mental",
-      "description": "Criar um novo mapa mental",
       "url": "/?mode=mindmaps&utm_source=pwa",
-      "icons": [
-        {
-          "src": "/icons/shortcut-mindmap.svg",
-          "sizes": "any",
-          "type": "image/svg+xml"
-        }
-      ]
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ],
   "file_handlers": [
@@ -76,13 +38,7 @@
         "application/pdf": [".pdf"],
         "application/json": [".mindmap", ".json"]
       },
-      "icons": [
-        {
-          "src": "/icons/file-pdf.svg",
-          "sizes": "512x512",
-          "type": "image/svg+xml"
-        }
-      ],
+      "icons": [{ "src": "/icons/icon-512.png", "sizes": "512x512" }],
       "launch_type": "single-client"
     }
   ]
