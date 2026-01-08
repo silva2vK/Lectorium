@@ -119,195 +119,6 @@ const AppContent = () => {
   const [showSecretThemeModal, setShowSecretThemeModal] = useState(false);
   const { isOcrRunning, addNotification } = useGlobalContext();
 
-  const handleOpenFile = useCallback(async (file: DriveFile, background: boolean = false) => {
-    if (isOcrRunning && openFiles.length >= 1) {
-        addNotification("Processamento em segundo plano ativo. Limite de 1 aba aberta para estabilidade.", "error");
-        return;
-    }
-
-    if (!background) {
-        flushSync(() => {
-            setTransitionId(file.id);
-        });
-    }
-
-    // Lógica de Pré-carregamento Resiliente
-    // FIX: Permitir buscar cache para arquivos 'local-' (Recentes) que vêm sem blob
-    if (!file.blob && !file.id.startsWith('native-')) {
-        let fetchedBlob: Blob | undefined;
-        
-        // 1. Tenta Cache (Funciona para arquivos Cloud cacheados E arquivos Locais criados offline)
-        try {
-            fetchedBlob = await getOfflineFile(file.id);
-        } catch (e) {
-            console.warn("Erro ao ler cache offline:", e);
-        }
-
-        // 2. Se não tem cache, E NÃO É ARQUIVO LOCAL, tenta baixar da nuvem
-        if (!fetchedBlob && !file.id.startsWith('local-') && navigator.onLine) {
-            // Verifica/Renova Token
-            let tokenToUse = accessToken;
-            if (!tokenToUse) {
-                const valid = getValidDriveToken();
-                if (valid) {
-                    setAccessToken(valid);
-                    tokenToUse = valid;
-                } else {
-                    // Sem token: Não bloqueia! Apenas notifica.
-                    setShowReauthToast(true);
-                }
-            }
-
-            if (tokenToUse) {
-                try {
-                    const blob = await downloadDriveFile(tokenToUse, file.id, file.mimeType);
-                    if (syncStrategy === 'smart') {
-                        saveOfflineFile(file, blob).catch(err => console.warn("Erro ao salvar offline:", err));
-                    }
-                    fetchedBlob = blob;
-                } catch (e: any) {
-                    console.warn("Falha no download preliminar:", e);
-                    if (e.message.includes('401')) {
-                        setShowReauthToast(true);
-                    }
-                }
-            }
-        }
-
-        if (fetchedBlob) {
-            file.blob = fetchedBlob;
-        }
-    }
-
-    // Tratamento específico para arquivos nativos (File System Access API)
-    if (file.id.startsWith('native-') && file.handle && !file.blob) { 
-        try { 
-            file.blob = await file.handle.getFile(); 
-        } catch (e) { 
-            console.error("Erro ao ler arquivo nativo", e);
-        } 
-    }
-    
-    addRecentFile(file);
-    
-    if (!background && document.startViewTransition) {
-        document.startViewTransition(() => {
-            flushSync(() => {
-                setOpenFiles(prev => prev.find(f => f.id === file.id) ? prev : [...prev, file]);
-                setActiveTab(file.id);
-                setIsSidebarOpen(false);
-            });
-        });
-    } else {
-        setOpenFiles(prev => prev.find(f => f.id === file.id) ? prev : [...prev, file]);
-        if (!background) {
-            setActiveTab(file.id);
-            setIsSidebarOpen(false);
-        } else {
-            addNotification(`"${file.name}" aberto em segundo plano.`, 'success');
-        }
-    }
-  }, [accessToken, syncStrategy, isOcrRunning, openFiles.length, addNotification]);
-
-  const handleCreateFileFromBlob = useCallback((blob: Blob, name: string, mimeType: string) => { handleOpenFile({ id: `local-${Date.now()}`, name, mimeType, blob }); }, [handleOpenFile]);
-
-  // Init & Routing
-  useEffect(() => {
-    const init = async () => {
-        const params = new URLSearchParams(window.location.search);
-        
-        // --- SHARE TARGET HANDLER ---
-        const shareTitle = params.get('share_title');
-        const shareText = params.get('share_text');
-        const shareUrl = params.get('share_url');
-
-        if (shareTitle || shareText || shareUrl) {
-            const content = [shareTitle, shareText, shareUrl].filter(Boolean).join('\n\n');
-            const fileId = `shared-note-${Date.now()}`;
-            const blob = new Blob([content], { type: 'text/plain' });
-            
-            // Auto-create note file
-            handleCreateFileFromBlob(blob, `Nota Compartilhada ${new Date().toLocaleTimeString()}.txt`, 'text/plain');
-            
-            // Clean URL
-            window.history.replaceState({}, document.title, "/");
-        }
-
-        // --- DEEP LINKING (Legal, Mode) ---
-        const legalParam = params.get('legal');
-        if (legalParam === 'privacy' || legalParam === 'terms') {
-            setLegalModalTab(legalParam as LegalTab);
-            setShowLegalModal(true);
-            window.history.replaceState({}, document.title, "/");
-        }
-
-        if (params.get('protocol') === 'genesis') {
-            setShowSecretThemeModal(true);
-            window.history.replaceState({}, document.title, "/");
-        }
-
-        // --- THEME ---
-        const root = document.documentElement;
-        const godModeTheme = localStorage.getItem('god_mode_theme');
-        
-        if (godModeTheme) {
-            try {
-                const parsed = JSON.parse(godModeTheme);
-                if (parsed.vars) {
-                    Object.entries(parsed.vars).forEach(([key, value]) => {
-                        root.style.setProperty(key, value as string);
-                    });
-                    root.classList.add('custom');
-                }
-            } catch (e) { console.warn("Erro ao carregar tema secreto"); }
-        } else {
-            const savedTheme = localStorage.getItem('app-theme') || 'forest';
-            const customColor = localStorage.getItem('custom-theme-brand');
-            root.className = ''; 
-            if (savedTheme !== 'forest') {
-                root.classList.add(savedTheme);
-                if (savedTheme === 'custom' && customColor) {
-                    root.style.setProperty('--custom-brand', customColor);
-                }
-            }
-        }
-
-        await performAppUpdateCleanup();
-        await runJanitor(); 
-        const storedHandle = await getLocalDirectoryHandle();
-        if (storedHandle) setSavedLocalDirHandle(storedHandle);
-
-        checkOnboarding();
-
-        // Check Fullscreen Preference
-        const fsPref = localStorage.getItem('fullscreen_pref');
-        if (fsPref === 'true' && !document.fullscreenElement) {
-            setTimeout(() => setShowFullscreenPrompt(true), 1000);
-        }
-    };
-    init();
-    
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (!currentUser) { setAccessToken(null); setOpenFiles([]); setActiveTab('dashboard'); } 
-      else { const storedToken = getValidDriveToken(); if (storedToken) setAccessToken(storedToken); }
-    });
-
-    const handleTokenUpdate = (e: Event) => {
-        const customEvent = e as CustomEvent;
-        if (customEvent.detail && customEvent.detail.token) {
-            setAccessToken(customEvent.detail.token);
-            setShowReauthToast(false);
-        }
-    };
-    window.addEventListener(DRIVE_TOKEN_EVENT, handleTokenUpdate);
-
-    return () => {
-        unsubscribeAuth();
-        window.removeEventListener(DRIVE_TOKEN_EVENT, handleTokenUpdate);
-    };
-  }, [handleCreateFileFromBlob]); // Add dependency for handleCreateFileFromBlob
-
   const handleAuthError = useCallback(() => {
       setAccessToken(null);
       setShowReauthToast(true);
@@ -328,6 +139,7 @@ const AppContent = () => {
 
   const { syncStatus } = useSync({ accessToken, onAuthError: handleAuthError });
 
+  // Onboarding Checks
   const checkOnboarding = useCallback(() => {
       const legalAccepted = localStorage.getItem('legal_terms_accepted_v1');
       const guideSeen = localStorage.getItem('onboarding_guide_seen');
@@ -353,14 +165,98 @@ const AppContent = () => {
       setOnboardingStep('none');
   }, []);
 
+  // Init & Theme Application
+  useEffect(() => {
+    const init = async () => {
+        const params = new URLSearchParams(window.location.search);
+        
+        // Deep Link: Suporte a links diretos para Termos/Privacidade
+        const legalParam = params.get('legal');
+        if (legalParam === 'privacy' || legalParam === 'terms') {
+            setLegalModalTab(legalParam as LegalTab);
+            setShowLegalModal(true);
+            // Limpa a URL para estética PWA
+            window.history.replaceState({}, document.title, "/");
+        }
+
+        if (params.get('protocol') === 'genesis') {
+            setShowSecretThemeModal(true);
+            window.history.replaceState({}, document.title, "/");
+        }
+
+        const root = document.documentElement;
+        const godModeTheme = localStorage.getItem('god_mode_theme');
+        
+        if (godModeTheme) {
+            try {
+                const parsed = JSON.parse(godModeTheme);
+                if (parsed.vars) {
+                    Object.entries(parsed.vars).forEach(([key, value]) => {
+                        root.style.setProperty(key, value as string);
+                    });
+                    root.classList.add('custom');
+                }
+            } catch (e) { console.warn("Erro ao carregar tema secreto"); }
+        } else {
+            const savedTheme = localStorage.getItem('app-theme') || 'forest';
+            const customColor = localStorage.getItem('custom-theme-brand');
+            
+            // Limpa classes antes de aplicar
+            root.className = ''; 
+            if (savedTheme !== 'forest') {
+                root.classList.add(savedTheme);
+                if (savedTheme === 'custom' && customColor) {
+                    root.style.setProperty('--custom-brand', customColor);
+                }
+            }
+        }
+
+        await performAppUpdateCleanup();
+        await runJanitor(); 
+        const storedHandle = await getLocalDirectoryHandle();
+        if (storedHandle) setSavedLocalDirHandle(storedHandle);
+
+        checkOnboarding();
+
+        // Check Fullscreen Preference
+        const fsPref = localStorage.getItem('fullscreen_pref');
+        if (fsPref === 'true' && !document.fullscreenElement) {
+            // Pequeno delay para garantir que o layout carregou
+            setTimeout(() => setShowFullscreenPrompt(true), 1000);
+        }
+    };
+    init();
+    
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (!currentUser) { setAccessToken(null); setOpenFiles([]); setActiveTab('dashboard'); } 
+      else { const storedToken = getValidDriveToken(); if (storedToken) setAccessToken(storedToken); }
+    });
+
+    const handleTokenUpdate = (e: Event) => {
+        const customEvent = e as CustomEvent;
+        if (customEvent.detail && customEvent.detail.token) {
+            setAccessToken(customEvent.detail.token);
+            setShowReauthToast(false);
+        }
+    };
+    window.addEventListener(DRIVE_TOKEN_EVENT, handleTokenUpdate);
+
+    return () => {
+        unsubscribeAuth();
+        window.removeEventListener(DRIVE_TOKEN_EVENT, handleTokenUpdate);
+    };
+  }, [checkOnboarding]);
+
   const handleCookieAccepted = () => {
+      // Quando cookie é aceito, dispara verificação dos próximos passos
       checkOnboarding();
   };
 
   const handleLegalAccepted = () => {
       localStorage.setItem('legal_terms_accepted_v1', 'true');
       setShowLegalModal(false);
-      checkOnboarding(); 
+      checkOnboarding(); // Verifica próximo passo (Guia)
   };
 
   const handleGuideCompleted = () => {
@@ -377,6 +273,47 @@ const AppContent = () => {
       if (!savedLocalDirHandle) return;
       try { const granted = await verifyPermission(savedLocalDirHandle, true); if (granted) { setLocalDirHandle(savedLocalDirHandle); setActiveTab('local-fs'); } else { alert("Acesso negado."); setSavedLocalDirHandle(null); } } catch (e) { handleOpenLocalFolder(); }
   }, [savedLocalDirHandle, handleOpenLocalFolder]);
+
+  const handleOpenFile = useCallback(async (file: DriveFile, background: boolean = false) => {
+    if (isOcrRunning && openFiles.length >= 1) {
+        addNotification("Processamento em segundo plano ativo. Limite de 1 aba aberta para estabilidade.", "error");
+        return;
+    }
+
+    if (!background) {
+        flushSync(() => {
+            setTransitionId(file.id);
+        });
+    }
+
+    if (!file.blob && !file.id.startsWith('local-') && !file.id.startsWith('native-')) {
+        const cached = await getOfflineFile(file.id);
+        if (cached) file.blob = cached; else if (navigator.onLine) {
+            if (!accessToken) { const valid = getValidDriveToken(); if (!valid) { setShowReauthToast(true); return; } setAccessToken(valid); }
+            try { const blob = await downloadDriveFile(accessToken || '', file.id, file.mimeType); if (syncStrategy === 'smart') await saveOfflineFile(file, blob); file.blob = blob; } catch (e: any) { if (e.message.includes('401')) { setShowReauthToast(true); return; } alert("Erro ao baixar arquivo."); return; }
+        }
+    }
+    if (file.id.startsWith('native-') && file.handle && !file.blob) { try { file.blob = await file.handle.getFile(); } catch (e) { alert("Erro ao ler arquivo local."); return; } }
+    addRecentFile(file);
+    
+    if (!background && document.startViewTransition) {
+        document.startViewTransition(() => {
+            flushSync(() => {
+                setOpenFiles(prev => prev.find(f => f.id === file.id) ? prev : [...prev, file]);
+                setActiveTab(file.id);
+                setIsSidebarOpen(false);
+            });
+        });
+    } else {
+        setOpenFiles(prev => prev.find(f => f.id === file.id) ? prev : [...prev, file]);
+        if (!background) {
+            setActiveTab(file.id);
+            setIsSidebarOpen(false);
+        } else {
+            addNotification(`"${file.name}" aberto em segundo plano.`, 'success');
+        }
+    }
+  }, [accessToken, syncStrategy, isOcrRunning, openFiles.length, addNotification]);
 
   useEffect(() => {
       const handler = (e: Event) => {
@@ -426,6 +363,8 @@ const AppContent = () => {
     handleOpenFile({ id: fileId, name: 'Novo Documento.docx', mimeType: MIME_TYPES.DOCX, blob: blob, parents: parentId ? [parentId] : [] });
   }, [handleOpenFile]);
 
+  const handleCreateFileFromBlob = useCallback((blob: Blob, name: string, mimeType: string) => { handleOpenFile({ id: `local-${Date.now()}`, name, mimeType, blob }); }, [handleOpenFile]);
+
   const handleCloseFile = useCallback((id: string) => {
     setOpenFiles(prev => { const next = prev.filter(f => f.id !== id); if (activeTab === id) setActiveTab(next.length ? next[next.length - 1].id : 'dashboard'); return next; });
   }, [activeTab]);
@@ -453,6 +392,7 @@ const AppContent = () => {
           if (!isLocal) {
               await renameDriveFile(accessToken!, fileId, safeName);
           }
+          // Update local state
           setOpenFiles(prev => prev.map(f => f.id === fileId ? { ...f, name: safeName } : f));
           addNotification("Arquivo renomeado.", "success");
       } catch (e) {
@@ -521,6 +461,7 @@ const AppContent = () => {
         </main>
         {showReauthToast && <ReauthToast onReauth={handleReauth} onClose={() => setShowReauthToast(false)} />}
         
+        {/* Onboarding Modals Chain */}
         <LegalModal 
             isOpen={showLegalModal} 
             onClose={onboardingStep === 'legal' ? handleLegalAccepted : () => setShowLegalModal(false)} 
@@ -533,6 +474,7 @@ const AppContent = () => {
             isMandatory={onboardingStep === 'guide'}
         />
 
+        {/* Fullscreen Prompt */}
         {showFullscreenPrompt && (
             <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
                 <div className="bg-[#1e1e1e] border border-brand/30 rounded-2xl shadow-2xl p-6 max-w-sm w-full relative">

@@ -105,10 +105,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setCachingStatus('caching');
     setCacheProgress(0);
     try {
-        await cacheAppResources(selectedCategories, (progress) => setCacheProgress(progress));
-        // Recalcular o tamanho TOTAL real após o download, somando todos os caches
-        const totalSize = await getOfflineCacheSize();
-        setDownloadSize(totalSize);
+        const size = await cacheAppResources(selectedCategories, (progress) => setCacheProgress(progress));
+        setDownloadSize(size);
         setCachingStatus('done');
     } catch (e) {
         setCachingStatus('idle'); 
@@ -291,7 +289,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <OfflineDownloadModal isOpen={showOfflineModal} onClose={() => setShowOfflineModal(false)} onConfirm={handleStartDownload} onClear={handleClearCache} currentSize={downloadSize} isDownloading={cachingStatus === 'caching'} progress={cacheProgress} />
       <ApiKeyModal isOpen={showKeyModal} onClose={() => setShowKeyModal(false)} />
-      <VersionDebugModal isOpen={showDebugModal} onClose={() => setShowDebugModal(false)} />
     </>
   );
 };

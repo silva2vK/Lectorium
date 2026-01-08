@@ -25,25 +25,9 @@ export function useDriveFiles(
   const { data: files = [], isLoading, error: queryError, refetch } = useQuery({
     queryKey: ['drive-files', mode, currentFolder, accessToken],
     queryFn: async () => {
-      // Modo Default (Navegador de Arquivos)
-      if (mode === 'default') {
-        // 1. Visitante (Sem Token): Retorna apenas arquivos locais/offline
-        if (!accessToken) {
-            return await listOfflineFiles();
-        }
-
-        // 2. Usuário Logado: Tenta buscar na nuvem
-        try {
-            return await listDriveContents(accessToken, currentFolder);
-        } catch (e: any) {
-            // Se o token expirou explicitamente, lançamos o erro para a UI pedir re-login
-            if (e.message === 'DRIVE_TOKEN_EXPIRED' || e.message.includes('401')) {
-                throw e;
-            }
-            // Para qualquer outro erro (ex: sem internet), fazemos fallback para arquivos locais
-            console.warn("Fallback para offline (Erro de rede ou API):", e);
-            return await listOfflineFiles();
-        }
+      // Modo Default exige token
+      if (mode === 'default' && !accessToken) {
+        throw new Error("DRIVE_TOKEN_EXPIRED");
       }
 
       if (mode === 'offline') {
@@ -62,22 +46,14 @@ export function useDriveFiles(
         if (accessToken && navigator.onLine) {
             try {
                 cloudMaps = await searchMindMaps(accessToken);
-            } catch (e: any) {
-                // Se der erro de auth, relança para a UI tratar.
-                if (e.message === 'DRIVE_TOKEN_EXPIRED' || e.message.includes('401')) {
-                    throw e;
-                }
-                console.warn("Cloud fetch skipped for mindmaps (network or unknown error).", e);
+            } catch (e) {
+                console.warn("Cloud fetch skipped for mindmaps (offline or auth issue).");
             }
         }
 
-        // Merge (Prioriza Cloud se existir conflito de ID, ou mescla inteligente)
+        // Merge
         const fileMap = new Map<string, DriveFile>();
-        
-        // Adiciona locais primeiro
         localMaps.forEach(f => fileMap.set(f.id, f));
-        
-        // Adiciona/Sobrescreve com nuvem (cloudMaps geralmente tem dados mais recentes de meta)
         cloudMaps.forEach(f => fileMap.set(f.id, f));
         
         const fetchedFiles = Array.from(fileMap.values());
@@ -93,7 +69,8 @@ export function useDriveFiles(
         return await listLocalFiles(localDirectoryHandle);
       }
       
-      return [];
+      // Default Mode
+      return await listDriveContents(accessToken, currentFolder);
     },
     // Se der erro de auth, dispara callback
     meta: {
@@ -102,11 +79,6 @@ export function useDriveFiles(
           onAuthError();
         }
       }
-    },
-    retry: (failureCount, error: any) => {
-        // Não retenta se for erro de auth, falha logo para pedir login
-        if (error.message === 'DRIVE_TOKEN_EXPIRED' || error.message.includes('401')) return false;
-        return failureCount < 2;
     }
   });
 
@@ -172,7 +144,7 @@ export function useDriveFiles(
     queryClient.invalidateQueries({ queryKey: ['offline-status'] });
   }, [queryClient]);
 
-  const authError = queryError?.message === 'DRIVE_TOKEN_EXPIRED' || (queryError as any)?.message?.includes('401');
+  const authError = queryError?.message === 'DRIVE_TOKEN_EXPIRED';
 
   return {
     files,

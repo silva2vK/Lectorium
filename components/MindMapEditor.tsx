@@ -3,10 +3,10 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { 
   Plus, Minus, Trash2, Type, Menu, Save, Loader2, Link, Download, WifiOff, 
   Undo, Redo, Square, Image as ImageIcon, X, Palette, Scaling, ChevronUp,
-  Edit2, Check, CornerDownRight, Sparkles, CloudUpload, Cloud
+  Edit2, Check, CornerDownRight, Sparkles
 } from 'lucide-react';
-import { updateDriveFile, downloadDriveFile, uploadFileToDrive } from '../services/driveService';
-import { saveOfflineFile, addToSyncQueue } from '../services/storageService';
+import { updateDriveFile, downloadDriveFile } from '../services/driveService';
+import { saveOfflineFile } from '../services/storageService';
 import { MindMapNode, MindMapEdge, MindMapViewport, MindMapData } from '../types';
 import { AiChatPanel } from './shared/AiChatPanel';
 
@@ -32,12 +32,7 @@ interface HistoryState {
 }
 
 export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, accessToken, onToggleMenu, onAuthError, onRename }) => {
-  // Determina se o arquivo tem origem local (ID temporário ou arquivo do dispositivo)
-  const isLocalOrigin = fileId.startsWith('local-') || fileId.startsWith('native-');
-  // Determina se temos capacidade de nuvem (Token + Internet)
-  const isCloudCapable = !!accessToken && navigator.onLine;
-  // O modo é estritamente offline apenas se não houver capacidade de nuvem
-  const isStrictlyOffline = !isCloudCapable;
+  const isLocalFile = fileId.startsWith('local-') || !accessToken;
 
   // --- State ---
   const [nodes, setNodes] = useState<MindMapNode[]>([]);
@@ -146,7 +141,7 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
         setIsLoading(true);
         let blobToRead = fileBlob;
 
-        if (!blobToRead && accessToken && !isLocalOrigin) {
+        if (!blobToRead && accessToken && !isLocalFile) {
              try { blobToRead = await downloadDriveFile(accessToken, fileId); } catch (e) { console.error(e); }
         }
 
@@ -230,56 +225,24 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
     if (isLoading || nodes.length === 0) return;
     setHasUnsavedChanges(true);
     
-    // Autosave to Drive only if NOT local origin and ONLINE
-    if (!isLocalOrigin && isCloudCapable) {
+    if (!isLocalFile && navigator.onLine) {
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = setTimeout(saveToDrive, 3000); 
-    } else {
-        // Autosave Local fallback
-        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-        saveTimeoutRef.current = setTimeout(saveToAppStorage, 3000); 
     }
     return () => { if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current); };
-  }, [nodes, edges, viewport]); 
+  }, [nodes, edges, viewport]); // Syncs when viewport state finally settles
 
   const saveToDrive = async () => {
-      // Se não temos token, não podemos salvar no drive
-      if (!accessToken) {
-          saveToAppStorage();
-          return;
-      }
-
+      if (!accessToken || isLocalFile) return;
       setIsSaving(true);
       const data: MindMapData = { nodes, edges, viewport };
       const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-      const currentName = fileName.endsWith('.mindmap') ? fileName : `${fileName}.mindmap`;
-
       try {
-          if (isLocalOrigin) {
-              // Se é origem local, fazemos UPLOAD como novo arquivo
-              await uploadFileToDrive(accessToken, blob, currentName, [], 'application/json');
-              alert("Mapa Mental sincronizado com o Drive com sucesso!");
-              // Nota: O ID do arquivo na UI não mudará até recarregar, mas os dados estão seguros na nuvem
-          } else {
-              // Se já é arquivo do drive, atualizamos
-              await updateDriveFile(accessToken, fileId, blob, 'application/json');
-          }
-          
-          // Também salvamos localmente para acesso offline rápido
-          await saveOfflineFile({
-              id: fileId,
-              name: fileName,
-              mimeType: 'application/json',
-              size: blob.size.toString(),
-              modifiedTime: new Date().toISOString()
-          }, blob);
-
+          await updateDriveFile(accessToken, fileId, blob, 'application/json');
           setHasUnsavedChanges(false);
       } catch (e: any) {
           console.error("Autosave failed", e);
           if (e.message === "Unauthorized" && onAuthError) onAuthError();
-          // Fallback
-          saveToAppStorage();
       } finally {
           setIsSaving(false);
       }
@@ -299,16 +262,10 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
               modifiedTime: new Date().toISOString()
           }, blob);
           
-          // Se estiver offline mas for arquivo de nuvem, enfileira sync
-          if (!isLocalOrigin && !navigator.onLine) {
-              await addToSyncQueue({ 
-                  fileId, action: 'update', blob, name: fileName, mimeType: 'application/json' 
-              });
-          }
-
           setHasUnsavedChanges(false);
       } catch (e) {
           console.error("Local save failed", e);
+          alert("Erro ao salvar localmente.");
       } finally {
           setIsSaving(false);
       }
@@ -845,18 +802,9 @@ ${JSON.stringify({
                     </div>
                 )}
             </div>
-            
-            {/* Status Badges */}
-            {isStrictlyOffline && (
+            {(isLocalFile || !navigator.onLine) && (
                 <div className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 rounded-lg text-xs font-bold">
                     <WifiOff size={14} /> Offline
-                </div>
-            )}
-            
-            {/* Show "Local" badge if file is local but we are online (can upload) */}
-            {isLocalOrigin && isCloudCapable && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-lg text-xs font-bold" title="Arquivo salvo apenas no dispositivo.">
-                    <Cloud size={14} /> Local (Não Salvo na Nuvem)
                 </div>
             )}
         </div>
@@ -871,14 +819,12 @@ ${JSON.stringify({
             </button>
             
             <button 
-                onClick={saveToDrive} 
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold hover:brightness-110 transition-all ${isLocalOrigin && isCloudCapable ? 'bg-blue-600 text-white' : 'bg-brand text-bg'}`}
-                title={isLocalOrigin && isCloudCapable ? "Fazer Upload para o Drive" : (isStrictlyOffline ? "Salvar Offline" : "Sincronizar no Drive")}
+                onClick={isLocalFile ? saveToAppStorage : saveToDrive} 
+                className="flex items-center gap-2 px-4 py-2.5 bg-brand text-bg rounded-xl font-bold hover:brightness-110 transition-all"
+                title={isLocalFile ? "Salvar no Aplicativo (Local)" : "Salvar no Drive"}
             >
-                {isSaving ? <Loader2 size={18} className="animate-spin" /> : (isLocalOrigin && isCloudCapable ? <CloudUpload size={18} /> : <Save size={18} />)}
-                <span className="hidden sm:inline">
-                    {isLocalOrigin && isCloudCapable ? 'Salvar no Drive' : 'Salvar'}
-                </span>
+                {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                <span className="hidden sm:inline">Salvar</span>
             </button>
         </div>
 
