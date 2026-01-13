@@ -274,7 +274,6 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
   return (
     <div 
       className="flex flex-col h-screen bg-[#050505] text-text relative overflow-hidden font-sans" 
-      onContextMenu={(e) => e.preventDefault()}
       style={{ viewTransitionName: 'hero-expand' }}
     >
       <svg style={{ width: 0, height: 0, position: 'absolute' }}>

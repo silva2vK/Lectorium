@@ -22,6 +22,7 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({ pageNumber, filterV
   const scale = usePdfStore(state => state.scale);
   const currentPage = usePdfStore(state => state.currentPage); // Consumindo currentPage para Priority Rendering
   const activeTool = usePdfStore(state => state.activeTool);
+  const isSpread = usePdfStore(state => state.isSpread); // Estado consumido da UI
   const setIsSpread = usePdfStore(state => state.setIsSpread);
   const spreadSide = usePdfStore(state => state.spreadSide);
   
@@ -33,7 +34,6 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({ pageNumber, filterV
 
   const activeInkCanvasRef = useRef<HTMLCanvasElement>(null);
   const pageContainerRef = useRef<HTMLDivElement>(null);
-  const draftTextareaRef = useRef<HTMLTextAreaElement>(null);
   
   const [rendered, setRendered] = useState(false);
   const [hasText, setHasText] = useState(true); 
@@ -68,13 +68,20 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({ pageNumber, filterV
     return { width: vp.width, height: vp.height };
   }, [pageProxy, scale]);
 
+  // Auto-detecção inicial (apenas na montagem ou mudança de dimensão drástica)
   useEffect(() => {
-    if (pageDimensions) setIsSpread(pageDimensions.width > pageDimensions.height * 1.1);
+    if (pageDimensions && !usePdfStore.getState().isSpread) {
+        // Só ativa automático se não estiver já definido pelo usuário
+        const shouldBeSpread = pageDimensions.width > pageDimensions.height * 1.1;
+        if (shouldBeSpread) setIsSpread(true);
+    }
   }, [pageDimensions, setIsSpread]);
 
-  const isSplitActive = settings.detectColumns && (pageDimensions?.width > pageDimensions?.height * 1.1);
+  // Lógica corrigida: Usa 'isSpread' (Toggle da UI) como fonte da verdade visual
+  // Adicionamos verificação de dimensão apenas para segurança (evitar cortar página retrato)
+  const isSplitActive = isSpread && (pageDimensions ? pageDimensions.width > pageDimensions.height * 1.1 : false);
 
-  const { handlePointerDown, handlePointerMove, handlePointerUp, brushSelection, draftNote, setDraftNote } = usePdfInput({
+  const { handlePointerDown, handlePointerMove, handlePointerUp, brushSelection } = usePdfInput({
       pageNumber, 
       scale, 
       activeTool, 
@@ -83,16 +90,10 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({ pageNumber, filterV
       activeInkCanvasRef, 
       pageDimensions, 
       addAnnotation, 
-      removeAnnotation, // Passado para o hook
-      annotations,      // Passado para o hook
+      removeAnnotation, 
+      annotations,      
       onSmartTap
   });
-
-  useEffect(() => {
-    if (draftNote && draftTextareaRef.current) {
-        setTimeout(() => draftTextareaRef.current?.focus({ preventScroll: true }), 50);
-    }
-  }, [draftNote]);
 
   const outerWidth = isSplitActive ? (pageDimensions?.width || 800) / 2 : (pageDimensions?.width || 800);
   const innerTransform = isSplitActive ? `translateX(${spreadSide === 'right' ? '-50%' : '0'})` : 'none';
@@ -157,12 +158,13 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({ pageNumber, filterV
                 />
             )}
 
-            <div className="absolute inset-0 pointer-events-none z-40">
+            {/* CAMADA DE ANOTAÇÕES (Z-Index aumentado para 50 para ficar acima do texto e garantir clique) */}
+            <div className="absolute inset-0 pointer-events-none z-[50]">
                 {pageAnnotations.filter(a => a.type === 'highlight' && !a.isBurned).map((a, i) => (
                     <div key={a.id || i} className="absolute mix-blend-multiply" style={{ left: a.bbox[0] * scale, top: a.bbox[1] * scale, width: a.bbox[2] * scale, height: a.bbox[3] * scale, backgroundColor: a.color, opacity: a.opacity }} />
                 ))}
                 {pageAnnotations.filter(a => a.type === 'note' && !a.isBurned).map((a, i) => (
-                    <NoteMarker key={a.id || i} ann={a} scale={scale} activeTool={activeTool} onDelete={removeAnnotation} />
+                    <NoteMarker key={a.id || i} ann={a} scale={scale} activeTool={activeTool} onDelete={removeAnnotation} onUpdate={addAnnotation} />
                 ))}
             </div>
 
@@ -175,7 +177,8 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({ pageNumber, filterV
                 isTranslationMode={isTranslationMode} 
                 rendered={rendered} 
                 activeTool={activeTool} 
-                detectColumns={settings.detectColumns} 
+                // CRÍTICO: Se estiver cortado visualmente (isSplitActive), forçamos detectColumns = true
+                detectColumns={settings.detectColumns || isSplitActive} 
                 width={pageDimensions?.width || 800} 
                 height={pageDimensions?.height || 1100} 
                 spreadSide={spreadSide} 
@@ -185,18 +188,6 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({ pageNumber, filterV
                 onHasText={setHasText} 
                 highlightColor={settings.highlightColor}
             />
-
-            {draftNote && (
-                <div className="absolute z-50 bg-yellow-100 p-3 rounded-lg border border-yellow-300 shadow-xl" style={{ left: draftNote.x * scale, top: draftNote.y * scale }}>
-                    <textarea ref={draftTextareaRef} autoFocus className="bg-transparent border-none outline-none text-sm text-yellow-900 resize-none w-48 h-24" placeholder="Nota..." onKeyDown={e => { 
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                            if (e.currentTarget.value.trim()) addAnnotation({ id: `note-${Date.now()}`, page: pageNumber, bbox: [draftNote.x, draftNote.y, 0, 0], type: 'note', text: e.currentTarget.value, color: '#fef9c3', createdAt: new Date().toISOString() }); 
-                            setDraftNote(null);
-                        } 
-                        if (e.key === 'Escape') setDraftNote(null); 
-                    }} />
-                </div>
-            )}
         </div>
     </div>
   );

@@ -27,7 +27,6 @@ export const usePdfInput = ({
     const isErasingRef = useRef(false);
     const cursorStartRef = useRef<{ x: number, y: number } | null>(null);
     const [brushSelection, setBrushSelection] = useState<{ start: { x: number, y: number }, current: { x: number, y: number } } | null>(null);
-    const [draftNote, setDraftNote] = useState<{ x: number, y: number, text: string } | null>(null);
 
     // Inicializa contexto otimizado (Chrome Low Latency Ink)
     const getContext = () => {
@@ -102,7 +101,17 @@ export const usePdfInput = ({
             return;
         }
         if (activeTool === 'note') {
-            if (!(e.target as HTMLElement).closest('.annotation-item')) setDraftNote({ x, y, text: '' });
+            // CRIAÇÃO IMEDIATA: Pula o estágio de rascunho amarelo.
+            // O NoteMarker detectará que é novo (pelo timestamp) e abrirá o modal automaticamente.
+            addAnnotation({
+                id: `note-${Date.now()}`,
+                page: pageNumber,
+                bbox: [x, y, 0, 0],
+                type: 'note',
+                text: '', // Texto vazio para iniciar
+                color: '#fef9c3',
+                createdAt: new Date().toISOString()
+            });
             return;
         }
         if (activeTool === 'ink') {
@@ -247,5 +256,5 @@ export const usePdfInput = ({
         }
     };
 
-    return { handlePointerDown, handlePointerMove, handlePointerUp, brushSelection, draftNote, setDraftNote };
+    return { handlePointerDown, handlePointerMove, handlePointerUp, brushSelection };
 };

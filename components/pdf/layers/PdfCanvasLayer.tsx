@@ -21,15 +21,20 @@ export const PdfCanvasLayer: React.FC<PdfCanvasLayerProps> = React.memo(({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<any>(null);
-  const cacheKey = `${fileId}-p${pageNumber}-s${scale.toFixed(2)}`;
+  
+  // Constantes de DPR
+  const nativeDpr = window.devicePixelRatio || 1;
+  const activeDpr = Math.min(nativeDpr, 2.0); // Qualidade Alta (Capped)
+  const preloadDpr = 1.5; // Qualidade Média (Preloader)
+
+  // Chaves de Cache Distintas
+  const exactKey = `${fileId}-p${pageNumber}-s${scale.toFixed(2)}-d${activeDpr}`;
+  const preloadKey = `${fileId}-p${pageNumber}-s${scale.toFixed(2)}-d${preloadDpr}`;
 
   useEffect(() => {
     if (!isVisible || !pageProxy || !canvasRef.current) return;
     let active = true;
     
-    const nativeDpr = window.devicePixelRatio || 1;
-    const cappedDpr = Math.min(nativeDpr, 2.0); 
-
     const render = async () => {
       try {
         const viewport = pageProxy.getViewport({ scale: scale });
@@ -39,31 +44,44 @@ export const PdfCanvasLayer: React.FC<PdfCanvasLayerProps> = React.memo(({
         
         if (renderTaskRef.current) try { renderTaskRef.current.cancel(); } catch {}
 
-        const targetWidth = Math.floor(viewport.width * cappedDpr);
-        const targetHeight = Math.floor(viewport.height * cappedDpr);
+        const targetWidth = Math.floor(viewport.width * activeDpr);
+        const targetHeight = Math.floor(viewport.height * activeDpr);
         
         if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
             canvas.width = targetWidth;
             canvas.height = targetHeight;
         }
         
-        // Cache Logic
-        const cachedBitmap = bitmapCache.get(cacheKey);
+        // 1. Tenta recuperar a versão HD exata
+        const cachedBitmap = bitmapCache.get(exactKey);
         
         if (cachedBitmap) {
             ctx.drawImage(cachedBitmap, 0, 0, targetWidth, targetHeight);
             if (active) onRendered();
         } else {
-            const fallbackBitmap = bitmapCache.findNearest(fileId, pageNumber);
-            if (fallbackBitmap) {
-                ctx.drawImage(fallbackBitmap, 0, 0, targetWidth, targetHeight);
+            // 2. Fallback Progressivo: Se não tem HD, desenha o que tiver para feedback instantâneo
+            
+            // Tenta o Preload (mesma escala, DPR menor) - Isso evita o flash branco!
+            const preloadBitmap = bitmapCache.get(preloadKey);
+            
+            if (preloadBitmap) {
+                // Desenha a versão pré-carregada esticada (pode ficar levemente blurry por instantes)
+                ctx.drawImage(preloadBitmap, 0, 0, targetWidth, targetHeight);
             } else {
-                ctx.fillStyle = pageColor || '#ffffff';
-                ctx.fillRect(0, 0, targetWidth, targetHeight);
+                // Tenta qualquer outra escala (Zoom)
+                const nearestBitmap = bitmapCache.findNearest(fileId, pageNumber);
+                if (nearestBitmap) {
+                    ctx.drawImage(nearestBitmap, 0, 0, targetWidth, targetHeight);
+                } else {
+                    // Último caso: fundo sólido
+                    ctx.fillStyle = pageColor || '#ffffff';
+                    ctx.fillRect(0, 0, targetWidth, targetHeight);
+                }
             }
 
+            // 3. Renderiza a versão HD
             ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.scale(cappedDpr, cappedDpr);
+            ctx.scale(activeDpr, activeDpr);
 
             const task = pageProxy.render({ canvasContext: ctx, viewport });
             renderTaskRef.current = task;
@@ -71,8 +89,9 @@ export const PdfCanvasLayer: React.FC<PdfCanvasLayerProps> = React.memo(({
             
             if (renderTaskRef.current !== task || !active) return;
 
+            // Salva o resultado HD no cache com a chave correta
             createImageBitmap(canvas).then(bitmap => {
-                if (active) bitmapCache.set(cacheKey, bitmap);
+                if (active) bitmapCache.set(exactKey, bitmap);
                 else bitmap.close();
             });
 
@@ -90,7 +109,7 @@ export const PdfCanvasLayer: React.FC<PdfCanvasLayerProps> = React.memo(({
         active = false; 
         if (renderTaskRef.current) try { renderTaskRef.current.cancel(); } catch {}
     };
-  }, [pageProxy, scale, isVisible, pageColor, cacheKey, width, height]);
+  }, [pageProxy, scale, isVisible, pageColor, exactKey, preloadKey, width, height, activeDpr]);
 
   return (
     <canvas 

@@ -152,7 +152,7 @@ export const SemanticLensPanel: React.FC<Props> = ({ pageNumber, onNavigateBack 
           )}
 
           <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-              <article className="prose prose-invert prose-sm max-w-none prose-p:text-gray-300 prose-p:leading-relaxed">
+              <article className="prose prose-invert prose-sm max-w-none prose-p:text-gray-300 prose-p:leading-relaxed select-text selection:bg-brand/30 selection:text-white">
                   <div className="whitespace-pre-wrap font-serif text-base">{data.markdown}</div>
               </article>
           </div>

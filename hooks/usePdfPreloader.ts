@@ -28,11 +28,15 @@ export const usePdfPreloader = ({ pdfDoc, currentPage, scale, fileId }: UsePdfPr
         if (currentPage < pdfDoc.numPages) pagesToPreload.push(currentPage + 1);
         if (currentPage > 1) pagesToPreload.push(currentPage - 1);
 
+        // Limita densidade de pixels para background tasks (economia de bateria e memória)
+        const PRELOAD_DPR = 1.5;
+
         for (const pageNum of pagesToPreload) {
             // Se o tempo ocioso acabar, pare e aguarde o próximo frame
             if (deadline.timeRemaining() < 1) break;
 
-            const cacheKey = `${fileId}-p${pageNum}-s${scale.toFixed(2)}`;
+            // FIX: Inclui DPR na chave para diferenciar do render principal (High Quality)
+            const cacheKey = `${fileId}-p${pageNum}-s${scale.toFixed(2)}-d${PRELOAD_DPR}`;
             
             // Se já está no cache, ignora
             if (bitmapCache.has(cacheKey)) continue;
@@ -41,10 +45,8 @@ export const usePdfPreloader = ({ pdfDoc, currentPage, scale, fileId }: UsePdfPr
                 const page = await pdfDoc.getPage(pageNum);
                 const viewport = page.getViewport({ scale });
                 
-                // Limita densidade de pixels para background tasks (economia de bateria)
-                const dpr = Math.min(window.devicePixelRatio || 1, 1.5); 
-                const width = Math.floor(viewport.width * dpr);
-                const height = Math.floor(viewport.height * dpr);
+                const width = Math.floor(viewport.width * PRELOAD_DPR);
+                const height = Math.floor(viewport.height * PRELOAD_DPR);
 
                 const canvas = new OffscreenCanvas(width, height);
                 const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: false }) as any;
@@ -52,13 +54,13 @@ export const usePdfPreloader = ({ pdfDoc, currentPage, scale, fileId }: UsePdfPr
                 if (ctx) {
                     ctx.fillStyle = '#ffffff';
                     ctx.fillRect(0, 0, width, height);
-                    ctx.scale(dpr, dpr);
+                    ctx.scale(PRELOAD_DPR, PRELOAD_DPR);
 
                     await page.render({ canvasContext: ctx, viewport }).promise;
                     
                     const bitmap = await canvas.transferToImageBitmap();
                     bitmapCache.set(cacheKey, bitmap);
-                    console.debug(`[Preloader] Página ${pageNum} pronta na memória.`);
+                    console.debug(`[Preloader] Página ${pageNum} pronta na memória (DPR ${PRELOAD_DPR}).`);
                 }
             } catch (e) {
                 // Silently fail for preload operations
