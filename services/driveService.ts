@@ -1,25 +1,19 @@
 
 import { DriveFile, MIME_TYPES } from "../types";
-import { getValidDriveToken, refreshDriveTokenBFF } from "./authService";
+import { getValidDriveToken, signInWithGoogleDrive, saveDriveToken, refreshDriveTokenSilently } from "./authService";
 
 const LIST_PARAMS = "&supportsAllDrives=true&includeItemsFromAllDrives=true";
 const WRITE_PARAMS = "&supportsAllDrives=true";
 
 /**
- * Interceptador Centralizado de Requisições (Protocolo BFF Auto-Retry)
- * 1. Tenta usar o token atual da memória/localStorage.
- * 2. Se 401, chama /api/auth/refresh (Cloudflare) para usar o Cookie HttpOnly.
- * 3. Se falhar, lança erro para UI disparar login manual.
+ * Interceptador Centralizado de Requisições (Protocolo Auto-Retry v2)
+ * 1. Tenta usar o token atual.
+ * 2. Se 401, tenta refresh silencioso via GSI (Sessão do Chrome).
+ * 3. Se falhar, lança erro para UI disparar popup manual.
  */
 async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
   let token = getValidDriveToken();
   const headers = new Headers(options.headers || {});
-
-  // Se não temos token válido localmente, tentamos renovar antes da primeira chamada
-  // Isso evita uma chamada falha desnecessária à API do Google
-  if (!token) {
-     token = await refreshDriveTokenBFF();
-  }
 
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
@@ -27,22 +21,24 @@ async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Re
 
   let response = await fetch(url, { ...options, headers });
 
-  // Se receber 401 (Unauthorized) mesmo com o token que achávamos válido
+  // Se receber 401 (Unauthorized), tenta renovação invisível
   if (response.status === 401) {
-    console.warn("[Auto-Retry] Token rejeitado. Tentando renovação via BFF...");
+    console.warn("[Auto-Retry] Token expirado. Tentando renovação silenciosa via Chrome...");
     
     try {
-      const newToken = await refreshDriveTokenBFF();
+      // Recurso Pro: Tenta atualizar sem interromper o fluxo de trabalho do usuário
+      const newToken = await refreshDriveTokenSilently();
       
       if (newToken) {
-        console.log("[Auto-Retry] Token renovado pelo servidor. Retentando...");
+        console.log("[Auto-Retry] Token renovado silenciosamente. Retentando...");
         headers.set('Authorization', `Bearer ${newToken}`);
         response = await fetch(url, { ...options, headers });
       } else {
+        // Se o silencioso falhar, precisamos de interação humana
         throw new Error("DRIVE_TOKEN_EXPIRED");
       }
     } catch (renewError) {
-      console.error("[Auto-Retry] Falha na renovação.", renewError);
+      console.error("[Auto-Retry] Falha na renovação automática.", renewError);
       throw new Error("DRIVE_TOKEN_EXPIRED");
     }
   }

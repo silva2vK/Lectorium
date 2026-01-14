@@ -5,12 +5,11 @@ import { auth } from "../firebase";
 const TOKEN_DATA_KEY = 'drive_access_token_data';
 export const DRIVE_TOKEN_EVENT = 'drive_token_changed';
 
-// ID do Cliente (Público)
-const GOOGLE_CLIENT_ID = "456660035916-p82oql83gqufjkf3vlkun9scf9v18d3p.apps.googleusercontent.com";
+// Escopos necessários para o Lectorium
 const DRIVE_SCOPES = "https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.install";
 
 export const saveDriveToken = (token: string, expiresIn: number = 3600) => {
-  const expiryDate = Date.now() + (expiresIn - 60) * 1000; // Margem de segurança de 1 min
+  const expiryDate = Date.now() + (expiresIn - 300) * 1000; 
   const tokenData = {
     token,
     expiresAt: expiryDate
@@ -25,7 +24,6 @@ export const getValidDriveToken = (): string | null => {
   
   try {
     const { token, expiresAt } = JSON.parse(data);
-    // Se estiver expirado, retornamos null para forçar o refresh via BFF
     if (Date.now() > expiresAt) {
       return null; 
     }
@@ -36,97 +34,66 @@ export const getValidDriveToken = (): string | null => {
 };
 
 /**
- * BFF FLOW: Refresh Token via Cloudflare Functions
- * Chama nosso backend seguro para pegar um novo token usando o cookie HttpOnly.
+ * Recurso Chrome: Storage Persistence
+ * Solicita ao navegador que o armazenamento local não seja limpo automaticamente.
  */
-export async function refreshDriveTokenBFF(): Promise<string | null> {
-  try {
-    const response = await fetch('/api/auth/refresh', { method: 'POST' });
-    
-    if (response.ok) {
-      const data = await response.json();
-      if (data.access_token) {
-        saveDriveToken(data.access_token, data.expires_in);
-        return data.access_token;
-      }
-    }
-    console.warn("[Auth] Falha ao renovar token via BFF:", response.status);
-    return null;
-  } catch (e) {
-    console.error("[Auth] Erro de rede no refresh BFF", e);
-    return null;
+export async function requestPersistentStorage() {
+  if (navigator.storage && navigator.storage.persist) {
+    const isPersisted = await navigator.storage.persist();
+    console.debug(`[Lectorium Core] Armazenamento persistente: ${isPersisted ? 'ATIVADO' : 'NEGADO'}`);
+    return isPersisted;
   }
+  return false;
 }
 
 /**
- * BFF FLOW: Login Inicial com Code Flow
- * Em vez de pegar o token direto, pegamos um CODE e trocamos no servidor.
+ * Protocolo de Refresh Silencioso via GSI
+ * Tenta obter um novo token sem abrir popups, usando a sessão ativa do Chrome.
  */
-export async function authorizeDriveAccess(): Promise<string> {
-  return new Promise((resolve, reject) => {
+export async function refreshDriveTokenSilently(): Promise<string | null> {
+  return new Promise((resolve) => {
     try {
-      const client = (window as any).google?.accounts?.oauth2?.initCodeClient({
-        client_id: GOOGLE_CLIENT_ID,
+      const client = (window as any).google?.accounts?.oauth2?.initTokenClient({
+        client_id: "456660035916-p82oql83gqufjkf3vlkun9scf9v18d3p.apps.googleusercontent.com", // ID extraído da config
         scope: DRIVE_SCOPES,
-        ux_mode: 'popup',
-        callback: async (response: any) => {
-          if (response.code) {
-            // Envia o código para o Cloudflare trocar por tokens e setar o cookie
-            try {
-              const exchangeRes = await fetch('/api/auth/exchange', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                  code: response.code,
-                  redirect_uri: window.location.origin // Importante para validação
-                })
-              });
-
-              const data = await exchangeRes.json();
-              
-              if (exchangeRes.ok && data.access_token) {
-                saveDriveToken(data.access_token, data.expires_in);
-                resolve(data.access_token);
-              } else {
-                reject(new Error("Falha na troca de token no servidor"));
-              }
-            } catch (err) {
-              reject(err);
-            }
+        callback: (response: any) => {
+          if (response.access_token) {
+            saveDriveToken(response.access_token, response.expires_in);
+            resolve(response.access_token);
           } else {
-            reject(new Error("Usuário cancelou ou erro no Google"));
+            resolve(null);
           }
         },
       });
 
-      client.requestCode();
+      // prompt: '' instrui o Google a não mostrar UI se o usuário já consentiu
+      client.requestToken({ prompt: '' });
     } catch (e) {
-      reject(e);
+      console.warn("[GSI] Falha no refresh silencioso", e);
+      resolve(null);
     }
   });
 }
 
-// Mantém o login do Firebase para Identidade visual (Avatar/Nome),
-// mas a autorização do Drive agora é separada via Code Flow.
 export async function signInWithGoogleDrive() {
   const provider = new GoogleAuthProvider();
-  // Removemos addScope daqui pois vamos pedir permissão via Code Flow separado
-  // para garantir o Refresh Token.
+  provider.addScope("https://www.googleapis.com/auth/drive");
+  provider.addScope("https://www.googleapis.com/auth/drive.install");
 
   try {
     await setPersistence(auth, browserLocalPersistence);
-    
-    // 1. Login de Identidade (Firebase)
+    await requestPersistentStorage();
+
     const result = await signInWithPopup(auth, provider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
     
-    // 2. Login de Dados (Drive - Code Flow para BFF)
-    // Isso abrirá um segundo popup se não tivermos permissão offline ainda,
-    // mas garante o Refresh Token eterno no servidor.
-    const driveToken = await authorizeDriveAccess();
+    if (!credential?.accessToken) {
+      throw new Error("No access token returned from Google");
+    }
 
     return {
       user: result.user,
-      accessToken: driveToken
+      accessToken: credential.accessToken
     };
   } catch (error) {
     console.error("Login failed:", error);
@@ -136,6 +103,5 @@ export async function signInWithGoogleDrive() {
 
 export async function logout() {
   localStorage.removeItem(TOKEN_DATA_KEY);
-  // Opcional: Chamar endpoint para limpar cookie no servidor se desejado
   return firebaseSignOut(auth);
 }
