@@ -1,9 +1,10 @@
+
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import { saveOcrData, touchOfflineFile } from './storageService';
 import { performFullPageOcr } from './visionService';
 import { createSmartCanvas, smartCanvasToBlob } from '../utils/canvasUtils';
 
-GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.50/build/pdf.worker.min.mjs`;
+GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs`;
 
 export interface BackgroundOcrOptions {
   fileId: string;
@@ -83,7 +84,7 @@ export async function runBackgroundOcr({
     const arrayBuffer = await blob.arrayBuffer();
     const pdfDoc = await getDocument({
       data: arrayBuffer,
-      cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.50/cmaps/',
+      cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/cmaps/',
       cMapPacked: true,
     }).promise;
 

@@ -22,32 +22,32 @@ const BUILD_VERSIONS: Record<string, string> = {
   'react': '^19.2.3',
   'react-dom': '^19.2.3',
   'vite': '^7.3.0',
-  'typescript': '^5.8.0',
-  'firebase': '^12.8.0',
+  'typescript': '5.7.2', // Corrected
+  'firebase': '^12.7.0',
   '@google/genai': '^1.34.0',
-  'pdfjs-dist': '^5.4.50',
+  'pdfjs-dist': '4.8.69',
   'zustand': '^5.0.9',
 
-  // Tiptap Core & PM (v3 Upgrade)
-  '@tiptap/react': '^3.15.0',
-  '@tiptap/pm': '^3.15.0',
-  '@tiptap/starter-kit': '^3.15.0',
+  // Tiptap Core & PM
+  '@tiptap/react': '^2.11.5',
+  '@tiptap/pm': '^2.11.5',
+  '@tiptap/starter-kit': '^2.11.5',
 
   // Tiptap Extensions
-  '@tiptap/extension-table': '^3.15.0',
-  '@tiptap/extension-image': '^3.15.0',
-  '@tiptap/extension-link': '^3.15.0',
-  '@tiptap/extension-highlight': '^3.15.0',
-  '@tiptap/extension-underline': '^3.15.0',
-  '@tiptap/extension-text-align': '^3.15.0',
-  '@tiptap/extension-placeholder': '^3.15.0',
-  '@tiptap/extension-task-list': '^3.15.0',
-  '@tiptap/extension-typography': '^3.15.0',
-  '@tiptap/extension-code-block-lowlight': '^3.15.0',
+  '@tiptap/extension-table': '^2.11.5',
+  '@tiptap/extension-image': '^2.11.5',
+  '@tiptap/extension-link': '^2.11.5',
+  '@tiptap/extension-highlight': '^2.11.5',
+  '@tiptap/extension-underline': '^2.11.5',
+  '@tiptap/extension-text-align': '^2.11.5',
+  '@tiptap/extension-placeholder': '^2.11.5',
+  '@tiptap/extension-task-list': '^2.11.5',
+  '@tiptap/extension-typography': '^2.11.5',
+  '@tiptap/extension-code-block-lowlight': '^2.11.5',
   
   // Collaboration
-  '@tiptap/extension-collaboration': '^3.15.0',
-  '@tiptap/extension-collaboration-cursor': '^3.15.0',
+  '@tiptap/extension-collaboration': '^2.11.5',
+  '@tiptap/extension-collaboration-cursor': '^2.11.5',
   'yjs': '^13.6.28',
   'y-webrtc': '^10.3.0'
 };
