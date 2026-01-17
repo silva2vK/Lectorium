@@ -22,10 +22,10 @@ const BUILD_VERSIONS: Record<string, string> = {
   'react': '^19.2.3',
   'react-dom': '^19.2.3',
   'vite': '^7.3.0',
-  'typescript': '5.7.2', 
+  'typescript': '5.7.2', // Corrected
   'firebase': '^12.7.0',
   '@google/genai': '^1.34.0',
-  'pdfjs-dist': '5.4.530',
+  'pdfjs-dist': '4.8.69',
   'zustand': '^5.0.9',
 
   // Tiptap Core & PM
