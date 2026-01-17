@@ -1,13 +1,13 @@
 {
-  "id": "https://lectorium-c43.pages.dev/",
+  "id": "https://lectorium-c43.pages.dev/?utm_source=pwa",
   "scope": "/",
   "name": "Lectorium",
   "short_name": "Lectorium",
   "description": "Um Workspace Acadêmico PWA local-first para visualizar PDFs do Google Drive, fazer anotações e gerir conhecimento.",
   "lang": "pt-BR",
   "dir": "ltr",
-  "start_url": "/?utm_source=pwa",
-  "display": "standalone",
+  "start_url": "https://lectorium-c43.pages.dev/?utm_source=pwa",
+  "display": "fullscreen",
   "display_override": [
     "window-controls-overlay",
     "standalone",
