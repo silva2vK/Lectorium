@@ -21,6 +21,9 @@
     "utilities",
     "education"
   ],
+  "launch_handler": {
+    "client_mode": ["focus-existing", "auto"]
+  },
   "icons": [
     {
       "src": "/icons/icon-192.png",

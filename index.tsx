@@ -44,10 +44,24 @@ ReactDOM.createRoot(rootElement).render(
   </React.StrictMode>
 );
 
+// Service Worker Registration (Enhanced)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js', { scope: '/' })
-      .then(reg => console.debug('[Lectorium PWA] Service Worker registrado com sucesso:', reg.scope))
+      .then(reg => {
+        console.debug('[Lectorium PWA] SW Registrado:', reg.scope);
+        
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('[Lectorium PWA] Nova versão disponível. Por favor, recarregue.');
+              }
+            });
+          }
+        });
+      })
       .catch(err => console.warn('[Lectorium PWA] Falha no registro do SW:', err));
   });
 }
