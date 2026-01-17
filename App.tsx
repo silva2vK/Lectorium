@@ -425,11 +425,16 @@ const AppContent = () => {
     }
     const file = openFiles.find(f => f.id === activeTab);
     if (!file) return <GlobalLoader />;
-    if (file.name.endsWith('.lect') || file.mimeType === MIME_TYPES.LECTORIUM) return <LectAdapter {...commonProps} file={file} />;
-    if (file.name.endsWith('.mindmap')) return <MindMapEditor {...commonProps} fileId={file.id} fileName={file.name} fileBlob={file.blob} onRename={(newName) => handleRenameActiveFile(file.id, newName)} />;
-    if (file.name.endsWith('.docx') || file.mimeType === MIME_TYPES.DOCX || file.mimeType === MIME_TYPES.GOOGLE_DOC) return <DocEditor {...commonProps} fileId={file.id} fileName={file.name} fileBlob={file.blob} fileParents={file.parents} />;
-    if (file.mimeType.startsWith('image/') || file.mimeType === 'application/dicom' || file.mimeType.startsWith('text/') || file.name.endsWith('.cbz')) return <UniversalMediaAdapter {...commonProps} file={file} onToggleNavigation={() => setIsSidebarOpen(true)} />;
-    return <PdfViewer {...commonProps} fileId={file.id} fileName={file.name} fileBlob={file.blob} fileParents={file.parents} />;
+    
+    // ATENÇÃO: Adicionar key={file.id} força o React a recriar o componente quando o arquivo muda.
+    // Isso é CRÍTICO para evitar que o estado de um arquivo (anotações, blob, editor) vaze para outro
+    // quando se altera a aba ativa.
+    
+    if (file.name.endsWith('.lect') || file.mimeType === MIME_TYPES.LECTORIUM) return <LectAdapter key={file.id} {...commonProps} file={file} />;
+    if (file.name.endsWith('.mindmap')) return <MindMapEditor key={file.id} {...commonProps} fileId={file.id} fileName={file.name} fileBlob={file.blob} onRename={(newName) => handleRenameActiveFile(file.id, newName)} />;
+    if (file.name.endsWith('.docx') || file.mimeType === MIME_TYPES.DOCX || file.mimeType === MIME_TYPES.GOOGLE_DOC) return <DocEditor key={file.id} {...commonProps} fileId={file.id} fileName={file.name} fileBlob={file.blob} fileParents={file.parents} />;
+    if (file.mimeType.startsWith('image/') || file.mimeType === 'application/dicom' || file.mimeType.startsWith('text/') || file.name.endsWith('.cbz')) return <UniversalMediaAdapter key={file.id} {...commonProps} file={file} onToggleNavigation={() => setIsSidebarOpen(true)} />;
+    return <PdfViewer key={file.id} {...commonProps} fileId={file.id} fileName={file.name} fileBlob={file.blob} fileParents={file.parents} />;
   }, [activeTab, openFiles, commonProps, user, handleOpenFile, handleAuthError, accessToken, handleCreateMindMap, handleCreateDocument, handleCreateFileFromBlob, storageMode, handleLogin, handleOpenLocalFolder, localDirHandle, savedLocalDirHandle, handleReconnectLocalFolder, syncStrategy, handleToggleSyncStrategy, handleGenerateMindMapWithAi, transitionId]);
 
   return (

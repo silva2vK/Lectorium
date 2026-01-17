@@ -4,7 +4,6 @@ import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-d
 import { downloadDriveFile } from '../services/driveService';
 import { getOfflineFile } from '../services/storageService';
 import { blobRegistry } from '../services/blobRegistry';
-import { usePdfStore } from '../stores/usePdfStore';
 
 // Configuração do Worker - CRÍTICO: Versão deve bater com importmap
 GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs`;
@@ -32,9 +31,6 @@ export const usePdfDocument = ({ fileId, fileBlob, accessToken, onAuthError }: U
   useEffect(() => {
     return () => {
       blobRegistry.revokeAll();
-      // Limpa dimensões ao desmontar
-      usePdfStore.getState().setPageSizes([]);
-      usePdfStore.getState().setNumPages(0); // Reset num pages
     };
   }, []);
 
@@ -45,7 +41,6 @@ export const usePdfDocument = ({ fileId, fileBlob, accessToken, onAuthError }: U
       try {
         setLoading(true);
         setError(null);
-        usePdfStore.getState().setPageSizes([]); // Reset dimensions
 
         let blob: Blob | undefined;
 
@@ -94,9 +89,6 @@ export const usePdfDocument = ({ fileId, fileBlob, accessToken, onAuthError }: U
           setPdfDoc(pdf);
           setNumPages(pdf.numPages);
           
-          // --- FIX: Sincroniza com a Store Global para habilitar a Toolbar e Navegação ---
-          usePdfStore.getState().setNumPages(pdf.numPages);
-          
           // Setup Page 1 (Critical Path & Auto-Fit)
           try {
             const page = await pdf.getPage(1);
@@ -104,9 +96,6 @@ export const usePdfDocument = ({ fileId, fileBlob, accessToken, onAuthError }: U
             const dimensions = { width: viewport.width, height: viewport.height };
             setPageDimensions(dimensions);
             
-            // Sync initial dimensions to store
-            usePdfStore.getState().setPageDimensions(dimensions);
-
             const containerWidth = window.innerWidth;
             const isMobile = containerWidth < 768;
             
@@ -120,36 +109,10 @@ export const usePdfDocument = ({ fileId, fileBlob, accessToken, onAuthError }: U
             // Aplica sem limite superior artificial, mas garante um mínimo de legibilidade (0.5)
             const initialScale = Math.max(autoScale, 0.5);
             setScale(initialScale);
-            usePdfStore.getState().setScale(initialScale); // Sync initial scale to store
             
           } catch (e) {
             console.warn("Erro no auto-fit:", e);
           }
-
-          // 3. BACKGROUND: Fetch Dimensions for ALL Pages (Variable Height Support)
-          // Isso roda de forma não bloqueante
-          setTimeout(async () => {
-              if (!mounted) return;
-              const sizes: { width: number, height: number }[] = [];
-              
-              for (let i = 1; i <= pdf.numPages; i++) {
-                  try {
-                      // Nota: getPage em loop pode ser pesado para docs gigantes.
-                      // O PDF.js cacheia essas chamadas. Apenas metadados são leves.
-                      const page = await pdf.getPage(i);
-                      const vp = page.getViewport({ scale: 1 });
-                      sizes.push({ width: vp.width, height: vp.height });
-                  } catch (e) {
-                      // Fallback em caso de erro na página: usa a anterior ou padrão
-                      sizes.push(sizes.length > 0 ? sizes[sizes.length-1] : { width: 600, height: 800 });
-                  }
-              }
-              
-              if (mounted) {
-                  console.log(`[PDF Layout] Mapa de alturas gerado para ${pdf.numPages} páginas.`);
-                  usePdfStore.getState().setPageSizes(sizes);
-              }
-          }, 100);
         }
       } catch (err: any) {
         console.error("Erro ao carregar PDF:", err);

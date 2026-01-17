@@ -3,7 +3,7 @@ import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { CheckCircle2, ScanLine } from 'lucide-react';
 import { NoteMarker } from './NoteMarker';
 import { usePdfContext } from '../../context/PdfContext';
-import { usePdfStore } from '../../stores/usePdfStore'; 
+import { usePdfStore, usePdfStoreApi } from '../../stores/usePdfStore'; 
 import { PDFDocumentProxy } from 'pdfjs-dist';
 import { BaseModal } from '../shared/BaseModal';
 import { PdfCanvasLayer } from './layers/PdfCanvasLayer';
@@ -26,6 +26,9 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({ pageNumber, filterV
   const setIsSpread = usePdfStore(state => state.setIsSpread);
   const spreadSide = usePdfStore(state => state.spreadSide);
   
+  // Acesso direto à store para leitura única
+  const storeApi = usePdfStoreApi();
+
   const { 
     settings, annotations, addAnnotation, removeAnnotation,
     ocrMap, updateOcrWord, onSmartTap, selection, anchorData,
@@ -70,12 +73,12 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({ pageNumber, filterV
 
   // Auto-detecção inicial (apenas na montagem ou mudança de dimensão drástica)
   useEffect(() => {
-    if (pageDimensions && !usePdfStore.getState().isSpread) {
+    if (pageDimensions && !storeApi.getState().isSpread) {
         // Só ativa automático se não estiver já definido pelo usuário
         const shouldBeSpread = pageDimensions.width > pageDimensions.height * 1.1;
         if (shouldBeSpread) setIsSpread(true);
     }
-  }, [pageDimensions, setIsSpread]);
+  }, [pageDimensions, setIsSpread, storeApi]);
 
   // Lógica corrigida: Usa 'isSpread' (Toggle da UI) como fonte da verdade visual
   // Adicionamos verificação de dimensão apenas para segurança (evitar cortar página retrato)

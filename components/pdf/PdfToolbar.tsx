@@ -66,7 +66,7 @@ export const PdfToolbar: React.FC<Props> = ({ onFitWidth }) => {
             active:scale-95
             ${active 
                 ? 'text-brand bg-white/10 ring-1 ring-inset ring-white/10 shadow-[0_0_15px_-5px_rgba(0,0,0,0.5)]' 
-                : 'text-gray-400 hover:text-white hover:bg-white/5'}
+                : 'text-white hover:bg-white/10'} 
             ${className}
         `} 
         title={title}
@@ -87,8 +87,8 @@ export const PdfToolbar: React.FC<Props> = ({ onFitWidth }) => {
         <div className="
             flex items-center gap-1 p-2 px-3
             bg-black/90 backdrop-blur-xl
-            border border-white/10
-            shadow-[0_8px_32px_rgba(0,0,0,0.6)]
+            border border-brand/50
+            shadow-[0_8px_32px_rgba(0,0,0,0.6)] shadow-brand/10
             rounded-full
             ring-1 ring-white/5
         ">
@@ -103,19 +103,19 @@ export const PdfToolbar: React.FC<Props> = ({ onFitWidth }) => {
             </div>
             
             {/* Divider */}
-            <div className="h-8 w-px bg-white/10 mx-2"></div>
+            <div className="h-8 w-px bg-white/20 mx-2"></div>
 
             {/* Zone 2: Navigation */}
             <div className="flex items-center gap-1">
                 <button 
                     onClick={goPrev} 
-                    className="p-2.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-all active:scale-90"
+                    className="p-2.5 rounded-full text-white hover:bg-white/10 transition-all active:scale-90"
                     title="Página Anterior"
                 >
                     <ChevronLeft size={20} strokeWidth={1.5} />
                 </button>
                 
-                <div className="flex items-center justify-center px-3 py-1.5 rounded-full bg-white/5 border border-white/5 min-w-[90px] gap-2 mx-1 shadow-inner">
+                <div className="flex items-center justify-center px-3 py-1.5 rounded-full bg-white/5 border border-white/10 min-w-[90px] gap-2 mx-1 shadow-inner">
                     {isEditingPage ? (
                     <form onSubmit={handlePageSubmit} className="flex items-center justify-center">
                         <input 
@@ -140,13 +140,13 @@ export const PdfToolbar: React.FC<Props> = ({ onFitWidth }) => {
                         {hasOffset ? displayPage : currentPage}
                     </button>
                     )}
-                    <span className="text-gray-600 text-xs font-mono select-none">/</span>
-                    <span className="text-gray-500 text-xs font-mono select-none">{hasOffset ? displayTotal : numPages}</span>
+                    <span className="text-white text-xs font-mono select-none">/</span>
+                    <span className="text-white text-xs font-mono select-none">{hasOffset ? displayTotal : numPages}</span>
                 </div>
 
                 <button 
                     onClick={goNext} 
-                    className="p-2.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-all active:scale-90"
+                    className="p-2.5 rounded-full text-white hover:bg-white/10 transition-all active:scale-90"
                     title="Próxima Página"
                 >
                     <ChevronRight size={20} strokeWidth={1.5} />
@@ -154,33 +154,33 @@ export const PdfToolbar: React.FC<Props> = ({ onFitWidth }) => {
             </div>
 
             {/* Divider */}
-            <div className="h-8 w-px bg-white/10 mx-2"></div>
+            <div className="h-8 w-px bg-white/20 mx-2"></div>
 
             {/* Zone 3: Zoom */}
             <div className="flex items-center gap-1">
                 <button 
                     onClick={onFitWidth} 
-                    className="p-2.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-all active:scale-90 group" 
+                    className="p-2.5 rounded-full text-white hover:bg-white/10 transition-all active:scale-90 group" 
                     title="Ajustar à Largura"
                 >
                     <MoveHorizontal size={20} strokeWidth={1.5} className="group-hover:scale-110 transition-transform"/>
                 </button>
 
-                <div className="flex items-center gap-1 bg-white/5 rounded-full p-1 border border-white/5">
+                <div className="flex items-center gap-1 bg-white/5 rounded-full p-1 border border-white/10">
                     <button 
                         onClick={() => setScale(s => Math.max(0.5, s - 0.2))} 
-                        className="p-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-all active:scale-90"
+                        className="p-1.5 rounded-full text-white hover:bg-white/10 transition-all active:scale-90"
                     >
                         <Minus size={14} />
                     </button>
                     
-                    <span className="text-[10px] font-mono font-bold w-[4ch] text-center text-gray-300 select-none">
+                    <span className="text-[10px] font-mono font-bold w-[4ch] text-center text-white select-none">
                         {Math.round(scale * 100)}%
                     </span>
                     
                     <button 
                         onClick={() => setScale(s => Math.min(3, s + 0.2))} 
-                        className="p-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-all active:scale-90"
+                        className="p-1.5 rounded-full text-white hover:bg-white/10 transition-all active:scale-90"
                     >
                         <Plus size={14} />
                     </button>

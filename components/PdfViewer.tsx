@@ -7,7 +7,7 @@ import { PDFDocumentProxy } from 'pdfjs-dist';
 import { usePdfDocument } from '../hooks/usePdfDocument';
 import { usePdfAnnotations } from '../hooks/usePdfAnnotations';
 import { PdfProvider, usePdfContext } from '../context/PdfContext';
-import { usePdfStore } from '../stores/usePdfStore';
+import { usePdfStore, PdfStoreProvider, usePdfStoreApi } from '../stores/usePdfStore'; // Import Provider & API
 import { usePdfSaver } from '../hooks/usePdfSaver';
 import { usePdfGestures } from '../hooks/usePdfGestures'; 
 import { usePdfPreloader } from '../hooks/usePdfPreloader';
@@ -47,6 +47,7 @@ interface PdfViewerContentProps extends Props {
   setOriginalBlob: (b: Blob) => void;
   pdfDoc: PDFDocumentProxy | null;
   pageDimensions: { width: number, height: number } | null;
+  numPages: number;
   jumpToPageRef: React.MutableRefObject<((page: number) => void) | null>;
   conflictDetected: boolean;
   isCheckingIntegrity: boolean;
@@ -55,17 +56,77 @@ interface PdfViewerContentProps extends Props {
 }
 
 const PdfViewerContent: React.FC<PdfViewerContentProps> = ({ 
-  accessToken, fileId, fileName, fileParents, onBack, originalBlob, setOriginalBlob, pdfDoc, pageDimensions, jumpToPageRef, onToggleNavigation, onToggleMenu,
+  accessToken, fileId, fileName, fileParents, onBack, originalBlob, setOriginalBlob, pdfDoc, pageDimensions, numPages, jumpToPageRef, onToggleNavigation, onToggleMenu,
   conflictDetected, isCheckingIntegrity, hasPageMismatch, resolveConflict 
 }) => {
   const scale = usePdfStore(state => state.scale);
   const setScale = usePdfStore(state => state.setScale);
   const currentPage = usePdfStore(state => state.currentPage);
   const setCurrentPage = usePdfStore(state => state.setCurrentPage);
-  const numPages = usePdfStore(state => state.numPages);
   const activeTool = usePdfStore(state => state.activeTool);
   const goNext = usePdfStore(state => state.nextPage);
   const goPrev = usePdfStore(state => state.prevPage);
+  const storeApi = usePdfStoreApi();
+  
+  // Store Setters for Initialization
+  const setStoreNumPages = usePdfStore(state => state.setNumPages);
+  const setStorePageDimensions = usePdfStore(state => state.setPageDimensions);
+  const setStorePageSizes = usePdfStore(state => state.setPageSizes);
+
+  // --- Session Persistence Logic (Auto-Save Page & Zoom) ---
+  useEffect(() => {
+    // Subscreve a mudanças na store para salvar estado da sessão
+    const unsub = storeApi.subscribe(
+        (state) => ({ page: state.currentPage, scale: state.scale }),
+        (state) => {
+            const sessionData = {
+                page: state.page,
+                scale: state.scale,
+                lastAccess: Date.now()
+            };
+            localStorage.setItem(`lectorium_session_${fileId}`, JSON.stringify(sessionData));
+        },
+        { fireImmediately: false, equalityFn: (a, b) => a.page === b.page && a.scale === b.scale }
+    );
+    return unsub;
+  }, [fileId, storeApi]);
+
+  // Sync Document Properties to Store
+  useEffect(() => {
+    setStoreNumPages(numPages);
+  }, [numPages, setStoreNumPages]);
+
+  useEffect(() => {
+    if (pageDimensions) setStorePageDimensions(pageDimensions);
+  }, [pageDimensions, setStorePageDimensions]);
+
+  // Background fetch of page sizes
+  useEffect(() => {
+    if (!pdfDoc) return;
+    let mounted = true;
+    
+    const fetchSizes = async () => {
+        const sizes: { width: number, height: number }[] = [];
+        for (let i = 1; i <= pdfDoc.numPages; i++) {
+            if (!mounted) return;
+            try {
+                const page = await pdfDoc.getPage(i);
+                const vp = page.getViewport({ scale: 1 });
+                sizes.push({ width: vp.width, height: vp.height });
+            } catch (e) {
+                // Fallback
+                sizes.push(sizes.length > 0 ? sizes[sizes.length-1] : { width: 600, height: 800 });
+            }
+        }
+        if (mounted) setStorePageSizes(sizes);
+    };
+    
+    // Non-blocking
+    setTimeout(fetchSizes, 100);
+    return () => { mounted = false; };
+  }, [pdfDoc, setStorePageSizes]);
+
+  const numPagesStore = usePdfStore(state => state.numPages); // Used for UI display
 
   const { 
     settings, 
@@ -309,7 +370,7 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
         isVisible={isHeaderVisible}
         fileName={fileName}
         currentPage={currentPage + docPageOffset}
-        numPages={numPages + docPageOffset}
+        numPages={numPagesStore + docPageOffset}
         isSaving={isSaving}
         isFullscreen={isFullscreen}
         onToggleNavigation={handleToggleNav}
@@ -437,6 +498,7 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
 export const PdfViewer: React.FC<Props> = (props) => {
   const { fileId, fileBlob, accessToken, uid, onAuthError } = props;
   
+  // UsePdfDocument é o HOOK GLOBAL que baixa o PDF e monta o objeto Proxy
   const { 
     pdfDoc, 
     originalBlob, 
@@ -448,6 +510,7 @@ export const PdfViewer: React.FC<Props> = (props) => {
     pageDimensions
   } = usePdfDocument({ fileId, fileBlob, accessToken, onAuthError });
 
+  // Annotations Hook (Global Logic)
   const { 
     annotations, 
     addAnnotation, 
@@ -462,6 +525,14 @@ export const PdfViewer: React.FC<Props> = (props) => {
   } = usePdfAnnotations(fileId, uid, pdfDoc, originalBlob);
 
   const jumpToPageRef = useRef<((page: number) => void) | null>(null);
+
+  // Restore Session (Page/Scale) from LocalStorage
+  const savedSession = useMemo(() => {
+      try {
+          const item = localStorage.getItem(`lectorium_session_${fileId}`);
+          return item ? JSON.parse(item) : null;
+      } catch { return null; }
+  }, [fileId]);
 
   if (docLoading) {
     return (
@@ -488,34 +559,42 @@ export const PdfViewer: React.FC<Props> = (props) => {
   }
 
   return (
-    <PdfProvider 
-      initialScale={initialScale}
-      numPages={numPages}
-      annotations={annotations}
-      onAddAnnotation={addAnnotation}
-      onRemoveAnnotation={removeAnnotation}
-      onJumpToPage={(page) => jumpToPageRef.current?.(page)}
-      accessToken={accessToken}
-      fileId={fileId}
-      pdfDoc={pdfDoc}
-      currentBlob={originalBlob}
-      onUpdateSourceBlob={setOriginalBlob}
-      initialPageOffset={pageOffset}
-      onSetPageOffset={setPageOffset}
-      initialSemanticData={semanticData}
+    // PdfStoreProvider ISOLA o estado de UI (Página atual, Zoom, Ferramenta) para este componente
+    // Inicializa com valores salvos se disponíveis, ou usa defaults da factory
+    <PdfStoreProvider 
+        initialPage={savedSession?.page} 
+        initialScale={savedSession?.scale || initialScale}
     >
-      <PdfViewerContent 
-        {...props} 
-        originalBlob={originalBlob}
-        setOriginalBlob={setOriginalBlob}
+      <PdfProvider 
+        initialScale={savedSession?.scale || initialScale}
+        numPages={numPages}
+        annotations={annotations}
+        onAddAnnotation={addAnnotation}
+        onRemoveAnnotation={removeAnnotation}
+        onJumpToPage={(page: number) => jumpToPageRef.current?.(page)}
+        accessToken={accessToken}
+        fileId={fileId}
         pdfDoc={pdfDoc}
-        pageDimensions={pageDimensions}
-        jumpToPageRef={jumpToPageRef}
-        conflictDetected={conflictDetected}
-        isCheckingIntegrity={isCheckingIntegrity}
-        hasPageMismatch={hasPageMismatch}
-        resolveConflict={resolveConflict}
-      />
-    </PdfProvider>
+        currentBlob={originalBlob}
+        onUpdateSourceBlob={setOriginalBlob}
+        initialPageOffset={pageOffset}
+        onSetPageOffset={setPageOffset}
+        initialSemanticData={semanticData}
+      >
+        <PdfViewerContent 
+          {...props} 
+          originalBlob={originalBlob}
+          setOriginalBlob={setOriginalBlob}
+          pdfDoc={pdfDoc}
+          pageDimensions={pageDimensions}
+          numPages={numPages}
+          jumpToPageRef={jumpToPageRef}
+          conflictDetected={conflictDetected}
+          isCheckingIntegrity={isCheckingIntegrity}
+          hasPageMismatch={hasPageMismatch}
+          resolveConflict={resolveConflict}
+        />
+      </PdfProvider>
+    </PdfStoreProvider>
   );
 };

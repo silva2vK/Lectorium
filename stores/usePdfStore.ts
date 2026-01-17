@@ -1,5 +1,6 @@
 
-import { create } from 'zustand';
+import React, { createContext, useContext, useRef } from 'react';
+import { createStore, useStore as useZustandStore, StoreApi } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { ToolType } from '../context/PdfContext'; 
 
@@ -41,12 +42,18 @@ interface PdfUiState {
   jumpToPage: (page: number) => void;
 }
 
-export const usePdfStore = create<PdfUiState>()(
+interface PdfStoreInitProps {
+    defaultPage?: number;
+    defaultScale?: number;
+}
+
+// 1. Factory Function: Cria uma nova store isolada a cada chamada
+const createPdfStore = (initProps?: PdfStoreInitProps) => createStore<PdfUiState>()(
   subscribeWithSelector((set, get) => ({
     // Initial State
-    scale: 1.0,
+    scale: initProps?.defaultScale || 1.0,
     rotation: 0,
-    currentPage: 1,
+    currentPage: initProps?.defaultPage || 1,
     numPages: 0,
     isSpread: false,
     spreadSide: 'left',
@@ -64,11 +71,20 @@ export const usePdfStore = create<PdfUiState>()(
     
     setCurrentPage: (input) => set((state) => {
         const next = typeof input === 'function' ? input(state.currentPage) : input;
-        const safePage = Math.max(1, Math.min(next, state.numPages || 1));
+        // Se numPages for 0 (carregando), permite definir qualquer página (confia no restore)
+        // Se numPages > 0, clamp normal.
+        const max = state.numPages > 0 ? state.numPages : 99999;
+        const safePage = Math.max(1, Math.min(next, max));
         return { currentPage: safePage };
     }),
 
-    setNumPages: (numPages) => set({ numPages }),
+    setNumPages: (numPages) => set((state) => {
+        // Ao definir o número real de páginas, garantimos que a página atual não exceda o limite
+        // Útil se o arquivo mudou ou se o restore tentou ir para uma página inexistente
+        const correctedPage = state.currentPage > numPages && numPages > 0 ? numPages : state.currentPage;
+        return { numPages, currentPage: correctedPage };
+    }),
+
     setIsSpread: (isSpread) => set({ isSpread }),
     setSpreadSide: (spreadSide) => set({ spreadSide }),
     setActiveTool: (activeTool) => set({ activeTool }),
@@ -136,3 +152,34 @@ export const usePdfStore = create<PdfUiState>()(
     }
   }))
 );
+
+// 2. Context Definition
+const PdfStoreContext = createContext<StoreApi<PdfUiState> | null>(null);
+
+// 3. Provider Component
+export const PdfStoreProvider: React.FC<{ children: React.ReactNode, initialPage?: number, initialScale?: number }> = ({ children, initialPage, initialScale }) => {
+  const storeRef = useRef<StoreApi<PdfUiState> | null>(null);
+  if (!storeRef.current) {
+    storeRef.current = createPdfStore({ defaultPage: initialPage, defaultScale: initialScale });
+  }
+
+  return React.createElement(PdfStoreContext.Provider, { value: storeRef.current }, children);
+};
+
+// 4. Hook Consumer (Mantém a API compatível com o resto do app)
+export function usePdfStore<T>(selector: (state: PdfUiState) => T): T {
+  const store = useContext(PdfStoreContext);
+  if (!store) {
+    throw new Error('Missing PdfStoreProvider');
+  }
+  return useZustandStore(store, selector);
+}
+
+// 5. Hook to access store API directly (getState, setState, subscribe)
+export function usePdfStoreApi(): StoreApi<PdfUiState> {
+  const store = useContext(PdfStoreContext);
+  if (!store) {
+    throw new Error('Missing PdfStoreProvider');
+  }
+  return store;
+}
