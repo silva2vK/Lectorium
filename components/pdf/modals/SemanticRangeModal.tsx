@@ -11,6 +11,7 @@ interface Props {
   numPages: number;
   currentPage: number;
   mode: 'single' | 'batch';
+  initialTranslationEnabled?: boolean; // Nova prop
   onBatchStarted?: () => void; // Callback para navegação (onBack)
 }
 
@@ -26,7 +27,7 @@ const LANGUAGES = [
 ];
 
 export const SemanticRangeModal: React.FC<Props> = ({ 
-  isOpen, onClose, numPages, currentPage, mode, onBatchStarted
+  isOpen, onClose, numPages, currentPage, mode, initialTranslationEnabled = false, onBatchStarted
 }) => {
   const [startPage, setStartPage] = useState(currentPage);
   const [endPage, setEndPage] = useState(currentPage);
@@ -36,7 +37,7 @@ export const SemanticRangeModal: React.FC<Props> = ({
   const [targetLanguage, setTargetLanguage] = useState('pt-BR');
   
   const { startGlobalOcr, isOcrRunning, addNotification } = useGlobalContext();
-  const { fileId, currentBlobRef } = usePdfContext();
+  const { fileId, currentBlobRef, setTranslationMode } = usePdfContext();
 
   // Reset e Configuração Inicial baseada no Modo
   useEffect(() => {
@@ -47,10 +48,10 @@ export const SemanticRangeModal: React.FC<Props> = ({
         } else {
             setEndPage(Math.min(currentPage + 9, numPages));
         }
-        // Reset tradução
-        setIsTranslationEnabled(false);
+        // Configura tradução inicial baseada na prop
+        setIsTranslationEnabled(initialTranslationEnabled);
     }
-  }, [isOpen, currentPage, mode, numPages]);
+  }, [isOpen, currentPage, mode, numPages, initialTranslationEnabled]);
 
   const handleStartSemanticBatch = () => {
     let s = Math.max(1, Math.min(startPage, numPages));
@@ -67,6 +68,13 @@ export const SemanticRangeModal: React.FC<Props> = ({
     const blob = currentBlobRef.current;
     
     if (blob && fileId) {
+        // AUTOMATIZAÇÃO JARVIS:
+        // Se a tradução foi solicitada, ativamos o modo imediatamente na UI.
+        // Isso evita que o usuário tenha que clicar manualmente em "Traduzir" depois.
+        if (isTranslationEnabled) {
+            setTranslationMode(true);
+        }
+
         // Marcamos o filename com prefixo SEMANTIC para o GlobalContext identificar o tipo de conclusão
         const langParam = isTranslationEnabled ? LANGUAGES.find(l => l.code === targetLanguage)?.name : undefined;
         const processLabel = isTranslationEnabled ? "Semantic Translation" : "Semantic Analysis";
@@ -95,8 +103,8 @@ export const SemanticRangeModal: React.FC<Props> = ({
     <BaseModal
       isOpen={isOpen}
       onClose={onClose}
-      title={isBatch ? "Análise Semântica em Lote" : "Analisar Página Atual"}
-      icon={<BrainCircuit size={20} />}
+      title={isTranslationEnabled ? (isBatch ? "Tradução em Lote" : "Traduzir Página") : (isBatch ? "Análise Semântica em Lote" : "Analisar Página Atual")}
+      icon={isTranslationEnabled ? <Languages size={20} className="text-blue-400" /> : <BrainCircuit size={20} />}
       maxWidth="max-w-sm"
       footer={
         <div className="flex gap-2 justify-end w-full">
@@ -104,7 +112,7 @@ export const SemanticRangeModal: React.FC<Props> = ({
             <button 
                 onClick={handleStartSemanticBatch} 
                 disabled={isOcrRunning}
-                className={`bg-purple-600 text-white px-6 py-2 rounded-xl font-bold hover:brightness-110 transition-all text-sm flex items-center gap-2 ${isOcrRunning ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`${isTranslationEnabled ? 'bg-blue-600' : 'bg-purple-600'} text-white px-6 py-2 rounded-xl font-bold hover:brightness-110 transition-all text-sm flex items-center gap-2 ${isOcrRunning ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
                 <Check size={16} /> {isOcrRunning ? 'Ocupado' : (isTranslationEnabled ? (isBatch ? 'Traduzir & Fechar' : 'Traduzir Página') : (isBatch ? 'Analisar & Fechar' : 'Processar'))}
             </button>
@@ -112,9 +120,12 @@ export const SemanticRangeModal: React.FC<Props> = ({
       }
     >
       <div className="space-y-6">
-        <div className="bg-purple-500/10 border border-purple-500/20 p-4 rounded-xl">
-            <p className="text-xs text-purple-200 leading-relaxed font-medium">
-                O Gemini Vision extrairá Markdown estruturado preservando o layout original.
+        <div className={`${isTranslationEnabled ? 'bg-blue-500/10 border-blue-500/20' : 'bg-purple-500/10 border-purple-500/20'} border p-4 rounded-xl`}>
+            <p className={`text-xs ${isTranslationEnabled ? 'text-blue-200' : 'text-purple-200'} leading-relaxed font-medium`}>
+                {isTranslationEnabled 
+                    ? "O Gemini Vision traduzirá o conteúdo visual preservando o layout original." 
+                    : "O Gemini Vision extrairá Markdown estruturado preservando o layout original."
+                }
                 {isBatch && " O documento será fechado para liberar memória para a IA."}
             </p>
         </div>
@@ -157,36 +168,38 @@ export const SemanticRangeModal: React.FC<Props> = ({
             </div>
         </div>
 
-        {/* Translation Toggle */}
-        <div className="pt-4 border-t border-[#333] space-y-4">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <Languages size={16} className="text-blue-400" />
-                    <span className="text-sm font-bold text-white">Traduzir Documento</span>
-                </div>
-                <button 
-                    onClick={() => setIsTranslationEnabled(!isTranslationEnabled)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isTranslationEnabled ? 'bg-blue-500' : 'bg-[#333]'}`}
-                >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isTranslationEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-            </div>
-
-            {isTranslationEnabled && (
-                <div className="animate-in fade-in slide-in-from-top-2">
-                    <label className="text-xs text-text-sec block mb-1.5">Idioma de destino</label>
-                    <select 
-                        value={targetLanguage}
-                        onChange={(e) => setTargetLanguage(e.target.value)}
-                        className="w-full bg-[#2c2c2c] border border-gray-600 rounded-lg p-2.5 text-sm text-white focus:border-blue-500 outline-none"
+        {/* Translation Toggle (Hidden if initialTranslationEnabled is true to simplify UI, logic is forced) */}
+        {!initialTranslationEnabled && (
+            <div className="pt-4 border-t border-[#333] space-y-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Languages size={16} className="text-blue-400" />
+                        <span className="text-sm font-bold text-white">Traduzir Documento</span>
+                    </div>
+                    <button 
+                        onClick={() => setIsTranslationEnabled(!isTranslationEnabled)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isTranslationEnabled ? 'bg-blue-500' : 'bg-[#333]'}`}
                     >
-                        {LANGUAGES.map(lang => (
-                            <option key={lang.code} value={lang.code}>{lang.name}</option>
-                        ))}
-                    </select>
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isTranslationEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
                 </div>
-            )}
-        </div>
+            </div>
+        )}
+
+        {(isTranslationEnabled || initialTranslationEnabled) && (
+            <div className={`animate-in fade-in slide-in-from-top-2 ${initialTranslationEnabled ? 'pt-4 border-t border-[#333]' : ''}`}>
+                <label className="text-xs text-text-sec block mb-1.5">Idioma de destino</label>
+                <select 
+                    value={targetLanguage}
+                    onChange={(e) => setTargetLanguage(e.target.value)}
+                    className="w-full bg-[#2c2c2c] border border-gray-600 rounded-lg p-2.5 text-sm text-white focus:border-blue-500 outline-none"
+                >
+                    {LANGUAGES.map(lang => (
+                        <option key={lang.code} value={lang.code}>{lang.name}</option>
+                    ))}
+                </select>
+            </div>
+        )}
       </div>
     </BaseModal>
   );

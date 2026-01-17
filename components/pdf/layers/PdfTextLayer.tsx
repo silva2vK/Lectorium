@@ -38,11 +38,19 @@ export const PdfTextLayer: React.FC<PdfTextLayerProps> = React.memo(({
         const container = textLayerRef.current;
         if (!container) return;
 
-        // Limpa marcadores antigos E estilos inline
+        // Limpa marcadores antigos E estilos inline DE SELEÇÃO APENAS
+        // Preserva o background original se for tradução
         container.querySelectorAll('.selection-anchor, .selection-end, .selection-preview').forEach(el => {
             el.classList.remove('selection-anchor', 'selection-end', 'selection-preview');
             const span = el as HTMLElement;
-            span.style.backgroundColor = '';
+            // Se estiver em modo tradução, NÃO removemos o background preto
+            if (!isTranslationMode) {
+                span.style.backgroundColor = '';
+            } else {
+                // Em modo tradução, removemos apenas a borda de seleção
+                span.style.borderColor = 'transparent';
+                span.style.borderWidth = '0';
+            }
             span.style.borderBottomColor = '';
             span.style.opacity = ''; // Reset
         });
@@ -58,8 +66,17 @@ export const PdfTextLayer: React.FC<PdfTextLayerProps> = React.memo(({
                 const span = allSpans[i];
                 if (span) {
                     span.classList.add('selection-preview');
-                    // Aplica a cor do marcador escolhida pelo usuário
-                    span.style.backgroundColor = highlightColor;
+                    
+                    if (isTranslationMode) {
+                        // Em modo tradução, usamos borda colorida para não matar o fundo preto
+                        span.style.borderColor = highlightColor;
+                        span.style.borderWidth = '2px';
+                        span.style.borderStyle = 'solid';
+                        span.style.boxSizing = 'border-box';
+                    } else {
+                        // Aplica a cor do marcador escolhida pelo usuário (fundo tradicional)
+                        span.style.backgroundColor = highlightColor;
+                    }
                 }
             }
             return;
@@ -72,11 +89,17 @@ export const PdfTextLayer: React.FC<PdfTextLayerProps> = React.memo(({
                 startSpan.classList.add('selection-anchor');
                 // Aplica a cor do marcador à borda e fundo da âncora
                 startSpan.style.borderBottomColor = highlightColor;
-                startSpan.style.backgroundColor = highlightColor;
+                
+                if (!isTranslationMode) {
+                    startSpan.style.backgroundColor = highlightColor;
+                } else {
+                    // No modo tradução, apenas borda inferior forte
+                    startSpan.style.borderBottomWidth = '4px';
+                }
                 // A opacidade é controlada pelo CSS para dar o efeito visual correto
             }
         }
-    }, [anchorData, selection, pageNumber, highlightColor]); // Depende agora de highlightColor
+    }, [anchorData, selection, pageNumber, highlightColor, isTranslationMode]); 
 
     // Sincroniza marcadores quando o estado muda
     useEffect(() => {
@@ -120,7 +143,7 @@ export const PdfTextLayer: React.FC<PdfTextLayerProps> = React.memo(({
 
         if (ocrData && ocrData.length > 0 && textLayerRef.current && rendered) {
             const sideKey = isSplitActive ? spreadSide : 'full';
-            const dataHash = `v20-${isTranslationMode}-${pageNumber}-${ocrData.length}-${scale}-${sideKey}`;
+            const dataHash = `v21-${isTranslationMode}-${pageNumber}-${ocrData.length}-${scale}-${sideKey}`;
             
             if (lastInjectedOcrRef.current === dataHash) {
                 updateVisualMarkers();
@@ -150,8 +173,51 @@ export const PdfTextLayer: React.FC<PdfTextLayerProps> = React.memo(({
                     const heightPx = (w.bbox.y1 - w.bbox.y0) * scale;
 
                     let st = `left:${x}px;top:${y}px;width:${widthPx}px;height:${heightPx}px;`;
+                    
                     if (isTranslationMode) {
-                        st += `position:absolute;color:#fff;background:rgba(0,0,0,0.8);font-size:${heightPx*0.8}px;display:flex;align-items:center;justify-content:center;`;
+                        const text = w.text || '';
+                        // Lógica "Lens": Cálculo dinâmico de fonte para caber no bloco
+                        const area = widthPx * heightPx;
+                        const len = text.length || 1;
+                        
+                        // Heurística de Área: FontSize ~= sqrt(Area / (Chars * 0.6))
+                        // 0.6 é uma constante de aspecto média de fontes (Width/Height)
+                        const areaFontSize = Math.sqrt(area / (len * 0.6));
+                        
+                        // Heurística de Altura: Considera quebras de linha
+                        const lines = text.split('\n').length;
+                        // Se não tem quebras explícitas, estima wrapping
+                        const estimatedLines = lines > 1 ? lines : Math.max(1, Math.ceil((text.length * areaFontSize * 0.6) / widthPx));
+                        
+                        const heightFontSize = (heightPx / estimatedLines) * 0.85;
+                        
+                        // Escolhe o menor (Fit Inside) e aplica clamps
+                        let finalFontSize = Math.min(areaFontSize, heightFontSize);
+                        finalFontSize = Math.max(9, Math.min(finalFontSize, 48)); // Min 9px, Max 48px para não explodir
+
+                        st += `
+                            position: absolute;
+                            color: #ffffff;
+                            background-color: rgba(20, 20, 20, 0.92) !important; /* Blindagem contra override */
+                            backdrop-filter: blur(2px);
+                            border-radius: 3px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            text-align: center;
+                            font-family: 'Inter', system-ui, sans-serif;
+                            font-weight: 500;
+                            white-space: pre-wrap;
+                            overflow: hidden;
+                            line-height: 1.15;
+                            padding: 2px 4px;
+                            box-sizing: border-box;
+                            z-index: 50;
+                            font-size: ${finalFontSize}px;
+                            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                            -webkit-tap-highlight-color: transparent; /* Remove flash azul no mobile */
+                            user-select: text; /* Garante que o texto dentro seja selecionável */
+                        `;
                     } else {
                         st += `position:absolute;color:transparent;font-size:${heightPx*0.8}px;`;
                     }

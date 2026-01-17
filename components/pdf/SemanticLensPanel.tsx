@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Sparkles, Loader2, Copy, Check, Layers, Languages, ListRestart, Activity, X, Zap, Wand2 } from 'lucide-react';
+import { Sparkles, Loader2, Copy, Check, Layers, Languages, ListRestart, Activity, X, Zap, Wand2, Globe } from 'lucide-react';
 import { usePdfContext } from '../../context/PdfContext';
 import { SemanticRangeModal } from './modals/SemanticRangeModal';
 
@@ -22,21 +22,37 @@ export const SemanticLensPanel: React.FC<Props> = ({ pageNumber, onNavigateBack 
   
   const [showRangeModal, setShowRangeModal] = useState(false);
   const [modalMode, setModalMode] = useState<'single' | 'batch'>('single');
+  const [initialTranslation, setInitialTranslation] = useState(false);
   
   const data = lensData[pageNumber];
-  const hasInjectedOcr = ocrMap[pageNumber] && ocrMap[pageNumber].length > 0 && ocrMap[pageNumber][0].isRefined;
-
+  
   const isChrome = useMemo(() => {
     return typeof window !== 'undefined' && /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
   }, []);
 
+  // --- Handlers de Análise (Padrão) ---
   const openAnalyzeSingle = () => {
       setModalMode('single');
+      setInitialTranslation(false);
       setShowRangeModal(true);
   };
 
   const openAnalyzeBatch = () => {
       setModalMode('batch');
+      setInitialTranslation(false);
+      setShowRangeModal(true);
+  };
+
+  // --- Handlers de Tradução (Novos) ---
+  const openTranslateSingle = () => {
+      setModalMode('single');
+      setInitialTranslation(true);
+      setShowRangeModal(true);
+  };
+
+  const openTranslateBatch = () => {
+      setModalMode('batch');
+      setInitialTranslation(true);
       setShowRangeModal(true);
   };
 
@@ -49,7 +65,7 @@ export const SemanticLensPanel: React.FC<Props> = ({ pageNumber, onNavigateBack 
   };
 
   const handleTranslate = () => {
-      if (!data) openAnalyzeSingle();
+      if (!data) openTranslateSingle();
       else triggerTranslation(pageNumber);
   };
 
@@ -76,34 +92,65 @@ export const SemanticLensPanel: React.FC<Props> = ({ pageNumber, onNavigateBack 
 
   if (!data) {
       return (
-          <div className="flex flex-col items-center justify-center h-full p-6 text-center space-y-6">
-              <div className="bg-brand/10 p-4 rounded-full border border-brand/20 relative">
-                  <Sparkles size={32} className="text-brand" />
-                  {isChrome && <Zap size={14} className="absolute -top-1 -right-1 text-yellow-400 fill-yellow-400" title="Aceleração Chrome Ativa" />}
-              </div>
-              <div className="space-y-2">
-                  <h3 className="text-lg font-bold text-white">Lente Semântica</h3>
-                  <p className="text-xs text-gray-400 max-w-[250px] leading-relaxed">
-                      Extraia texto estruturado e injete camadas de pesquisa usando <strong>Gemini 3 Flash</strong>.
-                  </p>
-              </div>
-              
-              <div className="space-y-3 w-full">
-                  <button 
-                    onClick={openAnalyzeSingle}
-                    className="w-full bg-brand text-[#0b141a] px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:brightness-110 shadow-lg shadow-brand/20 transition-all active:scale-95"
-                  >
-                      <Layers size={18} /> Analisar Página
-                  </button>
-                  <button 
-                    onClick={openAnalyzeBatch}
-                    className="w-full bg-[#2c2c2c] border border-[#333] text-gray-300 px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#333] transition-all text-xs active:scale-95"
-                  >
-                      <ListRestart size={16} /> Processar Lote
-                  </button>
-              </div>
+          <div className="flex flex-col h-full bg-[#141414] overflow-y-auto custom-scrollbar">
+              <div className="flex flex-col items-center justify-center min-h-full p-6 text-center space-y-8">
+                  <div className="bg-brand/10 p-4 rounded-full border border-brand/20 relative">
+                      <Sparkles size={32} className="text-brand" />
+                      {isChrome && <Zap size={14} className="absolute -top-1 -right-1 text-yellow-400 fill-yellow-400" title="Aceleração Chrome Ativa" />}
+                  </div>
+                  <div className="space-y-2">
+                      <h3 className="text-lg font-bold text-white">Lente Semântica</h3>
+                      <p className="text-xs text-gray-400 max-w-[250px] leading-relaxed mx-auto">
+                          Extração de estrutura, injeção de camadas e tradução visual usando <strong>Gemini 3 Flash</strong>.
+                      </p>
+                  </div>
+                  
+                  {/* Grupo: Análise Estrutural */}
+                  <div className="w-full space-y-2">
+                      <div className="text-[10px] font-bold text-brand uppercase tracking-wider text-left border-b border-brand/20 pb-1 mb-2">Extração</div>
+                      <button 
+                        onClick={openAnalyzeSingle}
+                        className="w-full bg-[#2c2c2c] text-white px-4 py-3 rounded-xl font-bold flex items-center justify-between gap-2 hover:bg-brand/20 hover:text-brand transition-all active:scale-95 group"
+                      >
+                          <span className="flex items-center gap-2"><Layers size={16} /> Analisar Página</span>
+                          <Sparkles size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </button>
+                      <button 
+                        onClick={openAnalyzeBatch}
+                        className="w-full bg-[#2c2c2c] border border-transparent text-gray-300 px-4 py-3 rounded-xl font-bold flex items-center justify-between gap-2 hover:border-[#333] hover:text-white transition-all text-xs active:scale-95"
+                      >
+                          <span className="flex items-center gap-2"><ListRestart size={16} /> Processar Lote</span>
+                      </button>
+                  </div>
 
-              <SemanticRangeModal isOpen={showRangeModal} onClose={() => setShowRangeModal(false)} numPages={numPages} currentPage={pageNumber} mode={modalMode} onBatchStarted={onNavigateBack} />
+                  {/* Grupo: Tradução */}
+                  <div className="w-full space-y-2">
+                      <div className="text-[10px] font-bold text-blue-400 uppercase tracking-wider text-left border-b border-blue-500/20 pb-1 mb-2">Tradução Visual</div>
+                      <button 
+                        onClick={openTranslateSingle}
+                        className="w-full bg-[#1e293b] text-blue-200 px-4 py-3 rounded-xl font-bold flex items-center justify-between gap-2 hover:bg-blue-500/20 hover:text-blue-100 transition-all active:scale-95 group border border-blue-900/30"
+                      >
+                          <span className="flex items-center gap-2"><Languages size={16} /> Traduzir Página</span>
+                          <Globe size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </button>
+                      <button 
+                        onClick={openTranslateBatch}
+                        className="w-full bg-[#1e293b] border border-transparent text-gray-400 px-4 py-3 rounded-xl font-bold flex items-center justify-between gap-2 hover:border-blue-900/50 hover:text-blue-200 transition-all text-xs active:scale-95"
+                      >
+                          <span className="flex items-center gap-2"><ListRestart size={16} /> Traduzir em Lote</span>
+                      </button>
+                  </div>
+
+                  <SemanticRangeModal 
+                    isOpen={showRangeModal} 
+                    onClose={() => setShowRangeModal(false)} 
+                    numPages={numPages} 
+                    currentPage={pageNumber} 
+                    mode={modalMode} 
+                    initialTranslationEnabled={initialTranslation}
+                    onBatchStarted={onNavigateBack} 
+                  />
+              </div>
           </div>
       );
   }
@@ -162,7 +209,15 @@ export const SemanticLensPanel: React.FC<Props> = ({ pageNumber, onNavigateBack 
               <button onClick={openAnalyzeBatch} className="text-[10px] text-brand hover:underline flex items-center gap-1"><ListRestart size={10} /> Iniciar Lote</button>
           </div>
 
-          <SemanticRangeModal isOpen={showRangeModal} onClose={() => setShowRangeModal(false)} numPages={numPages} currentPage={pageNumber} mode={modalMode} onBatchStarted={onNavigateBack} />
+          <SemanticRangeModal 
+            isOpen={showRangeModal} 
+            onClose={() => setShowRangeModal(false)} 
+            numPages={numPages} 
+            currentPage={pageNumber} 
+            mode={modalMode}
+            initialTranslationEnabled={initialTranslation} 
+            onBatchStarted={onNavigateBack} 
+          />
       </div>
   );
 };
