@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   FolderOpen, MoreVertical, Pin, PinOff, Edit2, FolderInput, Share2, Trash2, 
@@ -10,7 +9,7 @@ import JSZip from 'jszip';
 
 // Configuração do Worker do PDF.js
 if (!GlobalWorkerOptions.workerSrc) {
-   GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs`;
+   GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.50/build/pdf.worker.min.mjs`;
 }
 
 // --- Thumbnail Generator Helper ---
