@@ -43,8 +43,8 @@ export const AVAILABLE_RESOURCES: ResourceGroup[] = [
     estimatedSize: 8.2 * 1024 * 1024, // Ajustado considerando Worker + Maps
     keywords: ['pdfjs-dist', 'pdf-lib', 'docx', 'jszip'],
     urls: [
-      'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/web/pdf_viewer.css',
-      'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs',
+      'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.530/web/pdf_viewer.css',
+      'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.530/build/pdf.worker.min.mjs',
     ]
   },
   {

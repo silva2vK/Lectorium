@@ -6,7 +6,7 @@ import { getOfflineFile } from '../services/storageService';
 import { blobRegistry } from '../services/blobRegistry';
 
 // Configuração do Worker - CRÍTICO: Versão deve bater com importmap
-GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs`;
+GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.530/build/pdf.worker.min.mjs`;
 
 // Conversão de DPI (72 -> 96 com ajuste visual)
 const CSS_UNITS = (96.0 / 72.0) * 1.74;
@@ -80,9 +80,9 @@ export const usePdfDocument = ({ fileId, fileBlob, accessToken, onAuthError }: U
         const arrayBuffer = await blob.arrayBuffer();
         const pdf = await getDocument({
           data: arrayBuffer,
-          cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/cmaps/',
+          cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.530/cmaps/',
           cMapPacked: true,
-          standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/standard_fonts/'
+          standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.530/standard_fonts/'
         }).promise;
 
         if (mounted) {
@@ -138,7 +138,7 @@ export const usePdfDocument = ({ fileId, fileBlob, accessToken, onAuthError }: U
   return { 
     pdfDoc, 
     originalBlob, 
-    setOriginalBlob,
+    setOriginalBlob, 
     numPages, 
     loading, 
     error, 
