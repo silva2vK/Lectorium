@@ -47,7 +47,6 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({ pageNumber, filterV
   const translationData = translationMap[pageNumber] || [];
 
   // Priority Rendering Logic: Se for a página atual, força visibilidade total.
-  // Caso contrário, permite que o Chrome otimize (content-visibility: auto).
   const isPageActive = pageNumber === currentPage;
 
   useEffect(() => {
@@ -71,17 +70,14 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({ pageNumber, filterV
     return { width: vp.width, height: vp.height };
   }, [pageProxy, scale]);
 
-  // Auto-detecção inicial (apenas na montagem ou mudança de dimensão drástica)
+  // Auto-detecção inicial
   useEffect(() => {
     if (pageDimensions && !storeApi.getState().isSpread) {
-        // Só ativa automático se não estiver já definido pelo usuário
         const shouldBeSpread = pageDimensions.width > pageDimensions.height * 1.1;
         if (shouldBeSpread) setIsSpread(true);
     }
   }, [pageDimensions, setIsSpread, storeApi]);
 
-  // Lógica corrigida: Usa 'isSpread' (Toggle da UI) como fonte da verdade visual
-  // Adicionamos verificação de dimensão apenas para segurança (evitar cortar página retrato)
   const isSplitActive = isSpread && (pageDimensions ? pageDimensions.width > pageDimensions.height * 1.1 : false);
 
   const { handlePointerDown, handlePointerMove, handlePointerUp, brushSelection } = usePdfInput({
@@ -130,7 +126,6 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({ pageNumber, filterV
             <PdfCanvasLayer pageProxy={pageProxy} scale={scale} isVisible={isVisible} pageNumber={pageNumber} fileId={fileId} pageColor={settings.pageColor} disableColorFilter={settings.disableColorFilter} width={pageDimensions?.width || 800} height={pageDimensions?.height || 1100} onRendered={() => setRendered(true)} />
             <PdfInkLayer annotations={annotations} pageNumber={pageNumber} scale={scale} width={pageDimensions?.width || 800} height={pageDimensions?.height || 1100} />
             
-            {/* Canvas Ativo para Desenho em Tempo Real (Z-Index 36 > InkLayer 35) */}
             <canvas 
                 ref={activeInkCanvasRef} 
                 className="absolute top-0 left-0 pointer-events-none z-[36]" 
@@ -161,12 +156,12 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({ pageNumber, filterV
                 />
             )}
 
-            {/* CAMADA DE ANOTAÇÕES (Z-Index aumentado para 50 para ficar acima do texto e garantir clique) */}
             <div className="absolute inset-0 pointer-events-none z-[50]">
                 {pageAnnotations.filter(a => a.type === 'highlight' && !a.isBurned).map((a, i) => (
                     <div key={a.id || i} className="absolute mix-blend-multiply" style={{ left: a.bbox[0] * scale, top: a.bbox[1] * scale, width: a.bbox[2] * scale, height: a.bbox[3] * scale, backgroundColor: a.color, opacity: a.opacity }} />
                 ))}
-                {pageAnnotations.filter(a => a.type === 'note' && !a.isBurned).map((a, i) => (
+                {/* FIX: Notas (Markers) devem ser renderizados MESMO que já estejam gravados (burned) para permitir leitura interativa */}
+                {pageAnnotations.filter(a => a.type === 'note').map((a, i) => (
                     <NoteMarker key={a.id || i} ann={a} scale={scale} activeTool={activeTool} onDelete={removeAnnotation} onUpdate={addAnnotation} />
                 ))}
             </div>
@@ -180,7 +175,6 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({ pageNumber, filterV
                 isTranslationMode={isTranslationMode} 
                 rendered={rendered} 
                 activeTool={activeTool} 
-                // CRÍTICO: Se estiver cortado visualmente (isSplitActive), forçamos detectColumns = true
                 detectColumns={settings.detectColumns || isSplitActive} 
                 width={pageDimensions?.width || 800} 
                 height={pageDimensions?.height || 1100} 
