@@ -7,7 +7,8 @@ import {
   searchMindMaps, 
   renameDriveFile, 
   deleteDriveFile, 
-  moveDriveFile 
+  moveDriveFile,
+  searchDriveFiles // Nova importação
 } from '../services/driveService';
 import { listOfflineFiles } from '../services/storageService';
 import { listLocalFiles } from '../services/localFileService';
@@ -20,6 +21,9 @@ export function useDriveFiles(
 ) {
   const queryClient = useQueryClient();
   
+  // Estado para busca
+  const [searchQuery, setSearchQuery] = useState('');
+
   // Se o modo for 'shared', começamos na pasta virtual 'shared-with-me'.
   const initialFolder = mode === 'shared' ? 'shared-with-me' : 'root';
   const initialHistory = mode === 'shared' 
@@ -31,15 +35,27 @@ export function useDriveFiles(
 
   // Query principal: Lista de Arquivos
   const { data: files = [], isLoading, error: queryError, refetch } = useQuery({
-    queryKey: ['drive-files', mode, currentFolder, accessToken],
+    queryKey: ['drive-files', mode, currentFolder, accessToken, searchQuery],
     queryFn: async () => {
       // Modos Default/Shared exigem token
       if ((mode === 'default' || mode === 'shared') && !accessToken) {
         throw new Error("DRIVE_TOKEN_EXPIRED");
       }
 
+      // Se houver busca e for modo online (Default/Shared), usa a API de busca
+      if (searchQuery && (mode === 'default' || mode === 'shared')) {
+          return await searchDriveFiles(accessToken, searchQuery);
+      }
+
+      // Se houver busca e for modo Offline/Local/Mindmaps, fazemos a filtragem em memória abaixo
+      // Então aqui carregamos tudo normal primeiro.
+
       if (mode === 'offline') {
-        return await listOfflineFiles();
+        const offline = await listOfflineFiles();
+        if (searchQuery) {
+            return offline.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
+        }
+        return offline;
       }
       
       if (mode === 'mindmaps') {
@@ -53,6 +69,7 @@ export function useDriveFiles(
         let cloudMaps: DriveFile[] = [];
         if (accessToken && navigator.onLine) {
             try {
+                // Se houver busca, poderíamos usar searchMindMaps com filtro extra, mas vamos filtrar no cliente
                 cloudMaps = await searchMindMaps(accessToken);
             } catch (e) {
                 console.warn("Cloud fetch skipped for mindmaps (offline or auth issue).");
@@ -64,21 +81,29 @@ export function useDriveFiles(
         localMaps.forEach(f => fileMap.set(f.id, f));
         cloudMaps.forEach(f => fileMap.set(f.id, f));
         
-        const fetchedFiles = Array.from(fileMap.values());
+        let fetchedFiles = Array.from(fileMap.values());
         fetchedFiles.sort((a, b) => {
             const dateA = new Date(a.modifiedTime || 0).getTime();
             const dateB = new Date(b.modifiedTime || 0).getTime();
             return dateB - dateA;
         });
+
+        if (searchQuery) {
+            fetchedFiles = fetchedFiles.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
+        }
+
         return fetchedFiles;
       }
       
       if (mode === 'local' && localDirectoryHandle) {
-        return await listLocalFiles(localDirectoryHandle);
+        const local = await listLocalFiles(localDirectoryHandle);
+        if (searchQuery) {
+            return local.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
+        }
+        return local;
       }
       
-      // Default & Shared Mode usam a mesma API de listagem
-      // Se mode === 'shared', o currentFolder já começa como 'shared-with-me'
+      // Default & Shared Mode (Sem busca)
       return await listDriveContents(accessToken, currentFolder);
     },
     // Se der erro de auth, dispara callback
@@ -136,17 +161,21 @@ export function useDriveFiles(
   // --- Navegação ---
 
   const handleFolderClick = useCallback((folder: DriveFile) => {
+    // Ao navegar, limpamos a busca para mostrar o conteúdo da pasta
+    if (searchQuery) setSearchQuery('');
     setCurrentFolder(folder.id);
     setFolderHistory(prev => [...prev, { id: folder.id, name: folder.name }]);
-  }, []);
+  }, [searchQuery]);
 
   const handleNavigateUp = useCallback(() => {
+    // Ao navegar, limpamos a busca
+    if (searchQuery) setSearchQuery('');
     if (folderHistory.length <= 1) return;
     const newHistory = [...folderHistory];
     newHistory.pop();
     setCurrentFolder(newHistory[newHistory.length - 1].id);
     setFolderHistory(newHistory);
-  }, [folderHistory]);
+  }, [folderHistory, searchQuery]);
 
   // Função helper para forçar atualização do cache offline (usada após salvar)
   const updateCacheStatus = useCallback(() => {
@@ -167,6 +196,8 @@ export function useDriveFiles(
     loadFiles: refetch, // Mantido nome para compatibilidade, agora é refetch do RQ
     handleFolderClick,
     handleNavigateUp,
+    searchQuery,
+    setSearchQuery,
     // Exposing Mutation Helpers
     renameFile: renameMutation.mutateAsync,
     deleteFile: deleteMutation.mutateAsync,

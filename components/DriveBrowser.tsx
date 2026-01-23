@@ -1,13 +1,14 @@
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { 
-  ArrowLeft, Loader2, RefreshCw, Menu, Cloud, Plus, HardDrive, Sparkles, Lock, LogIn, X
+  ArrowLeft, Loader2, RefreshCw, Menu, Cloud, UploadCloud, HardDrive, Sparkles, Lock, LogIn, X, Search
 } from 'lucide-react';
 import { DriveFile, MIME_TYPES } from '../types';
-import { downloadDriveFile } from '../services/driveService';
+import { downloadDriveFile, uploadFileToDrive } from '../services/driveService';
 import { saveOfflineFile, toggleFilePin } from '../services/storageService';
 import { MoveFileModal } from './MoveFileModal';
 import { MindMapGeneratorModal } from './modals/MindMapGeneratorModal';
+import { DriveFolderPickerModal } from './pdf/modals/DriveFolderPickerModal';
 import { FileItem } from './drive/FileItem';
 import { useDriveFiles } from '../hooks/useDriveFiles';
 import { AiChatPanel } from './shared/AiChatPanel';
@@ -18,7 +19,7 @@ interface Props {
   onLogout: () => void;
   onAuthError: () => void;
   onToggleMenu: () => void;
-  mode?: 'default' | 'mindmaps' | 'offline' | 'local' | 'shared'; // Added 'shared'
+  mode?: 'default' | 'mindmaps' | 'offline' | 'local' | 'shared'; 
   onCreateMindMap?: (parentId?: string) => void; 
   onGenerateMindMapWithAi?: (topic: string) => void;
   localDirectoryHandle?: any;
@@ -46,15 +47,28 @@ export const DriveBrowser: React.FC<Props> = ({
     handleNavigateUp,
     renameFile,
     deleteFile,
-    isMutating
+    isMutating,
+    searchQuery,
+    setSearchQuery
   } = useDriveFiles(accessToken, mode as any, localDirectoryHandle, onAuthError);
 
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [localActionLoading, setLocalActionLoading] = useState(false);
   const [openingFileId, setOpeningFileId] = useState<string | null>(null);
+  const [openingFileName, setOpeningFileName] = useState<string | null>(null);
   const [moveFileModalOpen, setMoveFileModalOpen] = useState(false);
   const [fileToMove, setFileToMove] = useState<DriveFile | null>(null);
   const [showGeneratorModal, setShowGeneratorModal] = useState(false);
+  
+  // Upload States
+  const [showUploadPicker, setShowUploadPicker] = useState(false);
+  const [filesToUpload, setFilesToUpload] = useState<FileList | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const [uploadStatusMsg, setUploadStatusMsg] = useState("");
+
+  // Search UI State
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [tempSearch, setTempSearch] = useState('');
   
   // AI Sidebar State
   const [showAiSidebar, setShowAiSidebar] = useState(false);
@@ -154,22 +168,66 @@ export const DriveBrowser: React.FC<Props> = ({
       if (openingFileId) return;
       if (file.mimeType === MIME_TYPES.FOLDER) handleFolderClick(file); 
       else {
-          if (!background) setOpeningFileId(file.id);
-          try { await onSelectFile(file, background); } catch (e) { console.error(e); } finally { setOpeningFileId(null); }
+          if (!background) {
+              setOpeningFileId(file.id);
+              setOpeningFileName(file.name);
+          }
+          try { await onSelectFile(file, background); } catch (e) { console.error(e); } finally { 
+              setOpeningFileId(null); 
+              setOpeningFileName(null);
+          }
       }
   }, [handleFolderClick, onSelectFile, openingFileId]);
 
-  const handleCreateNew = () => { 
-      if (onCreateMindMap) { 
-          // Se estiver na pasta virtual "Compartilhados comigo", não permite criar na raiz dela (não é writable)
-          // Mas se navegou para uma subpasta, usa o ID dela.
-          if (currentFolder === 'shared-with-me') {
-              alert("Não é possível criar arquivos na raiz de 'Compartilhados comigo'. Navegue para uma pasta ou use 'Meu Drive'.");
-              return;
+  // --- Upload Logic ---
+  const handleUploadClick = () => {
+      if (uploadInputRef.current) {
+          uploadInputRef.current.value = '';
+          uploadInputRef.current.click();
+      }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files.length > 0) {
+          setFilesToUpload(e.target.files);
+          // Abre o seletor de pastas imediatamente
+          setShowUploadPicker(true);
+      }
+  };
+
+  const handleUploadToFolder = async (folderId: string) => {
+      setShowUploadPicker(false);
+      if (!filesToUpload || filesToUpload.length === 0) return;
+
+      setLocalActionLoading(true);
+      setUploadStatusMsg("Iniciando upload...");
+
+      try {
+          const total = filesToUpload.length;
+          for (let i = 0; i < total; i++) {
+              const file = filesToUpload[i];
+              setUploadStatusMsg(`Enviando ${i + 1} de ${total}: ${file.name}`);
+              
+              await uploadFileToDrive(
+                  accessToken,
+                  file,
+                  file.name,
+                  [folderId],
+                  file.type
+              );
           }
-          const parentId = currentFolder === 'root' ? undefined : currentFolder; 
-          onCreateMindMap(parentId); 
-      } 
+          // Recarrega a lista se estivermos vendo a pasta para onde enviamos
+          if (currentFolder === folderId || folderId === 'root') {
+              loadFiles();
+          }
+      } catch (e: any) {
+          console.error("Upload error", e);
+          alert("Erro ao fazer upload: " + e.message);
+      } finally {
+          setLocalActionLoading(false);
+          setUploadStatusMsg("");
+          setFilesToUpload(null);
+      }
   };
 
   const handleAiGenerateConfirm = (text: string) => {
@@ -180,20 +238,32 @@ export const DriveBrowser: React.FC<Props> = ({
     }
   };
 
+  // --- Search Logic ---
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+      e?.preventDefault();
+      if (tempSearch.trim()) {
+          setSearchQuery(tempSearch);
+      } else {
+          setSearchQuery('');
+          setIsSearchOpen(false);
+      }
+  };
+
+  const clearSearch = () => {
+      setTempSearch('');
+      setSearchQuery('');
+      setIsSearchOpen(false);
+  };
+
   const headerTitle = useMemo(() => {
+      if (searchQuery) return `Resultados para "${searchQuery}"`;
       if (mode === 'offline') return 'Fixados e Recentes';
       if (mode === 'mindmaps') return 'Mapas Mentais';
       if (mode === 'local') return localDirectoryHandle?.name || 'Pasta Local';
       if (currentFolder === 'shared-with-me') return 'Compartilhados comigo';
       return folderHistory[folderHistory.length - 1].name;
-  }, [mode, folderHistory, localDirectoryHandle, currentFolder]);
+  }, [mode, folderHistory, localDirectoryHandle, currentFolder, searchQuery]);
 
-  const openingFileName = useMemo(() => { 
-      if (!openingFileId) return null; 
-      return files.find(f => f.id === openingFileId)?.name || "arquivo"; 
-  }, [openingFileId, files]);
-
-  // Contexto para a IA
   const browserContext = useMemo(() => {
       const fileNames = files.slice(0, 50).map(f => `- ${f.name} (${f.mimeType === MIME_TYPES.FOLDER ? 'Pasta' : 'Arquivo'})`).join('\n');
       return `CONTEXTO DO NAVEGADOR DE ARQUIVOS:
@@ -210,13 +280,49 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
 
   return (
     <div className="flex flex-col h-full bg-bg text-text relative overflow-hidden">
-      <div className="p-4 md:p-6 border-b border-border flex items-center justify-between sticky top-0 bg-bg z-20 shrink-0">
-         <div className="flex items-center gap-3 overflow-hidden">
+      <div className="p-4 md:p-6 border-b border-border flex items-center justify-between sticky top-0 bg-bg z-20 shrink-0 h-[80px]">
+         <div className="flex items-center gap-3 overflow-hidden flex-1 mr-4">
              <button onClick={onToggleMenu} className="p-2 -ml-2 text-text-sec hover:text-text rounded-full hover:bg-white/5 active:scale-95"><Menu size={24} /></button>
-             {folderHistory.length > 1 && (mode === 'default' || mode === 'shared') && <button onClick={handleNavigateUp} className="p-2 -ml-2 text-text-sec hover:text-text rounded-full hover:bg-white/5 active:scale-95"><ArrowLeft size={24} /></button>}
-             <div className="flex flex-col min-w-0"><div className="flex items-center gap-2">{mode === 'local' && <HardDrive size={16} className="text-orange-400" />}<h1 className="text-xl font-bold truncate">{headerTitle}</h1></div><span className="text-[10px] text-text-sec flex items-center gap-1">{mode === 'local' ? 'Armazenamento do Dispositivo' : <><Cloud size={10} /> Smart Sync Ativo</>}</span></div>
+             
+             {!isSearchOpen && folderHistory.length > 1 && (mode === 'default' || mode === 'shared') && !searchQuery && (
+                 <button onClick={handleNavigateUp} className="p-2 -ml-2 text-text-sec hover:text-text rounded-full hover:bg-white/5 active:scale-95"><ArrowLeft size={24} /></button>
+             )}
+
+             {isSearchOpen ? (
+                 <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center bg-surface border border-border rounded-xl px-3 h-10 animate-in fade-in slide-in-from-right-4 w-full max-w-md">
+                     <Search size={16} className="text-text-sec mr-2 shrink-0" />
+                     <input 
+                        autoFocus
+                        value={tempSearch}
+                        onChange={(e) => setTempSearch(e.target.value)}
+                        placeholder="Pesquisar arquivos..."
+                        className="bg-transparent border-none outline-none text-sm text-text w-full placeholder:text-text-sec"
+                        onKeyDown={(e) => { if (e.key === 'Escape') clearSearch(); }}
+                     />
+                     <button type="button" onClick={clearSearch} className="p-1 text-text-sec hover:text-text"><X size={16} /></button>
+                 </form>
+             ) : (
+                 <div className="flex flex-col min-w-0">
+                     <div className="flex items-center gap-2">
+                         {mode === 'local' && <HardDrive size={16} className="text-orange-400" />}
+                         {searchQuery && <Search size={16} className="text-brand" />}
+                         <h1 className="text-xl font-bold truncate">{headerTitle}</h1>
+                         {searchQuery && <button onClick={clearSearch} className="p-1 hover:bg-white/10 rounded-full"><X size={14}/></button>}
+                     </div>
+                     <span className="text-[10px] text-text-sec flex items-center gap-1">
+                         {mode === 'local' ? 'Armazenamento do Dispositivo' : <><Cloud size={10} /> Smart Sync Ativo</>}
+                     </span>
+                 </div>
+             )}
          </div>
-         <div className="flex items-center gap-2">
+
+         <div className="flex items-center gap-2 shrink-0">
+             {!isSearchOpen && !searchQuery && (
+                 <button onClick={() => setIsSearchOpen(true)} className="p-2 text-text-sec hover:text-text rounded-full hover:bg-white/5 active:scale-95 transition-colors">
+                     <Search size={20} />
+                 </button>
+             )}
+
              <button 
                 onClick={() => setShowAiSidebar(!showAiSidebar)} 
                 className={`p-2 rounded-xl border transition-all active:scale-95 ${showAiSidebar ? 'bg-brand/20 text-brand border-brand/50 shadow-[0_0_10px_rgba(74,222,128,0.2)]' : 'bg-surface text-text-sec border-border hover:text-white'}`} 
@@ -225,10 +331,13 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
                 <Sparkles size={20} />
              </button>
              
-             {/* Esconde botão "Novo" se estiver na raiz de "Compartilhados" (não permissível) ou offline */}
-             {(mode === 'mindmaps' || mode === 'default' || (mode === 'shared' && currentFolder !== 'shared-with-me')) && !authError && onCreateMindMap && (
-                 <button onClick={handleCreateNew} className="flex items-center gap-2 bg-brand text-bg px-3 py-2 rounded-lg font-bold text-xs hover:brightness-110 shadow-lg transition-all animate-in fade-in active:scale-95">
-                     <Plus size={16} /><span className="hidden sm:inline">Novo</span>
+             {/* Upload Button */}
+             {(mode === 'default' || mode === 'shared') && !authError && (
+                 <button 
+                    onClick={handleUploadClick} 
+                    className="flex items-center gap-2 bg-brand text-bg px-3 py-2 rounded-lg font-bold text-xs hover:brightness-110 shadow-lg transition-all animate-in fade-in active:scale-95"
+                 >
+                     <UploadCloud size={16} /><span className="hidden sm:inline">Upload</span>
                  </button>
              )}
              <button onClick={() => loadFiles()} className="p-2 text-text-sec hover:text-text rounded-full hover:bg-white/5 active:scale-95"><RefreshCw size={20} className={isLoading ? "animate-spin" : ""} /></button>
@@ -251,9 +360,6 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
                  >
                      <LogIn size={20} /> Conectar ao Drive
                  </button>
-                 <p className="text-[10px] text-text-sec mt-6 opacity-60">
-                    Seus arquivos offline continuam acessíveis no menu lateral.
-                 </p>
              </div>
          ) : loading && files.length === 0 ? (
              <div className="flex items-center justify-center h-64"><Loader2 size={32} className="animate-spin text-brand" /></div>
@@ -279,7 +385,16 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
                      />
                  ))}
                  {files.length === 0 && !loading && (
-                     <div className="col-span-full text-center py-12 text-text-sec opacity-50">{mode === 'mindmaps' ? 'Nenhum mapa mental encontrado.' : 'Esta pasta está vazia.'}</div>
+                     <div className="col-span-full text-center py-12 text-text-sec opacity-50 flex flex-col items-center gap-2">
+                         {searchQuery ? (
+                             <>
+                                <Search size={48} className="opacity-20" />
+                                <p>Nenhum resultado para "{searchQuery}"</p>
+                             </>
+                         ) : (
+                             <p>{mode === 'mindmaps' ? 'Nenhum mapa mental encontrado.' : 'Esta pasta está vazia.'}</p>
+                         )}
+                     </div>
                  )}
              </div>
          )}
@@ -320,11 +435,34 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
           </div>
       )}
 
-      {(isMutating || localActionLoading) && !openingFileId && <div className="absolute inset-0 z-50 bg-bg/50 flex items-center justify-center"><Loader2 size={40} className="animate-spin text-brand" /></div>}
+      {/* Loading Overlay */}
+      {(isMutating || localActionLoading) && !openingFileId && (
+          <div className="absolute inset-0 z-50 bg-bg/80 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in">
+              <Loader2 size={40} className="animate-spin text-brand mb-2" />
+              {uploadStatusMsg && <p className="text-sm font-bold text-white">{uploadStatusMsg}</p>}
+          </div>
+      )}
+      
       {openingFileId && <div className="absolute inset-0 z-[60] bg-bg/90 flex flex-col items-center justify-center animate-in fade-in duration-300"><div className="relative mb-6"><div className="absolute inset-0 bg-brand/20 rounded-full blur-xl animate-pulse"></div><div className="relative bg-surface p-4 rounded-full border border-brand/30"><Cloud size={40} className="text-brand animate-pulse" /></div><div className="absolute -bottom-2 -right-2 bg-bg rounded-full p-1 border border-border"><Loader2 size={20} className="animate-spin text-white" /></div></div><h3 className="text-xl font-bold text-white mb-2">Abrindo Arquivo</h3><p className="text-sm text-text-sec max-w-xs text-center truncate px-4">{openingFileName || "Carregando..."}</p><div className="mt-8 flex gap-2"><div className="w-2 h-2 rounded-full bg-brand animate-bounce [animation-delay:-0.3s]"></div><div className="w-2 h-2 rounded-full bg-brand animate-bounce [animation-delay:-0.15s]"></div><div className="w-2 h-2 rounded-full bg-brand animate-bounce"></div></div></div>}
       
       <MoveFileModal isOpen={moveFileModalOpen} onClose={() => setMoveFileModalOpen(false)} fileToMove={fileToMove} accessToken={accessToken} onMoveSuccess={() => { loadFiles(); setFileToMove(null); }} />
       <MindMapGeneratorModal isOpen={showGeneratorModal} onClose={() => setShowGeneratorModal(false)} onGenerate={handleAiGenerateConfirm} />
+      
+      {/* Upload Inputs & Modals */}
+      <input 
+          type="file" 
+          multiple 
+          ref={uploadInputRef} 
+          className="hidden" 
+          onChange={handleFileSelect} 
+      />
+      
+      <DriveFolderPickerModal 
+          isOpen={showUploadPicker}
+          onClose={() => { setShowUploadPicker(false); setFilesToUpload(null); }}
+          accessToken={accessToken}
+          onSelectFolder={handleUploadToFolder}
+      />
     </div>
   );
 };

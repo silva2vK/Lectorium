@@ -454,6 +454,7 @@ const AppContent = () => {
         const mode = activeTab === 'browser' ? 'default' : activeTab === 'local-fs' ? 'local' : activeTab as any;
         return (
             <DriveBrowser 
+                key={mode}
                 accessToken={accessToken || ''} 
                 onSelectFile={handleOpenFile} 
                 onLogout={logout} 

@@ -5,6 +5,47 @@ import { getValidDriveToken, signInWithGoogleDrive, saveDriveToken, refreshDrive
 const LIST_PARAMS = "&supportsAllDrives=true&includeItemsFromAllDrives=true";
 const WRITE_PARAMS = "&supportsAllDrives=true";
 
+// Constantes de tipos suportados para reutilização em listagem e busca
+const SUPPORTED_EXTENSIONS = [
+    MIME_TYPES.LEGACY_MINDMAP_EXT, 
+    MIME_TYPES.DOCX_EXT,
+    MIME_TYPES.LECT_EXT, 
+    '.tiff', '.tif', 
+    '.heic', '.heif', 
+    '.webp', '.dcm', 
+    '.txt', '.md',
+    '.cbz', '.cbr'
+];
+
+const SUPPORTED_MIMES = [
+    MIME_TYPES.PDF, 
+    MIME_TYPES.FOLDER, 
+    MIME_TYPES.DOCX, 
+    MIME_TYPES.GOOGLE_DOC,
+    MIME_TYPES.LECTORIUM,
+    MIME_TYPES.TIFF,
+    MIME_TYPES.HEIC,
+    MIME_TYPES.HEIF,
+    MIME_TYPES.WEBP,
+    MIME_TYPES.DICOM,
+    MIME_TYPES.CBZ,
+    MIME_TYPES.CBR,
+    'application/x-cbz',
+    'application/x-cbr',
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/bmp',
+    'text/plain',
+    'text/markdown'
+];
+
+function buildBaseConstraints() {
+    const mimeQuery = SUPPORTED_MIMES.map(m => `mimeType='${m}'`).join(' or ');
+    const nameQuery = SUPPORTED_EXTENSIONS.map(e => `name contains '${e}'`).join(' or ');
+    return `trashed=false and (${mimeQuery} or ${nameQuery})`;
+}
+
 /**
  * Interceptador Centralizado de Requisições (Protocolo Auto-Retry v2)
  * 1. Tenta usar o token atual.
@@ -48,45 +89,7 @@ async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Re
 
 export async function listDriveContents(accessToken: string, folderId: string = 'root'): Promise<DriveFile[]> {
   let query = "";
-  
-  const supportedExtensions = [
-      MIME_TYPES.LEGACY_MINDMAP_EXT, 
-      MIME_TYPES.DOCX_EXT,
-      MIME_TYPES.LECT_EXT, 
-      '.tiff', '.tif', 
-      '.heic', '.heif', 
-      '.webp', '.dcm', 
-      '.txt', '.md',
-      '.cbz', '.cbr'
-  ];
-  
-  const supportedMimes = [
-      MIME_TYPES.PDF, 
-      MIME_TYPES.FOLDER, 
-      MIME_TYPES.DOCX, 
-      MIME_TYPES.GOOGLE_DOC,
-      MIME_TYPES.LECTORIUM,
-      MIME_TYPES.TIFF,
-      MIME_TYPES.HEIC,
-      MIME_TYPES.HEIF,
-      MIME_TYPES.WEBP,
-      MIME_TYPES.DICOM,
-      MIME_TYPES.CBZ,
-      MIME_TYPES.CBR,
-      'application/x-cbz',
-      'application/x-cbr',
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'image/bmp',
-      'text/plain',
-      'text/markdown'
-  ];
-
-  const mimeQuery = supportedMimes.map(m => `mimeType='${m}'`).join(' or ');
-  const nameQuery = supportedExtensions.map(e => `name contains '${e}'`).join(' or ');
-  
-  const baseConstraints = `trashed=false and (${mimeQuery} or ${nameQuery})`;
+  const baseConstraints = buildBaseConstraints();
   
   if (folderId === 'shared-with-me') {
     query = `sharedWithMe=true and ${baseConstraints}`;
@@ -106,6 +109,30 @@ export async function listDriveContents(accessToken: string, folderId: string = 
     if (response.status === 401) throw new Error("DRIVE_TOKEN_EXPIRED");
     const errorData = await response.json();
     throw new Error(errorData.error?.message || "Erro na API do Drive");
+  }
+
+  const data = await response.json();
+  return data.files || [];
+}
+
+export async function searchDriveFiles(accessToken: string, queryTerm: string): Promise<DriveFile[]> {
+  // Limpeza básica para evitar injeção ou erros na query do Drive
+  const safeQuery = queryTerm.replace(/'/g, "\\'");
+  const baseConstraints = buildBaseConstraints();
+  
+  // Busca global por nome contendo o termo
+  const query = `name contains '${safeQuery}' and ${baseConstraints}`;
+  
+  const fields = "files(id, name, mimeType, thumbnailLink, parents, starred, size, modifiedTime)";
+  
+  // Nota: orderBy 'folder' não funciona bem com busca global, usamos modifiedTime desc para relevância recente
+  const response = await fetchWithAuth(
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent(fields)}&pageSize=50&orderBy=modifiedTime desc${LIST_PARAMS}`
+  );
+
+  if (!response.ok) {
+    if (response.status === 401) throw new Error("DRIVE_TOKEN_EXPIRED");
+    throw new Error("Falha na pesquisa");
   }
 
   const data = await response.json();
