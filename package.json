@@ -70,7 +70,9 @@
     "@tiptap/extension-collaboration-cursor": {
       "@tiptap/core": "2.11.5"
     },
-    "lodash-es": "4.17.21"
+    "lodash-es": "4.17.21",
+    "react": "$react",
+    "react-dom": "$react-dom"
   },
   "devDependencies": {
     "@types/react": "19.0.0",
