@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { 
   ArrowLeft, Loader2, RefreshCw, Menu, Cloud, UploadCloud, HardDrive, Sparkles, Lock, LogIn, X, Search
@@ -12,6 +11,7 @@ import { DriveFolderPickerModal } from './pdf/modals/DriveFolderPickerModal';
 import { FileItem } from './drive/FileItem';
 import { useDriveFiles } from '../hooks/useDriveFiles';
 import { AiChatPanel } from './shared/AiChatPanel';
+import { useGlobalContext } from '../context/GlobalContext';
 
 interface Props {
   accessToken: string;
@@ -52,6 +52,8 @@ export const DriveBrowser: React.FC<Props> = ({
     setSearchQuery
   } = useDriveFiles(accessToken, mode as any, localDirectoryHandle, onAuthError);
 
+  const { addNotification } = useGlobalContext();
+
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [localActionLoading, setLocalActionLoading] = useState(false);
   const [openingFileId, setOpeningFileId] = useState<string | null>(null);
@@ -64,7 +66,7 @@ export const DriveBrowser: React.FC<Props> = ({
   const [showUploadPicker, setShowUploadPicker] = useState(false);
   const [filesToUpload, setFilesToUpload] = useState<FileList | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
-  const [uploadStatusMsg, setUploadStatusMsg] = useState("");
+  // Removido uploadStatusMsg pois agora é background
 
   // Search UI State
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -179,7 +181,7 @@ export const DriveBrowser: React.FC<Props> = ({
       }
   }, [handleFolderClick, onSelectFile, openingFileId]);
 
-  // --- Upload Logic ---
+  // --- Upload Logic (Background) ---
   const handleUploadClick = () => {
       if (uploadInputRef.current) {
           uploadInputRef.current.value = '';
@@ -199,35 +201,36 @@ export const DriveBrowser: React.FC<Props> = ({
       setShowUploadPicker(false);
       if (!filesToUpload || filesToUpload.length === 0) return;
 
-      setLocalActionLoading(true);
-      setUploadStatusMsg("Iniciando upload...");
+      // Não bloqueia mais a UI. Dispara em "background".
+      const files: File[] = Array.from(filesToUpload); // Copia para closure
+      const total = files.length;
+      
+      addNotification(`Iniciando upload de ${total} arquivo(s)...`, 'info');
+      setFilesToUpload(null); // Limpa input
 
-      try {
-          const total = filesToUpload.length;
-          for (let i = 0; i < total; i++) {
-              const file = filesToUpload[i];
-              setUploadStatusMsg(`Enviando ${i + 1} de ${total}: ${file.name}`);
-              
-              await uploadFileToDrive(
-                  accessToken,
-                  file,
-                  file.name,
-                  [folderId],
-                  file.type
-              );
-          }
-          // Recarrega a lista se estivermos vendo a pasta para onde enviamos
-          if (currentFolder === folderId || folderId === 'root') {
-              loadFiles();
-          }
-      } catch (e: any) {
-          console.error("Upload error", e);
-          alert("Erro ao fazer upload: " + e.message);
-      } finally {
-          setLocalActionLoading(false);
-          setUploadStatusMsg("");
-          setFilesToUpload(null);
-      }
+      // Processo assíncrono desconectado da UI
+      (async () => {
+        try {
+            for (let i = 0; i < total; i++) {
+                const file = files[i];
+                await uploadFileToDrive(
+                    accessToken,
+                    file,
+                    file.name,
+                    [folderId],
+                    file.type
+                );
+            }
+            
+            // Recarrega a lista se o usuário ainda estiver na mesma pasta
+            // (Verificação simples, idealmente verificaríamos o ID da pasta ativa atual)
+            loadFiles();
+            addNotification("Upload concluído com sucesso!", "success");
+        } catch (e: any) {
+            console.error("Upload error", e);
+            addNotification("Erro ao fazer upload: " + e.message, "error");
+        }
+      })();
   };
 
   const handleAiGenerateConfirm = (text: string) => {
@@ -435,11 +438,10 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
           </div>
       )}
 
-      {/* Loading Overlay */}
+      {/* Loading Overlay (Apenas para bloqueios críticos, não mais para upload) */}
       {(isMutating || localActionLoading) && !openingFileId && (
           <div className="absolute inset-0 z-50 bg-bg/80 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in">
               <Loader2 size={40} className="animate-spin text-brand mb-2" />
-              {uploadStatusMsg && <p className="text-sm font-bold text-white">{uploadStatusMsg}</p>}
           </div>
       )}
       
