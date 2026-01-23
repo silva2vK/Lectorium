@@ -1,0 +1,128 @@
+
+{
+  "id": "https://lectorium-c43.pages.dev/",
+  "scope": "/",
+  "name": "Lectorium",
+  "short_name": "Lectorium",
+  "description": "Um Workspace Acadêmico PWA local-first para visualizar PDFs do Google Drive, fazer anotações e gerir conhecimento.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "/?utm_source=pwa",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "orientation": "any",
+  "categories": [
+    "productivity",
+    "utilities",
+    "education"
+  ],
+  "launch_handler": {
+    "client_mode": ["focus-existing", "auto"]
+  },
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Lectorium Workspace Desktop"
+    },
+    {
+      "src": "/screenshots/mobile.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Lectorium Mobile Reader"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Meus Arquivos",
+      "short_name": "Arquivos",
+      "description": "Abrir lista de arquivos do Drive",
+      "url": "/?mode=browser&utm_source=shortcut",
+      "icons": [
+        {
+          "src": "/icons/shortcut-files.svg",
+          "sizes": "192x192",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Novo Mapa Mental",
+      "short_name": "Mapa Mental",
+      "description": "Criar um novo mapa mental",
+      "url": "/?mode=mindmaps&action=create&utm_source=shortcut",
+      "icons": [
+        {
+          "src": "/icons/shortcut-mindmap.svg",
+          "sizes": "192x192",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/?source=filehandler",
+      "accept": {
+        "application/pdf": [".pdf"],
+        "application/json": [".mindmap", ".json"],
+        "application/vnd.lectorium": [".lect"]
+      },
+      "icons": [
+        {
+          "src": "/icons/file-pdf.svg",
+          "sizes": "512x512",
+          "type": "image/svg+xml"
+        }
+      ],
+      "launch_type": "single-client"
+    }
+  ],
+  "share_target": {
+    "action": "/?source=share_target",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": {
+      "title": "share_title",
+      "text": "share_text",
+      "url": "share_url"
+    }
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+lectorium",
+      "url": "/?link=%s"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

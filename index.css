@@ -1,0 +1,325 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* RESET TAP HIGHLIGHT */
+* { -webkit-tap-highlight-color: transparent; }
+
+/* GLOBAL FONT WEIGHT ADJUSTMENT */
+body {
+  font-weight: 500; /* Engrossa a letra padrão (400 -> 500) */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  /* Variáveis Padrão (Tema Forest) - Texto agora em Branco Puro */
+  --bg-main: #09090b;
+  --bg-surface: #18181b;
+  --bg-sidebar: #09090b;
+  --bg-paper: #ffffff;
+  --text-main: #ffffff;
+  --text-sec: #ffffff;
+  --border-color: #27272a;
+  --brand: #4ade80;
+  --brand-to: #34d399;
+}
+
+/* --- THEME DEFINITIONS --- */
+
+/* Todos os temas (exceto forest) usam fundo True Black (OLED) */
+html.azul, html.roxo, html.rosa, html.vermelho, 
+html.laranja, html.amarelo, html.lima, html.prata, html.custom, html.maker {
+  --bg-main: #000000;
+  --bg-surface: #0a0a0a;
+  --bg-sidebar: #000000;
+  --border-color: #1a1a1a;
+}
+
+/* Cores de Destaque por Tema */
+html.azul     { --brand: #4169E1; --brand-to: #2563eb; }
+html.roxo     { --brand: #a855f7; --brand-to: #9333ea; }
+html.rosa     { --brand: #FF00FF; --brand-to: #FF6EC7; }
+html.vermelho { --brand: #E32636; --brand-to: #dc2626; }
+html.laranja  { --brand: #f97316; --brand-to: #ea580c; }
+html.amarelo  { --brand: #eab308; --brand-to: #ca8a04; }
+html.lima     { --brand: #84cc16; --brand-to: #65a30d; }
+html.prata    { --brand: #94a3b8; --brand-to: #64748b; }
+html.custom   { --brand: var(--custom-brand, #ffffff); --brand-to: var(--custom-brand, #ffffff); }
+
+/* --- THE MAKER THEME (Ultimate Reed Richards) --- */
+html.maker {
+  --brand: #3b82f6; /* Royal Blue mais claro para destaque */
+  --brand-to: #60a5fa;
+  --maker-red: #DC143C; /* Crimson Red - The City Alert Color */
+  
+  /* Fundo principal transparente para permitir que o gradiente do body apareça */
+  --bg-main: transparent; 
+  --bg-surface: rgba(10, 15, 30, 0.95); /* Deep Tech Blue/Black Glass */
+  --bg-sidebar: #020617; /* Slate 950 */
+  --text-main: #ffffff;
+  --text-sec: #94a3b8;
+  --border-color: #1e3a8a; /* Dark Blue Border */
+}
+
+/* Gradiente Futurista para The Maker - Mais Intenso no Topo */
+html.maker body {
+  background: linear-gradient(180deg, #0f172a 0%, #020617 40%, #000000 100%) fixed;
+}
+
+/* Força o gradiente em containers que usam bg-bg no tema Maker */
+html.maker .bg-bg {
+  background: linear-gradient(180deg, #0f172a 0%, #020617 40%, #000000 100%) fixed !important;
+}
+
+/* Override Específico para a PdfToolbar (Futuristic Tech Look - Pílula Neon) */
+html.maker .maker-pdf-toolbar > div {
+  border-radius: 9999px !important; /* Pílula Completa */
+  background: rgba(2, 6, 23, 0.9) !important;
+  border: 1px solid rgba(59, 130, 246, 0.6) !important; 
+  box-shadow: 0 0 30px rgba(37, 99, 235, 0.25), inset 0 0 20px rgba(37, 99, 235, 0.1) !important; 
+}
+
+/* Override para Botões e Texto da Toolbar no tema Maker (Neon White Content) */
+html.maker .maker-pdf-toolbar button,
+html.maker .maker-pdf-toolbar span,
+html.maker .maker-pdf-toolbar svg {
+  border-radius: 9999px !important;
+  color: #ffffff !important;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.8) !important; /* Efeito Neon Branco */
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.5));
+}
+
+/* Botão ativo no Maker (Blue Layers Effect + Crimson Icon) */
+html.maker .maker-pdf-toolbar button.text-brand {
+  /* Fundo Escuro para contraste */
+  background-color: #020617 !important; 
+  
+  /* Efeito de Camadas (Layers) usando Box Shadows Múltiplos */
+  box-shadow: 
+    0 0 0 2px #000000, /* Camada 1: Gap Preto (Isolamento) */
+    0 0 0 4px #3b82f6, /* Camada 2: Anel Azul Sólido */
+    0 0 15px 4px rgba(59, 130, 246, 0.6), /* Camada 3: Glow Azul */
+    inset 0 0 10px rgba(59, 130, 246, 0.3) !important; /* Profundidade Interna */
+    
+  border: 1px solid #1d4ed8 !important; /* Borda Azul Escura */
+  color: var(--maker-red) !important;
+  z-index: 10 !important; /* Garante que fique acima dos vizinhos */
+}
+
+html.maker .maker-pdf-toolbar button.text-brand svg {
+  /* Ícone Vermelho Carmesim */
+  color: var(--maker-red) !important;
+  filter: drop-shadow(0 0 6px rgba(220, 20, 60, 0.9)); /* Glow Vermelho Intenso */
+}
+
+/* Override para Sidebar no tema Maker */
+html.maker .bg-sidebar {
+  border-right: 1px solid rgba(37, 99, 235, 0.3) !important;
+  background: linear-gradient(180deg, #020617 0%, #000000 100%) !important;
+}
+
+/* CORREÇÃO DE CONTRASTE: Botões Brand no Tema Maker */
+html.maker .bg-brand,
+html.maker button.bg-brand {
+  color: #ffffff !important; /* Texto branco em fundo azul */
+}
+
+/* --- THE MAKER DASHBOARD OVERRIDES (Crimson Accents) --- */
+
+/* Grupo de botões Smart Sync / Online */
+html.maker .maker-target-group {
+  background-color: #000000 !important; /* Fundo preto sólido */
+  border: 1px solid var(--maker-red) !important;
+  box-shadow: 0 0 10px rgba(220, 20, 60, 0.2);
+}
+
+html.maker .maker-target-group button.bg-brand {
+  background-color: var(--maker-red) !important; /* Botão Ativo vira Crimson */
+  color: #fff !important;
+  text-shadow: 0 0 5px rgba(0,0,0,0.5);
+}
+
+/* Botões Isolados (Armazenamento, Status) */
+html.maker .maker-target-btn {
+  border: 1px solid var(--maker-red) !important;
+  background-color: #000000 !important; /* Fundo preto sólido */
+  color: #fff !important;
+}
+
+html.maker .maker-target-btn:hover {
+  background-color: rgba(220, 20, 60, 0.2) !important;
+  box-shadow: 0 0 15px var(--maker-red) !important;
+}
+
+/* Menu Hambúrguer Customizado (Children of Tomorrow) */
+html.maker .maker-menu-btn {
+  border-color: var(--brand) !important;
+  background: rgba(0, 10, 30, 0.8) !important;
+  box-shadow: 0 0 20px rgba(37, 99, 235, 0.4) !important;
+}
+
+/* O Ícone (Children) fica Vermelho Carmesim para contraste com o Azul do Container */
+html.maker .maker-menu-btn svg {
+  color: var(--maker-red) !important;
+  filter: drop-shadow(0 0 5px rgba(220, 20, 60, 0.5));
+}
+
+html.maker .maker-menu-btn:hover svg {
+  color: #ff4d4d !important; /* Vermelho mais vivo no hover */
+  filter: drop-shadow(0 0 8px rgba(220, 20, 60, 0.8));
+}
+
+/* --- HIGH CONTRAST TEXT MODE --- */
+html.high-contrast-text {
+  --text-main: #ffffff !important;
+  --text-sec: #ffffff !important; 
+  --brand: #00ffff !important; 
+  --brand-to: #00cccc !important;
+  --bg-main: #000000 !important;
+  --bg-surface: #000000 !important;
+  --bg-sidebar: #000000 !important;
+  --border-color: #ffffff !important;
+}
+
+html.high-contrast-text body {
+  font-family: "Verdana", "Arial", sans-serif !important;
+  font-size: 18px !important; 
+  line-height: 1.6 !important;
+  letter-spacing: 0.03em;
+  font-weight: 700 !important; /* Força negrito no modo alto contraste */
+}
+
+html.high-contrast-text .text-text-sec,
+html.high-contrast-text .text-gray-400,
+html.high-contrast-text .text-gray-500,
+html.high-contrast-text .text-gray-600 {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+html.high-contrast-text button,
+html.high-contrast-text input,
+html.high-contrast-text select,
+html.high-contrast-text textarea {
+  border-width: 2px !important;
+  border-color: #ffffff !important;
+  font-weight: bold !important;
+}
+
+/* --- TEXT LAYER PURGE & OPTIMIZATION --- */
+.textLayer {
+  opacity: 1;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  contain: strict; 
+  user-select: none;
+  pointer-events: none !important;
+  z-index: 30;
+}
+
+.textLayer span, .ocr-word-span {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  pointer-events: auto !important;
+  user-select: text;
+}
+
+/* Smart Tap: Ponto Inicial (Âncora) */
+.textLayer span.selection-anchor {
+  border-bottom-width: 3px;
+  border-bottom-style: solid;
+  border-radius: 2px;
+  z-index: 100;
+  opacity: 0.6; 
+  mix-blend-mode: multiply;
+}
+
+/* Smart Tap: Preview de Intervalo (Pintura Imediata) */
+.textLayer span.selection-preview {
+  opacity: 0.4; 
+  mix-blend-mode: multiply;
+  border-radius: 2px;
+  z-index: 90;
+}
+
+.textLayer span.selection-anchor::after,
+.textLayer span.selection-end::after {
+  content: none;
+}
+
+/* SCROLLBARS */
+.custom-scrollbar { scrollbar-width: thin; scrollbar-color: var(--border-color) transparent; }
+.custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+
+/* --- LINE NUMBERS (DOC EDITOR) --- */
+.show-line-numbers .ProseMirror {
+  counter-reset: line-number;
+}
+
+.show-line-numbers .ProseMirror > p,
+.show-line-numbers .ProseMirror > h1,
+.show-line-numbers .ProseMirror > h2,
+.show-line-numbers .ProseMirror > h3,
+.show-line-numbers .ProseMirror > blockquote,
+.show-line-numbers .ProseMirror > div[data-type="codeBlock"] {
+  position: relative;
+}
+
+.show-line-numbers .ProseMirror > p::before,
+.show-line-numbers .ProseMirror > h1::before,
+.show-line-numbers .ProseMirror > h2::before,
+.show-line-numbers .ProseMirror > h3::before,
+.show-line-numbers .ProseMirror > blockquote::before,
+.show-line-numbers .ProseMirror > div[data-type="codeBlock"]::before {
+  counter-increment: line-number;
+  content: counter(line-number);
+  position: absolute;
+  left: -2.5rem;
+  top: 0;
+  font-family: monospace;
+  font-size: 10px;
+  color: #ffffff; 
+  text-align: right;
+  width: 1.5rem;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* --- TACTICAL PULLERS (THE MAKER THEME) --- */
+html.maker .tactical-puller {
+  /* Fundo 100% Opaco (Sólido Dark Slate) */
+  background-color: #020617 !important; 
+  /* Borda 100% Opaca (Azul Sólido) */
+  border-color: #3b82f6 !important; 
+  box-shadow: 0 0 20px rgba(37, 99, 235, 0.2) !important; 
+  backdrop-filter: none !important; /* Remove blur pois é opaco */
+}
+
+html.maker .tactical-puller:hover {
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 30px rgba(37, 99, 235, 0.4) !important;
+}
+
+/* Indicador (Core) - Estado Neutro (PRATA/SILVER) */
+html.maker .puller-indicator {
+  background-color: #cbd5e1 !important; /* Slate 300 - Silverish */
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.3) !important; /* Subtle shine */
+}
+
+/* Indicador (Core) - Estado Ativo (Acendido = CARMESIM) */
+html.maker .tactical-puller:hover .puller-indicator {
+  background-color: var(--maker-red) !important; 
+  box-shadow: 0 0 15px var(--maker-red), 0 0 5px #fff !important; /* Glow Vermelho Intenso */
+}
