@@ -21,82 +21,78 @@ export const tryAutoDownloadFont = async (rawFontName: string) => {
 };
 
 /**
- * Algoritmo "White River" para detecção de colunas.
- * Cria um histograma de ocupação horizontal e busca vales (espaços vazios) no centro da página.
+ * Algoritmo "White River V3" (Multi-Channel Topology)
+ * Detecta múltiplos "rios" (calhas verticais vazias) para suportar tabelas e layouts de N colunas.
+ * Retorna um array de coordenadas X onde ocorrem as divisões.
  */
-function calculateSplitPoint(items: any[], viewportWidth: number, viewportHeight: number): number | null {
-    // 1. Definição da Área de Interesse (ROI)
-    // Ignora cabeçalhos (top 15%) e rodapés (bottom 15%) para evitar falsos negativos
-    const safeTop = viewportHeight * 0.15;
-    const safeBottom = viewportHeight * 0.85;
+function detectColumnSplits(items: any[], viewportWidth: number, viewportHeight: number): number[] {
+    const splits: number[] = [];
     
-    // Focamos a busca da calha no terço central da largura (33% a 66%)
-    const searchStart = Math.floor(viewportWidth * 0.33);
-    const searchEnd = Math.floor(viewportWidth * 0.66);
+    // 1. Filtragem Inteligente (De-noising)
+    // Ignora cabeçalhos/rodapés extremos e elementos full-width que cortam a página
+    const safeTop = viewportHeight * 0.08;
+    const safeBottom = viewportHeight * 0.92;
     
-    // Histograma de densidade (Resolução de 2px para performance)
-    const bucketSize = 2;
+    const layoutItems = items.filter(item => {
+        // Ignora verticais extremos
+        if (item.y < safeTop || item.y > safeBottom) return false;
+        // Ignora itens muito pequenos (ruído de OCR)
+        if (item.width < 4) return false;
+        // CRÍTICO: Ignora itens que ocupam quase toda a largura (ex: Títulos/Linhas que cruzam colunas)
+        // Se ocupar mais de 85% da largura, provavelmente é um elemento de layout global, não conteúdo de coluna.
+        if (item.width > (viewportWidth * 0.85)) return false;
+        
+        return true;
+    });
+
+    if (layoutItems.length < 15) return []; // Poucos itens para determinar colunas
+
+    // 2. Histograma de Ocupação Horizontal (Resolução fina)
+    const bucketSize = 4; // 4px de precisão
     const numBuckets = Math.ceil(viewportWidth / bucketSize);
     const densityMap = new Int16Array(numBuckets).fill(0);
 
-    // 2. Preenchimento do Histograma
-    let contentCount = 0;
-    for (const item of items) {
-        // Ignora itens fora da zona vertical segura
-        if (item.y < safeTop || item.y > safeBottom) continue;
-        // Ignora itens muito pequenos (ruído/pontuação)
-        if (item.width < 5) continue;
-
+    for (const item of layoutItems) {
         const startBucket = Math.floor(item.x / bucketSize);
         const endBucket = Math.floor((item.x + item.width) / bucketSize);
         
+        // Incrementa peso nos buckets ocupados
         for (let i = startBucket; i <= endBucket; i++) {
-            if (i >= 0 && i < numBuckets) {
-                densityMap[i]++;
-            }
+            if (i >= 0 && i < numBuckets) densityMap[i]++;
         }
-        contentCount++;
     }
 
-    // Se não há conteúdo suficiente na zona segura, não tenta dividir
-    if (contentCount < 10) return null;
+    // 3. Varredura Linear por Vales (Gaps)
+    // Procuramos sequências de zeros (ou quase zeros) que indicam um rio.
+    const searchStart = Math.floor((viewportWidth * 0.05) / bucketSize); // Ignora 5% das bordas
+    const searchEnd = Math.floor((viewportWidth * 0.95) / bucketSize);
+    
+    const MIN_GAP_WIDTH_PX = 14; // Largura mínima visual para considerar uma coluna (calha)
+    const NOISE_TOLERANCE = 1; // Permite 1 pixel perdido/ruído no caminho
 
-    // 3. Detecção do "Rio Branco" (Maior sequência de zeros na zona de busca)
-    let maxGapSize = 0;
-    let currentGapSize = 0;
-    let maxGapCenter = 0;
-    let currentGapStart = 0;
+    let currentGapStart = -1;
 
-    const startBucketIdx = Math.floor(searchStart / bucketSize);
-    const endBucketIdx = Math.floor(searchEnd / bucketSize);
+    for (let i = searchStart; i <= searchEnd; i++) {
+        const isEmpty = densityMap[i] <= NOISE_TOLERANCE;
 
-    for (let i = startBucketIdx; i <= endBucketIdx; i++) {
-        if (densityMap[i] === 0) {
-            if (currentGapSize === 0) currentGapStart = i;
-            currentGapSize++;
+        if (isEmpty) {
+            if (currentGapStart === -1) currentGapStart = i;
         } else {
-            if (currentGapSize > maxGapSize) {
-                maxGapSize = currentGapSize;
-                // Centro do gap em pixels
-                maxGapCenter = (currentGapStart + (currentGapSize / 2)) * bucketSize;
+            if (currentGapStart !== -1) {
+                // Fim de um gap potencial
+                const gapWidthPx = (i - currentGapStart) * bucketSize;
+                
+                if (gapWidthPx >= MIN_GAP_WIDTH_PX) {
+                    // Gap válido encontrado! Calcula o centro.
+                    const gapCenterPx = (currentGapStart * bucketSize) + (gapWidthPx / 2);
+                    splits.push(gapCenterPx);
+                }
+                currentGapStart = -1;
             }
-            currentGapSize = 0;
         }
     }
 
-    // Verifica o último gap se o loop terminar
-    if (currentGapSize > maxGapSize) {
-        maxGapSize = currentGapSize;
-        maxGapCenter = (currentGapStart + (currentGapSize / 2)) * bucketSize;
-    }
-
-    // 4. Validação
-    // A calha deve ter pelo menos 10px de largura para ser considerada uma divisão de coluna real
-    if (maxGapSize * bucketSize > 10) {
-        return maxGapCenter;
-    }
-
-    return null;
+    return splits;
 }
 
 export const renderCustomTextLayer = (textContent: any, container: HTMLElement, viewport: any, forceDetectColumns: boolean) => {
@@ -135,75 +131,87 @@ export const renderCustomTextLayer = (textContent: any, container: HTMLElement, 
     }
   });
 
-  // 2. Detecção Inteligente de Colunas
-  let splitX: number | null = null;
+  // 2. Detecção de Layout (Multi-Colunas)
+  let splits: number[] = [];
   
   if (forceDetectColumns) {
-      splitX = viewport.width / 2; // Fallback manual forçado (corte seco)
+      // Força divisão ao meio se solicitado explicitamente (modo livro)
+      splits = [viewport.width / 2];
   } else {
-      // Tenta detectar automaticamente
-      splitX = calculateSplitPoint(rawItems, viewport.width, viewport.height);
+      // Detecção algorítmica automática
+      splits = detectColumnSplits(rawItems, viewport.width, viewport.height);
   }
 
-  // 3. Ordenação Topológica (Leitura em N)
+  // 3. Ordenação Topológica Avançada
   rawItems.sort((a, b) => {
-    // Se detectamos uma coluna, a prioridade máxima é a posição da coluna
-    if (splitX !== null) {
-        // Determina a coluna (0 = Esquerda, 1 = Direita)
-        // Se um item cruza a linha de corte (ex: título centralizado), consideramos "Coluna -1" (Topo) ou baseado no centro
-        const centerA = a.x + (a.width / 2);
-        const centerB = b.x + (b.width / 2);
-        
-        // Tolerância de cruzamento: se o item cruza a linha de split significativamente, 
-        // ele é um elemento de layout "full width".
-        // Para simplificar: classificamos pelo centro de massa do texto.
-        const colA = centerA < splitX ? 0 : 1;
-        const colB = centerB < splitX ? 0 : 1;
+    if (splits.length > 0) {
+        // Função auxiliar para determinar em qual "bucket" (coluna) o item cai
+        const getColumnIndex = (item: any) => {
+            const midX = item.x + (item.width / 2);
+            let colIndex = 0;
+            // Verifica em qual intervalo entre splits o item está
+            for (const splitX of splits) {
+                if (midX < splitX) {
+                    return colIndex;
+                }
+                colIndex++;
+            }
+            return colIndex; // Última coluna
+        };
 
+        const colA = getColumnIndex(a);
+        const colB = getColumnIndex(b);
+
+        // Se estiverem em colunas diferentes, a coluna dita a ordem
         if (colA !== colB) {
             return colA - colB;
         }
     }
 
-    // Dentro da mesma coluna (ou se for layout simples), ordena por Y
+    // Se estiverem na mesma coluna (ou se não houver colunas), ordena por Y visual
+    // Agrupamento por Linha Visual: Tolerância de 40% da altura da fonte
     const yDiff = a.y - b.y;
-    // Pequena tolerância vertical para alinhar textos na mesma linha visualmente
-    if (Math.abs(yDiff) < (a.fontSize * 0.5)) {
+    const lineHeight = Math.min(a.fontSize, b.fontSize);
+    
+    if (Math.abs(yDiff) < (lineHeight * 0.4)) {
+        // Mesma linha visual -> ordena por X
         return a.x - b.x;
     }
+    // Linhas diferentes -> ordena por Y
     return yDiff;
   });
 
   // 4. Renderização DOM
+  const frag = document.createDocumentFragment();
+  
   rawItems.forEach((part) => {
     const span = document.createElement('span');
     span.textContent = part.str;
     const calculatedTop = part.y - (part.fontSize * 0.85);
-    const hPadding = part.fontSize * 0.2;
+    const hPadding = part.fontSize * 0.1; 
 
-    span.style.left = `${part.x - hPadding}px`;
-    span.style.top = `${calculatedTop}px`;
-    span.style.fontSize = `${part.fontSize}px`;
-    span.style.position = 'absolute';
-    span.style.transform = `scaleX(${part.scaleX})`;
-    span.style.transformOrigin = '0% 0%';
-    span.style.whiteSpace = 'pre';
-    span.style.color = 'transparent';
-    span.style.pointerEvents = 'all';
-    span.style.padding = `0 ${hPadding}px`;
+    span.style.cssText = `
+        left: ${part.x}px;
+        top: ${calculatedTop}px;
+        font-size: ${part.fontSize}px;
+        position: absolute;
+        transform: scaleX(${part.scaleX});
+        transform-origin: 0% 0%;
+        white-space: pre;
+        color: transparent;
+        cursor: text;
+        padding: 0 ${hPadding}px;
+    `;
     
-    // Debug visual da coluna (opcional, pode ser ativado via classe CSS)
-    if (splitX !== null) {
-        span.dataset.column = (part.x + (part.width/2)) < splitX ? "left" : "right";
-    }
-
     span.dataset.pdfX = part.x.toString();
     span.dataset.pdfTop = calculatedTop.toString();
     span.dataset.pdfWidth = part.width.toString();
     span.dataset.pdfHeight = part.fontSize.toString();
 
-    container.appendChild(span);
+    frag.appendChild(span);
   });
+  
+  container.appendChild(frag);
 };
 
 export const drawSmoothStroke = (ctx: CanvasRenderingContext2D, points: number[][], scale: number) => {
