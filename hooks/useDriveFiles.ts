@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DriveFile } from '../types';
@@ -13,20 +14,27 @@ import { listLocalFiles } from '../services/localFileService';
 
 export function useDriveFiles(
   accessToken: string,
-  mode: 'default' | 'mindmaps' | 'offline' | 'local',
+  mode: 'default' | 'mindmaps' | 'offline' | 'local' | 'shared',
   localDirectoryHandle: any,
   onAuthError: () => void
 ) {
   const queryClient = useQueryClient();
-  const [currentFolder, setCurrentFolder] = useState<string>('root');
-  const [folderHistory, setFolderHistory] = useState<{id: string, name: string}[]>([{id: 'root', name: 'Meu Drive'}]);
+  
+  // Se o modo for 'shared', começamos na pasta virtual 'shared-with-me'.
+  const initialFolder = mode === 'shared' ? 'shared-with-me' : 'root';
+  const initialHistory = mode === 'shared' 
+    ? [{id: 'shared-with-me', name: 'Compartilhados comigo'}] 
+    : [{id: 'root', name: 'Meu Drive'}];
+
+  const [currentFolder, setCurrentFolder] = useState<string>(initialFolder);
+  const [folderHistory, setFolderHistory] = useState<{id: string, name: string}[]>(initialHistory);
 
   // Query principal: Lista de Arquivos
   const { data: files = [], isLoading, error: queryError, refetch } = useQuery({
     queryKey: ['drive-files', mode, currentFolder, accessToken],
     queryFn: async () => {
-      // Modo Default exige token
-      if (mode === 'default' && !accessToken) {
+      // Modos Default/Shared exigem token
+      if ((mode === 'default' || mode === 'shared') && !accessToken) {
         throw new Error("DRIVE_TOKEN_EXPIRED");
       }
 
@@ -69,7 +77,8 @@ export function useDriveFiles(
         return await listLocalFiles(localDirectoryHandle);
       }
       
-      // Default Mode
+      // Default & Shared Mode usam a mesma API de listagem
+      // Se mode === 'shared', o currentFolder já começa como 'shared-with-me'
       return await listDriveContents(accessToken, currentFolder);
     },
     // Se der erro de auth, dispara callback

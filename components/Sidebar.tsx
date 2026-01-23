@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Home, FolderOpen, LogOut, User as UserIcon, X, Palette, ChevronDown, ChevronRight, Workflow, DownloadCloud, CheckCircle, Loader2, LayoutGrid, Cloud, CloudOff, LogIn, Wrench, Key, Scale, Monitor, Smartphone, Upload, Trash2, RefreshCw, FileText, Maximize, Minimize, Zap, Database, Cpu, Image as ImageIcon, Contrast } from 'lucide-react';
+import { Home, FolderOpen, LogOut, User as UserIcon, X, Palette, ChevronDown, ChevronRight, Workflow, DownloadCloud, CheckCircle, Loader2, LayoutGrid, Cloud, CloudOff, LogIn, Wrench, Key, Scale, Monitor, Smartphone, Upload, Trash2, RefreshCw, FileText, Maximize, Minimize, Zap, Database, Cpu, Image as ImageIcon, Contrast, Users } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { DriveFile } from '../types';
@@ -170,7 +170,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Home size={24} /><span className="ml-4 text-base">Início</span>
             </button>
             <button onClick={() => handleNavigation('browser')} className={`w-full p-3 rounded-xl flex items-center px-4 ${activeTab === 'browser' ? 'bg-brand/10 text-brand font-bold' : 'text-white hover:bg-white/5'}`}>
-              <FolderOpen size={24} /><span className="ml-4 text-base">Arquivos</span>
+              <FolderOpen size={24} /><span className="ml-4 text-base">Meu Drive</span>
+            </button>
+            <button onClick={() => handleNavigation('shared')} className={`w-full p-3 rounded-xl flex items-center px-4 ${activeTab === 'shared' ? 'bg-brand/10 text-brand font-bold' : 'text-white hover:bg-white/5'}`}>
+              <Users size={24} /><span className="ml-4 text-base">Compartilhados</span>
             </button>
             <button onClick={() => handleNavigation('mindmaps')} className={`w-full p-3 rounded-xl flex items-center px-4 ${activeTab === 'mindmaps' ? 'bg-brand/10 text-brand font-bold' : 'text-white hover:bg-white/5'}`}>
               <Workflow size={24} /><span className="ml-4 text-base">Mapas Mentais</span>

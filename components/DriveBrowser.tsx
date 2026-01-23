@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback } from 'react';
 import { 
   ArrowLeft, Loader2, RefreshCw, Menu, Cloud, Plus, HardDrive, Sparkles, Lock, LogIn, X
@@ -17,7 +18,7 @@ interface Props {
   onLogout: () => void;
   onAuthError: () => void;
   onToggleMenu: () => void;
-  mode?: 'default' | 'mindmaps' | 'offline' | 'local';
+  mode?: 'default' | 'mindmaps' | 'offline' | 'local' | 'shared'; // Added 'shared'
   onCreateMindMap?: (parentId?: string) => void; 
   onGenerateMindMapWithAi?: (topic: string) => void;
   localDirectoryHandle?: any;
@@ -46,7 +47,7 @@ export const DriveBrowser: React.FC<Props> = ({
     renameFile,
     deleteFile,
     isMutating
-  } = useDriveFiles(accessToken, mode as 'default' | 'mindmaps' | 'offline' | 'local', localDirectoryHandle, onAuthError);
+  } = useDriveFiles(accessToken, mode as any, localDirectoryHandle, onAuthError);
 
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [localActionLoading, setLocalActionLoading] = useState(false);
@@ -160,6 +161,12 @@ export const DriveBrowser: React.FC<Props> = ({
 
   const handleCreateNew = () => { 
       if (onCreateMindMap) { 
+          // Se estiver na pasta virtual "Compartilhados comigo", não permite criar na raiz dela (não é writable)
+          // Mas se navegou para uma subpasta, usa o ID dela.
+          if (currentFolder === 'shared-with-me') {
+              alert("Não é possível criar arquivos na raiz de 'Compartilhados comigo'. Navegue para uma pasta ou use 'Meu Drive'.");
+              return;
+          }
           const parentId = currentFolder === 'root' ? undefined : currentFolder; 
           onCreateMindMap(parentId); 
       } 
@@ -177,8 +184,9 @@ export const DriveBrowser: React.FC<Props> = ({
       if (mode === 'offline') return 'Fixados e Recentes';
       if (mode === 'mindmaps') return 'Mapas Mentais';
       if (mode === 'local') return localDirectoryHandle?.name || 'Pasta Local';
+      if (currentFolder === 'shared-with-me') return 'Compartilhados comigo';
       return folderHistory[folderHistory.length - 1].name;
-  }, [mode, folderHistory, localDirectoryHandle]);
+  }, [mode, folderHistory, localDirectoryHandle, currentFolder]);
 
   const openingFileName = useMemo(() => { 
       if (!openingFileId) return null; 
@@ -205,7 +213,7 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
       <div className="p-4 md:p-6 border-b border-border flex items-center justify-between sticky top-0 bg-bg z-20 shrink-0">
          <div className="flex items-center gap-3 overflow-hidden">
              <button onClick={onToggleMenu} className="p-2 -ml-2 text-text-sec hover:text-text rounded-full hover:bg-white/5 active:scale-95"><Menu size={24} /></button>
-             {folderHistory.length > 1 && mode === 'default' && <button onClick={handleNavigateUp} className="p-2 -ml-2 text-text-sec hover:text-text rounded-full hover:bg-white/5 active:scale-95"><ArrowLeft size={24} /></button>}
+             {folderHistory.length > 1 && (mode === 'default' || mode === 'shared') && <button onClick={handleNavigateUp} className="p-2 -ml-2 text-text-sec hover:text-text rounded-full hover:bg-white/5 active:scale-95"><ArrowLeft size={24} /></button>}
              <div className="flex flex-col min-w-0"><div className="flex items-center gap-2">{mode === 'local' && <HardDrive size={16} className="text-orange-400" />}<h1 className="text-xl font-bold truncate">{headerTitle}</h1></div><span className="text-[10px] text-text-sec flex items-center gap-1">{mode === 'local' ? 'Armazenamento do Dispositivo' : <><Cloud size={10} /> Smart Sync Ativo</>}</span></div>
          </div>
          <div className="flex items-center gap-2">
@@ -217,7 +225,8 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
                 <Sparkles size={20} />
              </button>
              
-             {(mode === 'mindmaps' || mode === 'default') && !authError && onCreateMindMap && (
+             {/* Esconde botão "Novo" se estiver na raiz de "Compartilhados" (não permissível) ou offline */}
+             {(mode === 'mindmaps' || mode === 'default' || (mode === 'shared' && currentFolder !== 'shared-with-me')) && !authError && onCreateMindMap && (
                  <button onClick={handleCreateNew} className="flex items-center gap-2 bg-brand text-bg px-3 py-2 rounded-lg font-bold text-xs hover:brightness-110 shadow-lg transition-all animate-in fade-in active:scale-95">
                      <Plus size={16} /><span className="hidden sm:inline">Novo</span>
                  </button>
