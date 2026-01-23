@@ -8,7 +8,7 @@ import {
   renameDriveFile, 
   deleteDriveFile, 
   moveDriveFile,
-  searchDriveFiles // Nova importação
+  searchDriveFiles 
 } from '../services/driveService';
 import { listOfflineFiles } from '../services/storageService';
 import { listLocalFiles } from '../services/localFileService';
@@ -37,19 +37,10 @@ export function useDriveFiles(
   const { data: files = [], isLoading, error: queryError, refetch } = useQuery({
     queryKey: ['drive-files', mode, currentFolder, accessToken, searchQuery],
     queryFn: async () => {
-      // Modos Default/Shared exigem token
-      if ((mode === 'default' || mode === 'shared') && !accessToken) {
-        throw new Error("DRIVE_TOKEN_EXPIRED");
-      }
+      // --- MODO OFFLINE / FALLBACK LOGIC START ---
+      const isOffline = !navigator.onLine;
 
-      // Se houver busca e for modo online (Default/Shared), usa a API de busca
-      if (searchQuery && (mode === 'default' || mode === 'shared')) {
-          return await searchDriveFiles(accessToken, searchQuery);
-      }
-
-      // Se houver busca e for modo Offline/Local/Mindmaps, fazemos a filtragem em memória abaixo
-      // Então aqui carregamos tudo normal primeiro.
-
+      // Se houver busca e for modo Offline/Local/Mindmaps, fazemos a filtragem em memória
       if (mode === 'offline') {
         const offline = await listOfflineFiles();
         if (searchQuery) {
@@ -69,7 +60,6 @@ export function useDriveFiles(
         let cloudMaps: DriveFile[] = [];
         if (accessToken && navigator.onLine) {
             try {
-                // Se houver busca, poderíamos usar searchMindMaps com filtro extra, mas vamos filtrar no cliente
                 cloudMaps = await searchMindMaps(accessToken);
             } catch (e) {
                 console.warn("Cloud fetch skipped for mindmaps (offline or auth issue).");
@@ -103,10 +93,45 @@ export function useDriveFiles(
         return local;
       }
       
-      // Default & Shared Mode (Sem busca)
-      return await listDriveContents(accessToken, currentFolder);
+      // Default & Shared Mode (Hybrid Cloud/Local)
+      if (mode === 'default' || mode === 'shared') {
+          // 1. Se estiver offline explicitamente, carrega do cache local imediatamente
+          if (isOffline) {
+              console.log("[DriveHook] Modo Offline detectado. Carregando arquivos locais...");
+              const localFiles = await listOfflineFiles();
+              // Filtro opcional: Se quiser mostrar apenas arquivos da pasta atual, descomentar abaixo.
+              // Por enquanto, mostramos TUDO que está offline para garantir acesso fácil ("Flat View").
+              if (searchQuery) {
+                  return localFiles.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
+              }
+              return localFiles;
+          }
+
+          // 2. Se não tem token e não está offline, erro de auth
+          if (!accessToken) {
+             throw new Error("DRIVE_TOKEN_EXPIRED");
+          }
+
+          try {
+              // 3. Tenta buscar na nuvem
+              if (searchQuery) {
+                  return await searchDriveFiles(accessToken, searchQuery);
+              }
+              return await listDriveContents(accessToken, currentFolder);
+          } catch (e: any) {
+              // 4. Fallback: Se a API falhar (ex: internet caiu no meio, timeout), carrega local
+              console.warn("[DriveHook] Falha na API Drive. Ativando fallback local.", e);
+              const localFiles = await listOfflineFiles();
+              if (searchQuery) {
+                  return localFiles.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
+              }
+              return localFiles;
+          }
+      }
+
+      return [];
     },
-    // Se der erro de auth, dispara callback
+    // Se der erro de auth, dispara callback (mas o fallback acima deve prevenir a maioria dos erros de rede)
     meta: {
       errorHandler: (err: any) => {
         if (err.message === 'DRIVE_TOKEN_EXPIRED' || err.message.includes('401')) {
@@ -193,12 +218,11 @@ export function useDriveFiles(
     offlineFileIds: offlineStatus.offlineIds,
     pinnedFileIds: offlineStatus.pinnedIds,
     updateCacheStatus,
-    loadFiles: refetch, // Mantido nome para compatibilidade, agora é refetch do RQ
+    loadFiles: refetch, 
     handleFolderClick,
     handleNavigateUp,
     searchQuery,
     setSearchQuery,
-    // Exposing Mutation Helpers
     renameFile: renameMutation.mutateAsync,
     deleteFile: deleteMutation.mutateAsync,
     moveFile: moveMutation.mutateAsync,
