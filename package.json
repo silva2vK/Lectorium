@@ -4,8 +4,8 @@
   "version": "1.7.0",
   "type": "module",
   "engines": {
-    "node": ">=22.0.0",
-    "npm": ">=11.6.2"
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   },
   "scripts": {
     "dev": "vite",
@@ -24,6 +24,7 @@
     "@tanstack/react-query": "5.24.1",
     "@tiptap/react": "2.11.5",
     "@tiptap/pm": "2.11.5",
+    "@tiptap/core": "2.11.5",
     "@tiptap/starter-kit": "2.11.5",
     "@tiptap/extension-paragraph": "2.11.5",
     "@tiptap/extension-blockquote": "2.11.5",
@@ -51,6 +52,8 @@
     "@tiptap/extension-gapcursor": "2.11.5",
     "@tiptap/extension-collaboration": "2.11.5",
     "@tiptap/extension-collaboration-cursor": "2.11.5",
+    "@tiptap/extension-horizontal-rule": "2.11.5",
+    "@tiptap/extension-heading": "2.11.5",
     "docx": "9.5.1",
     "katex": "0.16.27",
     "mermaid": "11.12.2",
@@ -68,9 +71,9 @@
     "zustand": "5.0.9"
   },
   "overrides": {
-    "@tiptap/extension-collaboration-cursor": {
-      "@tiptap/core": "2.11.5"
-    },
+    "@tiptap/core": "2.11.5",
+    "@tiptap/pm": "2.11.5",
+    "@tiptap/extension-horizontal-rule": "2.11.5",
     "lodash-es": "4.17.21",
     "react": "19.2.3",
     "react-dom": "19.2.3"
