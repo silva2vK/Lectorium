@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { 
   ArrowLeft, Loader2, RefreshCw, Menu, Cloud, UploadCloud, HardDrive, Sparkles, Lock, LogIn, X, Search
@@ -78,21 +79,46 @@ export const DriveBrowser: React.FC<Props> = ({
   const handleTogglePin = useCallback(async (file: DriveFile) => {
       const isPinned = pinnedFileIds.has(file.id);
       setActiveMenuId(null);
-      try {
-          if (!offlineFileIds.has(file.id) && !isPinned) {
-              if (file.mimeType === MIME_TYPES.FOLDER) {
+      
+      // Se não está offline e não está pinado, precisamos baixar (ou salvar meta se for pasta)
+      if (!offlineFileIds.has(file.id) && !isPinned) {
+          if (file.mimeType === MIME_TYPES.FOLDER) {
+              // Pastas são instantâneas (apenas metadados)
+              try {
                   await saveOfflineFile(file, null, true);
-              } else {
-                  setLocalActionLoading(true);
-                  const blob = await downloadDriveFile(accessToken, file.id, file.mimeType);
-                  await saveOfflineFile(file, blob, true);
+                  updateCacheStatus();
+                  addNotification(`Pasta "${file.name}" disponível offline.`, 'success');
+              } catch(e) {
+                  addNotification("Erro ao fixar pasta.", 'error');
               }
           } else {
-              await toggleFilePin(file.id, !isPinned);
+              // BACKGROUND TASK: Download do arquivo sem bloquear UI
+              addNotification(`Baixando "${file.name}" para acesso offline...`, 'info');
+              
+              // Executa download em "segundo plano" (sem await no fluxo principal)
+              (async () => {
+                  try {
+                      const blob = await downloadDriveFile(accessToken, file.id, file.mimeType);
+                      await saveOfflineFile(file, blob, true);
+                      updateCacheStatus();
+                      addNotification(`"${file.name}" baixado com sucesso!`, 'success');
+                  } catch (e: any) {
+                      console.error(e);
+                      addNotification(`Falha ao baixar "${file.name}". Verifique sua conexão.`, 'error');
+                  }
+              })();
           }
-          updateCacheStatus();
-      } catch (e) { alert("Erro ao fixar."); } finally { setLocalActionLoading(false); }
-  }, [accessToken, offlineFileIds, pinnedFileIds, updateCacheStatus]);
+      } else {
+          // Toggle simples de estado pin (arquivo já existe offline ou apenas mudança de flag)
+          try {
+              await toggleFilePin(file.id, !isPinned);
+              updateCacheStatus();
+              addNotification(isPinned ? `"${file.name}" não está mais fixado.` : `"${file.name}" fixado no topo.`, 'success');
+          } catch (e) { 
+              addNotification("Erro ao atualizar status.", 'error'); 
+          }
+      }
+  }, [accessToken, offlineFileIds, pinnedFileIds, updateCacheStatus, addNotification]);
 
   const handleRename = useCallback(async (file: DriveFile) => {
       setActiveMenuId(null);
@@ -438,7 +464,7 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
           </div>
       )}
 
-      {/* Loading Overlay (Apenas para bloqueios críticos, não mais para upload) */}
+      {/* Loading Overlay (Apenas para bloqueios críticos, não mais para upload ou pin) */}
       {(isMutating || localActionLoading) && !openingFileId && (
           <div className="absolute inset-0 z-50 bg-bg/80 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in">
               <Loader2 size={40} className="animate-spin text-brand mb-2" />
