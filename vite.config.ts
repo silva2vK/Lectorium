@@ -17,9 +17,6 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, './'),
       },
     },
-    // Capacitor espera arquivos relativos ou absolutos no context do schema
-    // './' garante que funcione tanto em http://localhost quanto file://
-    base: './', 
     optimizeDeps: {
       include: ['pdfjs-dist', 'react', 'react-dom'],
       esbuildOptions: {
