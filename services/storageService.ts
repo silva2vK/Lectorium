@@ -9,7 +9,7 @@ export * from "../repositories/vectorRepository";
 export * from "../repositories/settingsRepository";
 export * from "../repositories/contentRepository";
 
-export const APP_VERSION = '1.4.0'; 
+export const APP_VERSION = '1.7.0'; 
 const BLOB_CACHE_LIMIT = 500 * 1024 * 1024;
 
 export interface StorageBreakdown {

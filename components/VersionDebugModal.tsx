@@ -17,39 +17,40 @@ interface DependencyStatus {
 }
 
 // Snapshot das versões de Build fornecidas no contexto (package.json)
+// Agora usando versões PINNED (Exatas) para máxima precisão no diagnóstico
 const BUILD_VERSIONS: Record<string, string> = {
   // Core Frameworks
-  'react': '^19.2.3',
-  'react-dom': '^19.2.3',
-  'vite': '^7.3.0',
-  'typescript': '5.7.2', // Corrected
-  'firebase': '^12.7.0',
-  '@google/genai': '^1.34.0',
+  'react': '19.2.3',
+  'react-dom': '19.2.3',
+  'vite': '7.3.0',
+  'typescript': '5.7.2',
+  'firebase': '12.7.0',
+  '@google/genai': '1.34.0',
   'pdfjs-dist': '4.8.69',
-  'zustand': '^5.0.9',
+  'zustand': '5.0.9',
 
   // Tiptap Core & PM
-  '@tiptap/react': '^2.11.5',
-  '@tiptap/pm': '^2.11.5',
-  '@tiptap/starter-kit': '^2.11.5',
+  '@tiptap/react': '2.11.5',
+  '@tiptap/pm': '2.11.5',
+  '@tiptap/starter-kit': '2.11.5',
 
   // Tiptap Extensions
-  '@tiptap/extension-table': '^2.11.5',
-  '@tiptap/extension-image': '^2.11.5',
-  '@tiptap/extension-link': '^2.11.5',
-  '@tiptap/extension-highlight': '^2.11.5',
-  '@tiptap/extension-underline': '^2.11.5',
-  '@tiptap/extension-text-align': '^2.11.5',
-  '@tiptap/extension-placeholder': '^2.11.5',
-  '@tiptap/extension-task-list': '^2.11.5',
-  '@tiptap/extension-typography': '^2.11.5',
-  '@tiptap/extension-code-block-lowlight': '^2.11.5',
+  '@tiptap/extension-table': '2.11.5',
+  '@tiptap/extension-image': '2.11.5',
+  '@tiptap/extension-link': '2.11.5',
+  '@tiptap/extension-highlight': '2.11.5',
+  '@tiptap/extension-underline': '2.11.5',
+  '@tiptap/extension-text-align': '2.11.5',
+  '@tiptap/extension-placeholder': '2.11.5',
+  '@tiptap/extension-task-list': '2.11.5',
+  '@tiptap/extension-typography': '2.11.5',
+  '@tiptap/extension-code-block-lowlight': '2.11.5',
   
   // Collaboration
-  '@tiptap/extension-collaboration': '^2.11.5',
-  '@tiptap/extension-collaboration-cursor': '^2.11.5',
-  'yjs': '^13.6.28',
-  'y-webrtc': '^10.3.0'
+  '@tiptap/extension-collaboration': '2.11.5',
+  '@tiptap/extension-collaboration-cursor': '2.11.5',
+  'yjs': '13.6.28',
+  'y-webrtc': '10.3.0'
 };
 
 export const VersionDebugModal: React.FC<Props> = ({ isOpen, onClose }) => {
@@ -246,7 +247,7 @@ export const VersionDebugModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         <div key={idx} className="grid grid-cols-12 p-3 text-sm items-center hover:bg-white/5 transition-colors">
                             <div className="col-span-3 font-mono text-brand font-bold truncate pr-2" title={dep.name}>{dep.name}</div>
                             
-                            {/* Build Version */}
+                            {/* Build Version (Exata agora) */}
                             <div className="col-span-2 text-gray-400 font-mono text-xs">{dep.buildVersion}</div>
                             
                             {/* Requested (ImportMap) */}
