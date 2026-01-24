@@ -4,7 +4,7 @@ import { DriveFile } from '../types';
 import { getRecentFiles, getStorageEstimate, clearAppStorage, StorageBreakdown, runJanitor, getWallpaper } from '../services/storageService';
 import { useSync } from '../hooks/useSync';
 import { SyncStatusModal } from './SyncStatusModal';
-import { FileText, Menu, Workflow, FilePlus, Database, X, Zap, Pin, Cloud, AlertCircle, CheckCircle, ArrowRight, Clock, HardDrive, Server, File, FolderOpen, LifeBuoy } from 'lucide-react';
+import { FileText, Menu, Workflow, FilePlus, Database, X, Zap, Pin, Cloud, AlertCircle, CheckCircle, ArrowRight, Clock, HardDrive, Server, File, FolderOpen, LifeBuoy, Upload } from 'lucide-react';
 import { GlobalHelpModal } from './GlobalHelpModal';
 import { useGlobalContext } from '../context/GlobalContext';
 import { createVirtualDirectoryHandle } from '../services/localFileService';
@@ -176,8 +176,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [storageData, setStorageData] = useState<StorageBreakdown | null>(null);
   const [wallpapers, setWallpapers] = useState<{ landscape: string | null, portrait: string | null }>({ landscape: null, portrait: null });
   
-  // Referência para o input de pasta (modo standard)
-  const folderInputRef = useRef<HTMLInputElement>(null);
+  // Referência para o input de arquivo (Upload Local)
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Detecção de Mobile/WebView
   // Se for mobile, assumimos que NÃO há suporte completo a Native File System (showDirectoryPicker falha em WebViews)
@@ -243,26 +243,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
       setStorageData(estimate);
   };
 
-  const handleFolderInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files.length > 0 && onOpenLocalFolder) {
-          // Cria handle virtual e passa para o App
-          const virtualHandle = createVirtualDirectoryHandle(e.target.files);
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+
+      if (files.length === 1) {
+          // SELECIONOU 1 ARQUIVO: Abre direto no Editor (Bypass na "Pasta Local")
+          const file = files[0];
+          onCreateFileFromBlob(file, file.name, file.type);
+      } else if (onOpenLocalFolder) {
+          // SELECIONOU VÁRIOS: Cria handle virtual e mostra lista
+          const virtualHandle = createVirtualDirectoryHandle(files);
           onOpenLocalFolder(virtualHandle);
-          // Limpa input para permitir re-seleção da mesma pasta se necessário
-          e.target.value = '';
       }
+      
+      // Limpa input para permitir re-seleção
+      e.target.value = '';
   };
 
-  // Wrapper para decidir qual método usar (Native vs Input)
-  // Agora priorizamos o Input se não houver um handle salvo para reconexão rápida,
-  // pois o usuário pediu comportamento "igual outros navegadores" (sem permissão persistente)
-  const handleLocalFolderClick = () => {
-      if (savedLocalDirHandle) {
-          onReconnectLocalFolder?.();
-      } else {
-          // Trigger standard folder input
-          folderInputRef.current?.click();
-      }
+  // Wrapper para abrir o seletor de arquivos
+  const handleLocalUploadClick = () => {
+      fileInputRef.current?.click();
   };
 
   const formatBytes = (bytes: number) => {
@@ -381,26 +382,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     />
                 )}
 
-                {/* Bloco Unificado de Upload Local */}
+                {/* Bloco de Abertura Direta - Comportamento híbrido (1 arquivo = open, N = list) */}
                 <ActionTile 
-                    onClick={handleLocalFolderClick}
-                    title={savedLocalDirHandle ? 'Reconectar' : 'Pasta Local'}
-                    subtitle={savedLocalDirHandle ? "Acesso Nativo" : "Upload Padrão"}
-                    icon={HardDrive}
+                    onClick={handleLocalUploadClick}
+                    title="ABRIR ARQUIVO"
+                    subtitle="Abrir do Dispositivo"
+                    icon={Upload}
                     iconColorClass="text-orange-500"
                     gradientClass="from-orange-500/10 to-transparent"
                     borderColorClass="hover:border-orange-500/50"
                 />
-                {/* Input Hidden para Folder Upload */}
+                {/* Input Hidden para File Upload (Multiple Files) */}
                 <input 
                     type="file"
-                    ref={folderInputRef}
+                    ref={fileInputRef}
                     className="hidden"
-                    // @ts-ignore - Atributos não-padrão necessários para folder upload
-                    webkitdirectory=""
-                    directory=""
                     multiple
-                    onChange={handleFolderInputChange}
+                    accept=".pdf,.docx,.doc,.mindmap,.lect,.json,.txt,.md,.jpg,.jpeg,.png,.webp,.heic,.heif,.tiff,.tif,.dcm,.cbz,.cbr"
+                    onChange={handleFileInputChange}
                 />
 
                 <ActionTile 

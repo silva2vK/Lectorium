@@ -1,11 +1,12 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { X, Lock, FileText, Copy, Sparkles, AlertCircle, Palette, Droplets, Binary, Pen, Highlighter, ScanLine, MessageSquare, ScrollText, BookOpen, SplitSquareHorizontal, LayoutTemplate } from 'lucide-react';
 import { Annotation } from '../../types';
 import { usePdfContext } from '../../context/PdfContext';
 import { usePdfStore } from '../../stores/usePdfStore';
 import { AiChatPanel } from '../shared/AiChatPanel';
 import { SemanticLensPanel } from './SemanticLensPanel';
+import { ColorPickerModal } from '../shared/ColorPickerModal';
 
 export type SidebarTab = 'annotations' | 'settings' | 'fichamento' | 'ai' | 'chat' | 'lens';
 
@@ -23,7 +24,7 @@ interface Props {
 
 // Cores baseadas nos temas do sistema (index.css)
 const THEME_COLORS = [
-    '#4ade80', // Forest (Padrão)
+    '#08fc72', // Forest (Padrão - Updated)
     '#4169E1', // Azul
     '#a855f7', // Roxo
     '#FF00FF', // Rosa
@@ -49,6 +50,9 @@ export const PdfSidebar: React.FC<Props> = ({
   // Layout Controls
   const isSpread = usePdfStore(s => s.isSpread);
   const setIsSpread = usePdfStore(s => s.setIsSpread);
+
+  // State for Color Picker Modal
+  const [colorModalType, setColorModalType] = useState<'page' | 'text' | null>(null);
 
   // --- JARVIS PROTOCOL: SEMANTIC DEDUPLICATION (V2.1) ---
   const uniqueAnnotations = useMemo(() => {
@@ -218,7 +222,7 @@ export const PdfSidebar: React.FC<Props> = ({
                             {uniqueAnnotations.map((ann, idx) => (
                                 <div key={ann.id || idx} onClick={() => jumpToPage(ann.page)} className="bg-[#1a1a1a] p-3 rounded-xl border border-white/5 hover:border-brand/50 cursor-pointer group transition-all hover:bg-white/5 relative">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: ann.color || '#4ade80', color: ann.color || '#4ade80' }} />
+                                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: ann.color || '#08fc72', color: ann.color || '#08fc72' }} />
                                         <span className="text-[10px] text-white font-mono">PÁG {(ann.page + docPageOffset).toString().padStart(2, '0')}</span>
                                         {ann.isBurned && <span className="text-[9px] bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-white ml-auto flex items-center gap-1"><Lock size={8}/> GRAVADO</span>}
                                     </div>
@@ -274,33 +278,23 @@ export const PdfSidebar: React.FC<Props> = ({
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1">
                                         <label className="text-[9px] text-white uppercase font-bold px-1">Fundo</label>
-                                        <div className="relative group">
-                                            <input 
-                                                type="color" 
-                                                value={settings.pageColor}
-                                                onChange={(e) => updateSettings({ pageColor: e.target.value })}
-                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                            />
-                                            <div className="bg-[#1a1a1a] border border-white/10 p-2 rounded-lg flex items-center gap-2 hover:border-white/20 transition-colors">
-                                                <div className="w-4 h-4 rounded-full border border-white/20" style={{ backgroundColor: settings.pageColor }}></div>
-                                                <span className="text-[10px] font-mono text-white">{settings.pageColor.toUpperCase()}</span>
-                                            </div>
-                                        </div>
+                                        <button 
+                                            onClick={() => setColorModalType('page')}
+                                            className="w-full bg-[#1a1a1a] border border-white/10 p-2 rounded-lg flex items-center gap-2 hover:border-white/20 transition-colors active:scale-95"
+                                        >
+                                            <div className="w-4 h-4 rounded-full border border-white/20" style={{ backgroundColor: settings.pageColor }}></div>
+                                            <span className="text-[10px] font-mono text-white truncate">{settings.pageColor.toUpperCase()}</span>
+                                        </button>
                                     </div>
-                                    <div className="space-y-1.5">
+                                    <div className="space-y-1">
                                         <label className="text-[9px] text-white uppercase font-bold px-1">Texto</label>
-                                        <div className="relative group">
-                                            <input 
-                                                type="color" 
-                                                value={settings.textColor}
-                                                onChange={(e) => updateSettings({ textColor: e.target.value })}
-                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                            />
-                                            <div className="bg-[#1a1a1a] border border-white/10 p-2 rounded-lg flex items-center gap-2 hover:border-white/20 transition-colors">
-                                                <div className="w-4 h-4 rounded-full border border-white/20" style={{ backgroundColor: settings.textColor }}></div>
-                                                <span className="text-[10px] font-mono text-white">{settings.textColor.toUpperCase()}</span>
-                                            </div>
-                                        </div>
+                                        <button 
+                                            onClick={() => setColorModalType('text')}
+                                            className="w-full bg-[#1a1a1a] border border-white/10 p-2 rounded-lg flex items-center gap-2 hover:border-white/20 transition-colors active:scale-95"
+                                        >
+                                            <div className="w-4 h-4 rounded-full border border-white/20" style={{ backgroundColor: settings.textColor }}></div>
+                                            <span className="text-[10px] font-mono text-white truncate">{settings.textColor.toUpperCase()}</span>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -526,6 +520,17 @@ export const PdfSidebar: React.FC<Props> = ({
                 </button>
             </div>
         )}
+
+        <ColorPickerModal 
+            isOpen={!!colorModalType} 
+            onClose={() => setColorModalType(null)} 
+            title={colorModalType === 'page' ? 'Cor do Fundo' : 'Cor do Texto'}
+            currentColor={colorModalType === 'page' ? settings.pageColor : settings.textColor}
+            onSelect={(color) => {
+                if (colorModalType === 'page') updateSettings({ pageColor: color });
+                else if (colorModalType === 'text') updateSettings({ textColor: color });
+            }}
+        />
     </>
   );
 };
