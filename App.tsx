@@ -226,7 +226,15 @@ const AppContent = () => {
         }
 
         // TENTA RECUPERAR RESULTADO DE REDIRECIONAMENTO (MOBILE AUTH)
-        await checkRedirectResult();
+        // Correção Crítica: Aplica o estado imediatamente se houver retorno
+        const redirectData = await checkRedirectResult();
+        if (redirectData?.accessToken) {
+            setAccessToken(redirectData.accessToken);
+            if (redirectData.user) {
+                setUser(redirectData.user);
+            }
+            setShowReauthToast(false);
+        }
 
         const root = document.documentElement;
         const godModeTheme = localStorage.getItem('god_mode_theme');

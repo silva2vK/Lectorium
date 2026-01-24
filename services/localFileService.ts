@@ -82,27 +82,40 @@ export async function listLocalFiles(dirHandle: any): Promise<DriveFile[]> {
   const files: DriveFile[] = [];
   
   try {
+    // GARANTIA: Verifica permissão antes de começar
+    const hasPermission = await verifyPermission(dirHandle, false);
+    if (!hasPermission) {
+        console.warn("[LocalFile] Permissão de leitura negada no handle.");
+        return [];
+    }
+
     // Itera sobre as entradas do diretório
     for await (const entry of dirHandle.values()) {
       if (entry.kind === 'file') {
-        const name = entry.name;
-        const ext = name.substring(name.lastIndexOf('.')).toLowerCase();
-        
-        if (SUPPORTED_EXTENSIONS.has(ext)) {
-          // Precisamos obter o arquivo real para metadados básicos (data, tamanho)
-          // Nota: Isso pode ser lento em pastas gigantes, então pegamos sob demanda se possível.
-          // Aqui pegamos o File para exibir stats corretos.
-          const fileData = await entry.getFile();
-          
-          files.push({
-            id: `native-${name}-${fileData.lastModified}`, // ID virtual estável
-            name: name,
-            mimeType: EXT_TO_MIME[ext] || fileData.type || 'application/octet-stream',
-            size: fileData.size.toString(),
-            modifiedTime: new Date(fileData.lastModified).toISOString(),
-            handle: entry, // Guardamos o handle para leitura/escrita futura
-            blob: fileData // Guardamos o blob inicial (cacheado)
-          });
+        try {
+            const name = entry.name;
+            const extIndex = name.lastIndexOf('.');
+            if (extIndex === -1) continue; // Pula arquivos sem extensão
+
+            const ext = name.substring(extIndex).toLowerCase();
+            
+            if (SUPPORTED_EXTENSIONS.has(ext)) {
+              // Precisamos obter o arquivo real para metadados básicos (data, tamanho)
+              const fileData = await entry.getFile();
+              
+              files.push({
+                id: `native-${name}-${fileData.lastModified}`, // ID virtual estável
+                name: name,
+                mimeType: EXT_TO_MIME[ext] || fileData.type || 'application/octet-stream',
+                size: fileData.size.toString(),
+                modifiedTime: new Date(fileData.lastModified).toISOString(),
+                handle: entry, // Guardamos o handle para leitura/escrita futura
+                blob: fileData // Guardamos o blob inicial (cacheado)
+              });
+            }
+        } catch (fileErr) {
+            // Se falhar a leitura de um arquivo específico (ex: bloqueio de sistema), não quebra o loop
+            console.warn(`[LocalFile] Erro ao ler arquivo individual: ${entry.name}`, fileErr);
         }
       }
       // TODO: Suporte a subpastas recursivas se necessário no futuro
@@ -125,13 +138,17 @@ export async function verifyPermission(fileHandle: any, withWrite = false): Prom
   }
   
   // Check if permission was already granted. If so, return true.
-  if ((await fileHandle.queryPermission(options)) === 'granted') {
-    return true;
-  }
-  
-  // Request permission. If the user grants permission, return true.
-  if ((await fileHandle.requestPermission(options)) === 'granted') {
-    return true;
+  try {
+      if ((await fileHandle.queryPermission(options)) === 'granted') {
+        return true;
+      }
+      
+      // Request permission. If the user grants permission, return true.
+      if ((await fileHandle.requestPermission(options)) === 'granted') {
+        return true;
+      }
+  } catch (e) {
+      console.warn("Erro ao verificar permissão:", e);
   }
   
   return false;
