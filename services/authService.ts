@@ -86,7 +86,7 @@ export async function refreshDriveTokenSilently(): Promise<string | null> {
   return new Promise((resolve) => {
     try {
       const client = (window as any).google?.accounts?.oauth2?.initTokenClient({
-        client_id: "315143132640-cq3jorouii406kp3orfn1cu9bdurgtup.apps.googleusercontent.com", // ID extraído da config
+        client_id: "315143132640-m5cr88sfdhs41lh5nbn166ahiom4omum.apps.googleusercontent.com", // ID extraído da config
         scope: DRIVE_SCOPES,
         callback: (response: any) => {
           if (response.access_token) {
