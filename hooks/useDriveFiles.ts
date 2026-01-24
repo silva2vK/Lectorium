@@ -34,9 +34,8 @@ export function useDriveFiles(
   const [folderHistory, setFolderHistory] = useState<{id: string, name: string}[]>(initialHistory);
 
   // Query principal: Lista de Arquivos
-  // FIX: Adicionado localDirectoryHandle?.name à chave para garantir refresh ao trocar de pasta local
   const { data: files = [], isLoading, error: queryError, refetch } = useQuery({
-    queryKey: ['drive-files', mode, currentFolder, accessToken, searchQuery, localDirectoryHandle?.name],
+    queryKey: ['drive-files', mode, currentFolder, accessToken, searchQuery],
     queryFn: async () => {
       // --- MODO OFFLINE / FALLBACK LOGIC START ---
       const isOffline = !navigator.onLine;
@@ -87,16 +86,11 @@ export function useDriveFiles(
       }
       
       if (mode === 'local' && localDirectoryHandle) {
-        try {
-            const local = await listLocalFiles(localDirectoryHandle);
-            if (searchQuery) {
-                return local.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
-            }
-            return local;
-        } catch (e) {
-            console.error("Failed to list local files", e);
-            return [];
+        const local = await listLocalFiles(localDirectoryHandle);
+        if (searchQuery) {
+            return local.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
         }
+        return local;
       }
       
       // Default & Shared Mode (Hybrid Cloud/Local)

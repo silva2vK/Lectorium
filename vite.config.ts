@@ -64,7 +64,6 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       'process.env.API_KEY': JSON.stringify(process.env.API_KEY || env.API_KEY),
-      // CLIENT_SECRET REMOVIDO: Agora reside apenas no servidor Cloudflare
     }
   };
 });

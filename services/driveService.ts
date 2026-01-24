@@ -1,6 +1,6 @@
 
 import { DriveFile, MIME_TYPES } from "../types";
-import { getValidDriveToken, saveDriveToken, refreshAccessToken } from "./authService";
+import { getValidDriveToken, signInWithGoogleDrive, saveDriveToken, refreshDriveTokenSilently } from "./authService";
 
 const LIST_PARAMS = "&supportsAllDrives=true&includeItemsFromAllDrives=true";
 const WRITE_PARAMS = "&supportsAllDrives=true";
@@ -47,9 +47,9 @@ function buildBaseConstraints() {
 }
 
 /**
- * Interceptador Centralizado de Requisições (Protocolo Auto-Retry v3 - Persistent)
+ * Interceptador Centralizado de Requisições (Protocolo Auto-Retry v2)
  * 1. Tenta usar o token atual.
- * 2. Se 401, tenta usar o REFRESH TOKEN (Cenário C).
+ * 2. Se 401, tenta refresh silencioso via GSI (Sessão do Chrome).
  * 3. Se falhar, lança erro para UI disparar popup manual.
  */
 async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
@@ -62,24 +62,24 @@ async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Re
 
   let response = await fetch(url, { ...options, headers });
 
-  // Se receber 401 (Unauthorized), tenta renovação via Refresh Token
+  // Se receber 401 (Unauthorized), tenta renovação invisível
   if (response.status === 401) {
-    console.warn("[Auto-Retry] Token expirado. Tentando Refresh Token...");
+    console.warn("[Auto-Retry] Token expirado. Tentando renovação silenciosa via Chrome...");
     
     try {
-      // Cenário C: Renovação real via Refresh Token
-      const newToken = await refreshAccessToken();
+      // Recurso Pro: Tenta atualizar sem interromper o fluxo de trabalho do usuário
+      const newToken = await refreshDriveTokenSilently();
       
       if (newToken) {
-        console.log("[Auto-Retry] Token renovado com sucesso. Retentando requisição...");
+        console.log("[Auto-Retry] Token renovado silenciosamente. Retentando...");
         headers.set('Authorization', `Bearer ${newToken}`);
         response = await fetch(url, { ...options, headers });
       } else {
-        // Se não tiver refresh token ou falhar, erro fatal de auth
+        // Se o silencioso falhar, precisamos de interação humana
         throw new Error("DRIVE_TOKEN_EXPIRED");
       }
     } catch (renewError) {
-      console.error("[Auto-Retry] Falha na renovação.", renewError);
+      console.error("[Auto-Retry] Falha na renovação automática.", renewError);
       throw new Error("DRIVE_TOKEN_EXPIRED");
     }
   }
@@ -116,12 +116,16 @@ export async function listDriveContents(accessToken: string, folderId: string = 
 }
 
 export async function searchDriveFiles(accessToken: string, queryTerm: string): Promise<DriveFile[]> {
+  // Limpeza básica para evitar injeção ou erros na query do Drive
   const safeQuery = queryTerm.replace(/'/g, "\\'");
   const baseConstraints = buildBaseConstraints();
   
+  // Busca global por nome contendo o termo
   const query = `name contains '${safeQuery}' and ${baseConstraints}`;
+  
   const fields = "files(id, name, mimeType, thumbnailLink, parents, starred, size, modifiedTime)";
   
+  // Nota: orderBy 'folder' não funciona bem com busca global, usamos modifiedTime desc para relevância recente
   const response = await fetchWithAuth(
     `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent(fields)}&pageSize=50&orderBy=modifiedTime desc${LIST_PARAMS}`
   );
