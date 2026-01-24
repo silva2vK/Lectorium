@@ -1,7 +1,6 @@
 
 import { 
   signInWithPopup, 
-  signInWithRedirect, 
   getRedirectResult,
   GoogleAuthProvider, 
   signOut as firebaseSignOut, 
@@ -15,11 +14,6 @@ export const DRIVE_TOKEN_EVENT = 'drive_token_changed';
 
 // Escopos necessários para o Lectorium
 const DRIVE_SCOPES = "https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.install";
-
-// Detecção de ambiente móvel/híbrido
-const isMobileOrTablet = () => {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-};
 
 export const saveDriveToken = (token: string, expiresIn: number = 3600) => {
   const expiryDate = Date.now() + (expiresIn - 300) * 1000; 
@@ -59,7 +53,7 @@ export async function requestPersistentStorage() {
 }
 
 /**
- * Verifica se houve um retorno de Login via Redirecionamento (Mobile)
+ * Verifica se houve um retorno de Login via Redirecionamento (Mobile - Legado/Fallback)
  * Deve ser chamado na inicialização do App.
  */
 export async function checkRedirectResult() {
@@ -116,27 +110,22 @@ export async function signInWithGoogleDrive() {
     await setPersistence(auth, browserLocalPersistence);
     await requestPersistentStorage();
 
-    // ESTRATÉGIA HÍBRIDA:
-    // Mobile/WebView: Usa Redirect (mais compatível com navegadores externos)
-    // Desktop: Usa Popup (melhor UX)
-    if (isMobileOrTablet()) {
-        await signInWithRedirect(auth, provider);
-        // O código vai parar aqui enquanto o navegador redireciona.
-        // O retorno será tratado por `checkRedirectResult` no App.tsx
-        return { user: null, accessToken: null }; 
-    } else {
-        const result = await signInWithPopup(auth, provider);
-        const credential = GoogleAuthProvider.credentialFromResult(result);
-        
-        if (!credential?.accessToken) {
-          throw new Error("No access token returned from Google");
-        }
-
-        return {
-          user: result.user,
-          accessToken: credential.accessToken
-        };
+    // ESTRATÉGIA UNIFICADA:
+    // Usa Popup para todos os dispositivos.
+    // Navegadores mobile modernos tratam popup como uma aba segura (Tabbed Auth)
+    // o que mantém o estado da aplicação e evita recarregamento.
+    const result = await signInWithPopup(auth, provider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    
+    if (!credential?.accessToken) {
+      throw new Error("No access token returned from Google");
     }
+
+    return {
+      user: result.user,
+      accessToken: credential.accessToken
+    };
+
   } catch (error) {
     console.error("Login failed:", error);
     throw error;
