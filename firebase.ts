@@ -4,12 +4,12 @@ import { getAuth } from "firebase/auth";
 
 // Configuração do Firebase (Apenas para Autenticação Google)
 const firebaseConfig = {
-  apiKey: "AIzaSyAt_O84vRAH4NbYzjXsYUFGXe82oR_SS4E",
-  authDomain: "historia-acessivel-76f55.firebaseapp.com",
-  projectId: "historia-acessivel-76f55",
-  storageBucket: "historia-acessivel-76f55.firebasestorage.app",
-  messagingSenderId: "456660035916",
-  appId: "1:456660035916:web:337c6ec488020d987d47e9"
+  apiKey: "AIzaSyD_2ww4Km34XnxZtbvBFwxdku8RTFLGCsE",
+  authDomain: "lectorium-sa.firebaseapp.com",
+  projectId: "lectorium-sa",
+  storageBucket: "lectorium-sa.firebasestorage.app",
+  messagingSenderId: "315143132640",
+  appId: "1:315143132640:web:3cfd2c9027e86c23424785"
 };
 
 const app = initializeApp(firebaseConfig);
