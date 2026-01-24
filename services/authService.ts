@@ -116,15 +116,11 @@ export async function signInWithGoogleDrive() {
     await setPersistence(auth, browserLocalPersistence);
     await requestPersistentStorage();
 
-    // ESTRATÉGIA HÍBRIDA:
-    // Mobile/WebView: Usa Redirect (mais compatível com navegadores externos)
-    // Desktop: Usa Popup (melhor UX)
-    if (isMobileOrTablet()) {
-        await signInWithRedirect(auth, provider);
-        // O código vai parar aqui enquanto o navegador redireciona.
-        // O retorno será tratado por `checkRedirectResult` no App.tsx
-        return { user: null, accessToken: null }; 
-    } else {
+    // ESTRATÉGIA UNIFICADA: Tentar Popup Primeiro (Melhor UX e Manutenção de Estado)
+    // O Desktop funciona bem assim. No mobile, isso abrirá uma nova aba (comportamento desejado),
+    // mas manterá o app rodando no fundo, evitando recargas destrutivas.
+    try {
+        console.log("[Auth] Iniciando fluxo de Popup...");
         const result = await signInWithPopup(auth, provider);
         const credential = GoogleAuthProvider.credentialFromResult(result);
         
@@ -136,6 +132,17 @@ export async function signInWithGoogleDrive() {
           user: result.user,
           accessToken: credential.accessToken
         };
+    } catch (popupError: any) {
+        console.warn("[Auth] Popup falhou ou foi bloqueado. Tentando fallback para Redirect.", popupError);
+        
+        // Se o popup for bloqueado pelo navegador ou usuário fechar, tentamos o Redirect como último recurso
+        if (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/cancelled-popup-request' || isMobileOrTablet()) {
+             await signInWithRedirect(auth, provider);
+             // O código para aqui e o navegador recarrega.
+             // O retorno será tratado por `checkRedirectResult` no App.tsx após o reload.
+             return { user: null, accessToken: null }; 
+        }
+        throw popupError;
     }
   } catch (error) {
     console.error("Login failed:", error);
