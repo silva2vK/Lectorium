@@ -11,19 +11,14 @@ import {
 import { auth } from "../firebase";
 
 const TOKEN_DATA_KEY = 'drive_access_token_data';
-const REFRESH_TOKEN_KEY = 'drive_refresh_token'; // Chave para o Token Eterno
+const REFRESH_TOKEN_KEY = 'drive_refresh_token'; 
 export const DRIVE_TOKEN_EVENT = 'drive_token_changed';
 
-// --- CONFIGURAÇÃO PARA CENÁRIO C (OFFLINE ACCESS) ---
-// O Client Secret é injetado pelo Vite durante o build (process.env.CLIENT_SECRET).
-// No Cloudflare Pages, defina a variável de ambiente: CLIENT_SECRET
 const CLIENT_ID = "456660035916-p82oql83gqufjkf3vlkun9scf9v18d3p.apps.googleusercontent.com";
-const CLIENT_SECRET = process.env.CLIENT_SECRET || ""; 
+// CLIENT_SECRET removido daqui. O código é seguro agora.
 
-// Escopos necessários
 const DRIVE_SCOPES = "https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.install";
 
-// Detecção de ambiente móvel/híbrido
 const isMobileOrTablet = () => {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 };
@@ -52,7 +47,6 @@ export const getValidDriveToken = (): string | null => {
   
   try {
     const { token, expiresAt } = JSON.parse(data);
-    // Se expirou (ou está quase), retornamos null para forçar o refresh
     if (Date.now() > expiresAt) {
       return null; 
     }
@@ -89,32 +83,25 @@ export async function checkRedirectResult() {
 }
 
 /**
- * NOVO: Troca o 'code' pelo par de tokens (Access + Refresh)
- * Esta é a "mágica" do Cenário C.
+ * SEGURO: Troca o 'code' por tokens chamando NOSSO servidor Cloudflare.
+ * O segredo fica lá, não aqui.
  */
 async function exchangeCodeForTokens(code: string) {
-  if (!CLIENT_SECRET) {
-    alert("ERRO DE CONFIGURAÇÃO: CLIENT_SECRET não definido nas variáveis de ambiente.");
-    throw new Error("Missing Client Secret");
-  }
-
-  const params = new URLSearchParams();
+  const params = new FormData();
   params.append('client_id', CLIENT_ID);
-  params.append('client_secret', CLIENT_SECRET);
   params.append('code', code);
-  params.append('grant_type', 'authorization_code');
-  params.append('redirect_uri', window.location.origin); // Deve coincidir com o Console
+  params.append('redirect_uri', window.location.origin);
 
-  const response = await fetch('https://oauth2.googleapis.com/token', {
+  // Chamada para a Cloudflare Function
+  const response = await fetch('/api/oauth/token', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params
   });
 
   if (!response.ok) {
     const err = await response.json();
-    console.error("Token Exchange Error:", err);
-    throw new Error(err.error_description || "Falha na troca de tokens");
+    console.error("Token Exchange Error (Server Side):", err);
+    throw new Error("Falha na troca de tokens via servidor");
   }
 
   const data = await response.json();
@@ -124,14 +111,13 @@ async function exchangeCodeForTokens(code: string) {
   }
   if (data.refresh_token) {
     saveRefreshToken(data.refresh_token);
-    console.log("[Auth] Refresh Token adquirido e salvo com segurança (Local).");
+    console.log("[Auth] Refresh Token adquirido via Proxy Seguro.");
   }
   return data.access_token;
 }
 
 /**
- * NOVO: Inicia o fluxo de "Code" para obter acesso Offline (Refresh Token).
- * Isso deve ser chamado se o usuário estiver logado mas sem Refresh Token.
+ * Inicia o fluxo de "Code" para obter acesso Offline.
  */
 export async function linkDriveOfflineAccess(): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -162,8 +148,7 @@ export async function linkDriveOfflineAccess(): Promise<void> {
 }
 
 /**
- * NOVO: Renovação ROBUSTA usando Refresh Token (Cenário C).
- * Substitui a renovação silenciosa via iframe.
+ * SEGURO: Renovação via Proxy Cloudflare.
  */
 export async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = getRefreshToken();
@@ -173,35 +158,27 @@ export async function refreshAccessToken(): Promise<string | null> {
     return null;
   }
 
-  if (!CLIENT_SECRET) {
-    console.error("[Auth] Client Secret ausente. Impossível renovar.");
-    return null;
-  }
-
   try {
-    const params = new URLSearchParams();
+    const params = new FormData();
     params.append('client_id', CLIENT_ID);
-    params.append('client_secret', CLIENT_SECRET);
     params.append('refresh_token', refreshToken);
-    params.append('grant_type', 'refresh_token');
 
-    const response = await fetch('https://oauth2.googleapis.com/token', {
+    // Chamada para a Cloudflare Function
+    const response = await fetch('/api/oauth/refresh', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: params
     });
 
     if (!response.ok) {
-        // Se o refresh token for revogado ou inválido, limpamos para forçar relogin
         if (response.status === 400 || response.status === 401) {
             localStorage.removeItem(REFRESH_TOKEN_KEY);
         }
-        throw new Error("Google API recusou refresh");
+        throw new Error("Servidor recusou refresh");
     }
 
     const data = await response.json();
     if (data.access_token) {
-        console.log("[Auth] Token renovado via Refresh Token (Cenário C)");
+        console.log("[Auth] Token renovado via Proxy Seguro");
         saveDriveToken(data.access_token, data.expires_in);
         return data.access_token;
     }
@@ -212,7 +189,6 @@ export async function refreshAccessToken(): Promise<string | null> {
   return null;
 }
 
-// Mantido para compatibilidade, mas agora tenta obter o Refresh Token se possível
 export async function signInWithGoogleDrive() {
   const provider = new GoogleAuthProvider();
   provider.addScope(DRIVE_SCOPES);
@@ -229,10 +205,6 @@ export async function signInWithGoogleDrive() {
         if (credential?.accessToken) {
            saveDriveToken(credential.accessToken);
         }
-
-        // Check Pós-Login: Temos Refresh Token? Se não, e se tivermos Client Secret, 
-        // poderíamos tentar pegar um agora ou deixar o usuário clicar em "Conectar Offline".
-        // Para simplificar a UX, apenas logamos. O Dashboard vai avisar se precisar de vínculo offline.
         
         return {
           user: result.user,
@@ -253,8 +225,6 @@ export async function signInWithGoogleDrive() {
 
 export async function logout() {
   localStorage.removeItem(TOKEN_DATA_KEY);
-  // Opcional: Manter o refresh token para login rápido futuro? 
-  // Por segurança, melhor limpar tudo no logout explícito.
   localStorage.removeItem(REFRESH_TOKEN_KEY); 
   return firebaseSignOut(auth);
 }
