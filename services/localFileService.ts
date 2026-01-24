@@ -46,6 +46,40 @@ const EXT_TO_MIME: Record<string, string> = {
 };
 
 /**
+ * Cria um "Handle Virtual" compatível com a interface FileSystemDirectoryHandle
+ * a partir de uma lista de arquivos (input type="file" webkitdirectory).
+ * Isso permite usar a mesma lógica de UI sem exigir permissões de escrita nativas.
+ */
+export function createVirtualDirectoryHandle(fileList: FileList) {
+  const entries: any[] = [];
+  
+  for (let i = 0; i < fileList.length; i++) {
+    const file = fileList[i];
+    // Emula a estrutura de um FileSystemFileHandle
+    entries.push({
+      kind: 'file',
+      name: file.name,
+      // webkitRelativePath contém o caminho relativo se necessário no futuro
+      getFile: async () => file
+    });
+  }
+
+  return {
+    kind: 'directory',
+    name: 'Pasta Local (Upload)',
+    // Emula o iterador .values()
+    values: async function* () {
+      for (const entry of entries) {
+        yield entry;
+      }
+    },
+    // Métodos stub para compatibilidade (não funcionam em modo virtual)
+    queryPermission: async () => 'granted',
+    requestPermission: async () => 'granted'
+  };
+}
+
+/**
  * Solicita ao usuário a seleção de um diretório local.
  */
 export async function openDirectoryPicker(): Promise<any> {
@@ -119,6 +153,9 @@ export async function listLocalFiles(dirHandle: any): Promise<DriveFile[]> {
  * Verifica permissão de leitura/escrita em um handle
  */
 export async function verifyPermission(fileHandle: any, withWrite = false): Promise<boolean> {
+  // Handles virtuais (criados via input) sempre têm permissão 'granted' simulada
+  if (!fileHandle.queryPermission) return true;
+
   const options: any = {};
   if (withWrite) {
     options.mode = 'readwrite';

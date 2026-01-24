@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { DriveFile } from '../types';
 import { getRecentFiles, getStorageEstimate, clearAppStorage, StorageBreakdown, runJanitor, getWallpaper } from '../services/storageService';
 import { useSync } from '../hooks/useSync';
@@ -7,6 +7,7 @@ import { SyncStatusModal } from './SyncStatusModal';
 import { FileText, Menu, Workflow, FilePlus, Database, X, Zap, Pin, Cloud, AlertCircle, CheckCircle, ArrowRight, Clock, HardDrive, Server, File, FolderOpen, LifeBuoy } from 'lucide-react';
 import { GlobalHelpModal } from './GlobalHelpModal';
 import { useGlobalContext } from '../context/GlobalContext';
+import { createVirtualDirectoryHandle } from '../services/localFileService';
 
 interface DashboardProps {
   userName?: string | null;
@@ -20,7 +21,7 @@ interface DashboardProps {
   storageMode?: string;
   onToggleStorageMode?: (mode: string) => void;
   onLogin?: () => void;
-  onOpenLocalFolder?: () => void;
+  onOpenLocalFolder?: (manualHandle?: any) => void;
   savedLocalDirHandle?: any;
   onReconnectLocalFolder?: () => void;
   syncStrategy?: 'smart' | 'online';
@@ -174,6 +175,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [showSyncModal, setShowSyncModal] = useState(false); 
   const [storageData, setStorageData] = useState<StorageBreakdown | null>(null);
   const [wallpapers, setWallpapers] = useState<{ landscape: string | null, portrait: string | null }>({ landscape: null, portrait: null });
+  
+  // Referência para o input de pasta (modo standard)
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   // Detecção de Mobile/WebView
   // Se for mobile, assumimos que NÃO há suporte completo a Native File System (showDirectoryPicker falha em WebViews)
@@ -237,6 +241,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
       await runJanitor();
       const estimate = await getStorageEstimate();
       setStorageData(estimate);
+  };
+
+  const handleFolderInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files.length > 0 && onOpenLocalFolder) {
+          // Cria handle virtual e passa para o App
+          const virtualHandle = createVirtualDirectoryHandle(e.target.files);
+          onOpenLocalFolder(virtualHandle);
+          // Limpa input para permitir re-seleção da mesma pasta se necessário
+          e.target.value = '';
+      }
+  };
+
+  // Wrapper para decidir qual método usar (Native vs Input)
+  // Agora priorizamos o Input se não houver um handle salvo para reconexão rápida,
+  // pois o usuário pediu comportamento "igual outros navegadores" (sem permissão persistente)
+  const handleLocalFolderClick = () => {
+      if (savedLocalDirHandle) {
+          onReconnectLocalFolder?.();
+      } else {
+          // Trigger standard folder input
+          folderInputRef.current?.click();
+      }
   };
 
   const formatBytes = (bytes: number) => {
@@ -355,36 +381,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     />
                 )}
 
-                {/* Alternância Inteligente: Se for Mobile/Embedded, usa input simples. Se for Desktop, usa API de Pastas */}
-                {(!hasNativeFS || isEmbedded) ? (
-                    <label className="group flex flex-col items-center gap-2 w-full cursor-pointer">
-                        <div className="relative w-full aspect-[2/1] rounded-2xl bg-[#09090b] border border-white/35 overflow-hidden transition-all duration-300 group-hover:border-orange-500/50 group-hover:shadow-2xl group-active:scale-95 flex items-center justify-center">
-                            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-20" />
-                            <div className="transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 text-orange-500">
-                                <HardDrive className="w-12 h-12 md:w-16 md:h-16" strokeWidth={1.5} />
-                            </div>
-                        </div>
-                        <div className="flex flex-col items-center text-center">
-                            <span className="text-sm md:text-base font-bold text-white group-hover:text-white uppercase tracking-wider transition-colors line-clamp-1">
-                                Abrir Local
-                            </span>
-                            <span className="text-[13px] text-white group-hover:text-white font-medium mt-0.5 line-clamp-1 hidden md:block">
-                                Upload do Dispositivo
-                            </span>
-                        </div>
-                        <input type="file" className="hidden" onChange={onUploadLocal} />
-                    </label>
-                ) : (
-                    <ActionTile 
-                        onClick={savedLocalDirHandle ? onReconnectLocalFolder : onOpenLocalFolder}
-                        title={savedLocalDirHandle ? 'Reconectar' : 'Pasta Local'}
-                        subtitle="Acesso Nativo"
-                        icon={HardDrive}
-                        iconColorClass="text-orange-500"
-                        gradientClass="from-orange-500/10 to-transparent"
-                        borderColorClass="hover:border-orange-500/50"
-                    />
-                )}
+                {/* Bloco Unificado de Upload Local */}
+                <ActionTile 
+                    onClick={handleLocalFolderClick}
+                    title={savedLocalDirHandle ? 'Reconectar' : 'Pasta Local'}
+                    subtitle={savedLocalDirHandle ? "Acesso Nativo" : "Upload Padrão"}
+                    icon={HardDrive}
+                    iconColorClass="text-orange-500"
+                    gradientClass="from-orange-500/10 to-transparent"
+                    borderColorClass="hover:border-orange-500/50"
+                />
+                {/* Input Hidden para Folder Upload */}
+                <input 
+                    type="file"
+                    ref={folderInputRef}
+                    className="hidden"
+                    // @ts-ignore - Atributos não-padrão necessários para folder upload
+                    webkitdirectory=""
+                    directory=""
+                    multiple
+                    onChange={handleFolderInputChange}
+                />
 
                 <ActionTile 
                     onClick={onCreateDocument}

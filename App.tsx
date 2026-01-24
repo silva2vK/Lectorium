@@ -308,8 +308,28 @@ const AppContent = () => {
       checkOnboarding();
   };
 
-  const handleOpenLocalFolder = useCallback(async () => {
-    try { const handle = await openDirectoryPicker(); if (handle) { setLocalDirHandle(handle); setSavedLocalDirHandle(handle); await saveLocalDirectoryHandle(handle); setActiveTab('local-fs'); } } catch (e: any) { if (e.name !== 'AbortError') alert(e.message); }
+  // Modificado: Aceita um handle manual (Virtual)
+  const handleOpenLocalFolder = useCallback(async (manualHandle?: any) => {
+    // Se recebermos um handle manual (do input padrão), usamos ele diretamente
+    if (manualHandle) {
+        setLocalDirHandle(manualHandle);
+        setSavedLocalDirHandle(null); // Handles virtuais não são persistidos
+        setActiveTab('local-fs');
+        return;
+    }
+
+    // Caso contrário, tenta a API Nativa
+    try { 
+        const handle = await openDirectoryPicker(); 
+        if (handle) { 
+            setLocalDirHandle(handle); 
+            setSavedLocalDirHandle(handle); 
+            await saveLocalDirectoryHandle(handle); 
+            setActiveTab('local-fs'); 
+        } 
+    } catch (e: any) { 
+        if (e.name !== 'AbortError') alert(e.message); 
+    }
   }, []);
 
   const handleReconnectLocalFolder = useCallback(async () => {
