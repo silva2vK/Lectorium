@@ -4,9 +4,10 @@ import { DriveFile } from '../types';
 import { getRecentFiles, getStorageEstimate, clearAppStorage, StorageBreakdown, runJanitor, getWallpaper } from '../services/storageService';
 import { useSync } from '../hooks/useSync';
 import { SyncStatusModal } from './SyncStatusModal';
-import { FileText, Menu, Workflow, FilePlus, Database, X, Zap, Pin, Cloud, AlertCircle, CheckCircle, ArrowRight, Clock, HardDrive, Server, File, FolderOpen, LifeBuoy } from 'lucide-react';
+import { FileText, Menu, Workflow, FilePlus, Database, X, Zap, Pin, Cloud, AlertCircle, CheckCircle, ArrowRight, Clock, HardDrive, Server, File, FolderOpen, LifeBuoy, Link } from 'lucide-react';
 import { GlobalHelpModal } from './GlobalHelpModal';
 import { useGlobalContext } from '../context/GlobalContext';
+import { getRefreshToken, linkDriveOfflineAccess } from '../services/authService';
 
 interface DashboardProps {
   userName?: string | null;
@@ -174,8 +175,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [showSyncModal, setShowSyncModal] = useState(false); 
   const [storageData, setStorageData] = useState<StorageBreakdown | null>(null);
   const [wallpapers, setWallpapers] = useState<{ landscape: string | null, portrait: string | null }>({ landscape: null, portrait: null });
+  const [hasRefreshToken, setHasRefreshToken] = useState(true);
 
-  const { dashboardScale } = useGlobalContext();
+  const { dashboardScale, addNotification } = useGlobalContext();
   const styles = getScaleStyles(dashboardScale);
 
   const { syncStatus, queue, triggerSync, removeItem, clearQueue } = useSync({ 
@@ -202,6 +204,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const handleUpdate = () => loadWallpapers();
     window.addEventListener('wallpaper-changed', handleUpdate);
     
+    // Verifica Refresh Token
+    setHasRefreshToken(!!getRefreshToken());
+
     return () => {
         window.removeEventListener('wallpaper-changed', handleUpdate);
         if (wallpapers.landscape) URL.revokeObjectURL(wallpapers.landscape);
@@ -231,6 +236,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
       await runJanitor();
       const estimate = await getStorageEstimate();
       setStorageData(estimate);
+  };
+
+  const handleLinkOffline = async () => {
+      try {
+          await linkDriveOfflineAccess();
+          setHasRefreshToken(true);
+          addNotification("Acesso offline vinculado com sucesso!", "success");
+      } catch (e) {
+          addNotification("Falha ao vincular acesso offline. Verifique o Client Secret.", "error");
+      }
   };
 
   const formatBytes = (bytes: number) => {
@@ -267,6 +282,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </button>
             
             <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+                {!hasRefreshToken && !isVisitor && (
+                    <button 
+                        onClick={handleLinkOffline}
+                        className="flex items-center gap-2 px-3 md:px-4 py-2.5 bg-yellow-500/20 text-yellow-500 border border-yellow-500/50 rounded-2xl text-sm font-bold animate-pulse hover:bg-yellow-500/30 transition-all active:scale-95"
+                        title="Vincular acesso offline para persistência de sessão"
+                    >
+                        <Link size={14} /> <span className="hidden sm:inline">Vincular Offline</span>
+                    </button>
+                )}
+
                 {onToggleSyncStrategy && (
                     <div className="maker-target-group flex bg-black p-1.5 rounded-2xl border border-white/35">
                         <button 
