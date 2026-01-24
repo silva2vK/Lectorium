@@ -108,6 +108,36 @@ export const usePdfSaver = ({
     }
   }, [accessToken, annotations, currentBlobRef, originalBlob, ocrToBurn, docPageOffset, lensData, fileName]);
 
+  // Função auxiliar de salvamento offline/fila (DRY)
+  const executeOfflineFallback = async (blob: Blob, hash: string, mode: 'overwrite' | 'copy') => {
+      const fileMeta = { id: fileId, name: fileName, mimeType: 'application/pdf', parents: fileParents };
+      
+      // 1. Salva localmente (acesso imediato)
+      await saveOfflineFile(fileMeta, blob);
+      setIsOfflineAvailable(true);
+      
+      if (mode === 'overwrite') {
+          await saveAuditRecord(fileId, hash, annotations.length);
+      }
+
+      // 2. Adiciona à fila de sincronização
+      await addToSyncQueue({
+          fileId: mode === 'overwrite' ? fileId : `new-${Date.now()}`,
+          action: mode === 'overwrite' ? 'update' : 'create',
+          blob: blob,
+          name: mode === 'overwrite' ? fileName : fileName.replace('.pdf', '') + ' (Anotado).pdf',
+          parents: fileParents,
+          mimeType: 'application/pdf'
+      });
+
+      // 3. Atualiza estado da UI como "Salvo" (mas offline)
+      setHasUnsavedOcr(false);
+      if (mode === 'overwrite') {
+          onOcrSaved();
+          onUpdateOriginalBlob(blob);
+      }
+  };
+
   const handleSave = async (mode: 'local' | 'overwrite' | 'copy' | 'drive_picker') => {
     const sourceBlob = currentBlobRef.current || originalBlob;
     if (!sourceBlob) return;
@@ -137,56 +167,56 @@ export const usePdfSaver = ({
         
         const isLocal = fileId.startsWith('local-') || fileId.startsWith('native-') || !fileId;
 
-        // Se estiver offline mas logado, enfileira
+        // Caso Offline Explícito: Sem internet detectada
         if (!isLocal && !navigator.onLine && accessToken) {
-            const fileMeta = { id: fileId, name: fileName, mimeType: 'application/pdf', parents: fileParents };
-            await saveOfflineFile(fileMeta, newBlob);
-            setIsOfflineAvailable(true);
-            await saveAuditRecord(fileId, newHash, annotations.length);
-            await addToSyncQueue({
-                fileId: mode === 'overwrite' ? fileId : `new-${Date.now()}`,
-                action: mode === 'overwrite' ? 'update' : 'create',
-                blob: newBlob,
-                name: mode === 'overwrite' ? fileName : fileName.replace('.pdf', '') + ' (Anotado).pdf',
-                parents: fileParents,
-                mimeType: 'application/pdf'
-            });
-            setHasUnsavedOcr(false);
-            if (mode === 'overwrite') {
-                onOcrSaved();
-                onUpdateOriginalBlob(newBlob);
+            try {
+                await executeOfflineFallback(newBlob, newHash, mode === 'overwrite' ? 'overwrite' : 'copy');
+            } catch (err) {
+                console.error("Critical offline save error", err);
+                setSaveError('network');
             }
             return;
         }
 
         if (accessToken && !isLocal) {
-            if (mode === 'overwrite') {
-               try {
-                  await updateDriveFile(accessToken, fileId, newBlob);
-                  onUpdateOriginalBlob(newBlob);
-                  onOcrSaved();
-                  await saveAuditRecord(fileId, newHash, annotations.length);
-                  setHasUnsavedOcr(false);
-               } catch (e: any) {
-                  const msg = e.message?.toLowerCase() || "";
-                  if (msg.includes('401') || msg.includes('unauthorized')) {
-                      setSaveError('auth');
-                  } else if (msg.includes('403') || msg.includes('permission')) {
-                      setSaveError('forbidden');
-                  } else {
-                      setSaveError('network');
-                  }
-               }
-            } else {
-               const name = fileName.replace('.pdf', '') + ' (Anotado).pdf';
-               await uploadFileToDrive(accessToken, newBlob, name, fileParents);
+            try {
+                if (mode === 'overwrite') {
+                    await updateDriveFile(accessToken, fileId, newBlob);
+                    onUpdateOriginalBlob(newBlob);
+                    onOcrSaved();
+                    await saveAuditRecord(fileId, newHash, annotations.length);
+                    setHasUnsavedOcr(false);
+                } else {
+                    const name = fileName.replace('.pdf', '') + ' (Anotado).pdf';
+                    await uploadFileToDrive(accessToken, newBlob, name, fileParents);
+                }
+            } catch (e: any) {
+                const msg = e.message?.toLowerCase() || "";
+                
+                // Erros Críticos de Auth/Permissão -> Mostra Modal
+                if (msg.includes('401') || msg.includes('unauthorized')) {
+                    setSaveError('auth');
+                } else if (msg.includes('403') || msg.includes('permission')) {
+                    setSaveError('forbidden');
+                } else {
+                    // Erro de Rede ou Genérico (API falhou, internet caiu, etc) -> FALLBACK PARA FILA
+                    console.warn("[Saver] Falha de rede. Ativando fallback para SyncQueue.", e);
+                    try {
+                        await executeOfflineFallback(newBlob, newHash, mode === 'overwrite' ? 'overwrite' : 'copy');
+                        // Limpa qualquer erro residual pois o fallback cuidou disso
+                        setSaveError(null);
+                    } catch (fallbackErr) {
+                        // Se falhar localmente também, aí sim mostramos erro crítico
+                        console.error("Fallback failed", fallbackErr);
+                        setSaveError('network');
+                    }
+                }
             }
         } else if (!accessToken && !isLocal) {
-            // Tentativa de salvar arquivo remoto sem token
             setSaveError('auth');
         }
     } catch (e: any) {
-        console.error(e);
+        console.error("Global Save Error:", e);
         setSaveError('network');
     } finally {
         await releaseFileLock(fileId);
