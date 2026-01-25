@@ -46,6 +46,7 @@ export const usePdfSaver = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState<SaveErrorType>(null);
+  const [technicalError, setTechnicalError] = useState<string | null>(null);
   const [isOfflineAvailable, setIsOfflineAvailable] = useState(false);
 
   // Janitor Hook: Limpa blobs gerados ao desmontar o componente de visualização
@@ -61,6 +62,7 @@ export const usePdfSaver = ({
      
      setIsSaving(true);
      setSaveMessage("Consolidando inteligência...");
+     setTechnicalError(null);
      
      try {
          const newBlob = await burnAnnotationsToPdf(sourceBlob, annotations, ocrToBurn, docPageOffset, lensData);
@@ -76,8 +78,9 @@ export const usePdfSaver = ({
          // Não revogamos imediatamente para dar tempo ao browser de iniciar o download
          setTimeout(() => blobRegistry.revoke(url), 10000);
          setSaveError(null);
-     } catch (e) {
+     } catch (e: any) {
          console.error("Falha na exportação:", e);
+         setTechnicalError(e.message || String(e));
          setSaveError('network');
      } finally {
          setIsSaving(false);
@@ -91,6 +94,7 @@ export const usePdfSaver = ({
     
     setIsSaving(true);
     setSaveMessage("Injetando metadados e enviando...");
+    setTechnicalError(null);
     
     try {
         const newBlob = await burnAnnotationsToPdf(sourceBlob, annotations, ocrToBurn, docPageOffset, lensData);
@@ -99,6 +103,7 @@ export const usePdfSaver = ({
         setSaveError(null);
     } catch (e: any) {
         console.error(e);
+        setTechnicalError(e.message || String(e));
         if (e.message?.includes('401')) setSaveError('auth');
         else if (e.message?.includes('403')) setSaveError('forbidden');
         else setSaveError('network');
@@ -147,6 +152,7 @@ export const usePdfSaver = ({
 
     setIsSaving(true);
     setSaveError(null);
+    setTechnicalError(null);
 
     if (mode === 'local') {
         await handleDownload();
@@ -171,8 +177,9 @@ export const usePdfSaver = ({
         if (!isLocal && !navigator.onLine && accessToken) {
             try {
                 await executeOfflineFallback(newBlob, newHash, mode === 'overwrite' ? 'overwrite' : 'copy');
-            } catch (err) {
+            } catch (err: any) {
                 console.error("Critical offline save error", err);
+                setTechnicalError("Offline Fallback Failed: " + (err.message || String(err)));
                 setSaveError('network');
             }
             return;
@@ -205,9 +212,10 @@ export const usePdfSaver = ({
                         await executeOfflineFallback(newBlob, newHash, mode === 'overwrite' ? 'overwrite' : 'copy');
                         // Limpa qualquer erro residual pois o fallback cuidou disso
                         setSaveError(null);
-                    } catch (fallbackErr) {
+                    } catch (fallbackErr: any) {
                         // Se falhar localmente também, aí sim mostramos erro crítico
                         console.error("Fallback failed", fallbackErr);
+                        setTechnicalError("Cloud & Offline Fallback Failed: " + (fallbackErr.message || String(fallbackErr)));
                         setSaveError('network');
                     }
                 }
@@ -217,6 +225,7 @@ export const usePdfSaver = ({
         }
     } catch (e: any) {
         console.error("Global Save Error:", e);
+        setTechnicalError(e.message || String(e));
         setSaveError('network');
     } finally {
         await releaseFileLock(fileId);
@@ -232,6 +241,7 @@ export const usePdfSaver = ({
     saveMessage,
     saveError,
     setSaveError,
+    technicalError,
     setIsOfflineAvailable
   };
 };

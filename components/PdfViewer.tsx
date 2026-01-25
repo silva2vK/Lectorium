@@ -185,7 +185,7 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
 
   const { 
     handleSave, uploadToSpecificFolder, isSaving, saveMessage, saveError, setSaveError,
-    setIsOfflineAvailable 
+    setIsOfflineAvailable, technicalError
   } = usePdfSaver({
     fileId, fileName, fileParents, accessToken, annotations, 
     currentBlobRef, originalBlob, 
@@ -457,6 +457,7 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
       <SaveErrorModal 
         isOpen={!!saveError}
         errorType={saveError}
+        technicalDetails={technicalError}
         onClose={() => setSaveError(null)}
         onReconnect={() => { setSaveError(null); onAuthError?.(); }}
         onDownload={() => { handleSave('local'); setSaveError(null); }}
