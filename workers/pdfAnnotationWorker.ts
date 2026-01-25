@@ -22,7 +22,10 @@ self.onmessage = async (e: MessageEvent) => {
   const { command, pdfBytes, annotations, ocrMap, pageOffset, lensData } = e.data;
 
   try {
-    const pdfDoc = await PDFDocument.load(pdfBytes);
+    // FIX: ignoreEncryption permite carregar PDFs que possuem flags de proteção de proprietário
+    // mas que não exigem senha de abertura (comum em artigos acadêmicos).
+    const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+    
     const pages = pdfDoc.getPages();
     const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
