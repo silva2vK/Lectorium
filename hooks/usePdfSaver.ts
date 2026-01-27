@@ -8,7 +8,8 @@ import {
 } from '../services/storageService';
 import { computeSparseHash } from '../utils/hashUtils';
 import { blobRegistry } from '../services/blobRegistry';
-import { Annotation, SemanticLensData } from '../types';
+import { Annotation, SemanticLensData, MIME_TYPES } from '../types';
+import { packLectoriumFile } from '../services/lectService';
 
 export type SaveErrorType = 'auth' | 'forbidden' | 'network' | null;
 
@@ -26,7 +27,7 @@ interface UsePdfSaverProps {
   onUpdateOriginalBlob: (blob: Blob) => void;
   onOcrSaved: () => void;
   setHasUnsavedOcr: (v: boolean) => void;
-  password?: string; // Prop opcional para senha
+  password?: string;
 }
 
 export const usePdfSaver = ({
@@ -51,12 +52,51 @@ export const usePdfSaver = ({
   const [technicalError, setTechnicalError] = useState<string | null>(null);
   const [isOfflineAvailable, setIsOfflineAvailable] = useState(false);
 
-  // Janitor Hook: Limpa blobs gerados ao desmontar o componente de visualização
   useEffect(() => {
     return () => {
       blobRegistry.revokeAll();
     };
   }, [fileId]);
+
+  // Função centralizada para gerar o Blob final
+  // Se PDF_PROTECTED, gera .lect
+  const generateFinalBlob = async (): Promise<{ blob: Blob, name: string, mime: string, isFallback: boolean }> => {
+     const sourceBlob = currentBlobRef.current || originalBlob;
+     if (!sourceBlob) throw new Error("Documento base não encontrado.");
+
+     try {
+         const pdfBlob = await burnAnnotationsToPdf(sourceBlob, annotations, ocrToBurn, docPageOffset, lensData, password);
+         return { 
+             blob: pdfBlob, 
+             name: fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`, 
+             mime: 'application/pdf',
+             isFallback: false 
+         };
+     } catch (e: any) {
+         if (e.message === 'PDF_PROTECTED' || e.message.includes('Encrypted')) {
+             setSaveMessage("Arquivo Protegido. Criando pacote .lect...");
+             console.warn("PDF Protegido detectado. Ativando fallback para container Lectorium (.lect).");
+             
+             // Cria pacote .lect contendo o PDF original + Metadados
+             const meta = {
+                 annotations,
+                 pageOffset: docPageOffset,
+                 semanticData: lensData
+             };
+             
+             const lectBlob = await packLectoriumFile('pdf_wrapper', meta, fileName, {}, sourceBlob);
+             const lectName = fileName.replace(/\.pdf$/i, '') + MIME_TYPES.LECT_EXT;
+             
+             return { 
+                 blob: lectBlob, 
+                 name: lectName, 
+                 mime: MIME_TYPES.LECTORIUM,
+                 isFallback: true 
+             };
+         }
+         throw e; // Repassa outros erros
+     }
+  };
 
   const handleDownload = async () => {
      const sourceBlob = currentBlobRef.current || originalBlob;
@@ -67,17 +107,16 @@ export const usePdfSaver = ({
      setTechnicalError(null);
      
      try {
-         const newBlob = await burnAnnotationsToPdf(sourceBlob, annotations, ocrToBurn, docPageOffset, lensData, password);
-         const url = blobRegistry.register(URL.createObjectURL(newBlob));
+         const { blob, name } = await generateFinalBlob();
+         const url = blobRegistry.register(URL.createObjectURL(blob));
          
          const a = document.createElement('a');
          a.href = url;
-         a.download = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+         a.download = name;
          document.body.appendChild(a);
          a.click();
          document.body.removeChild(a);
          
-         // Não revogamos imediatamente para dar tempo ao browser de iniciar o download
          setTimeout(() => blobRegistry.revoke(url), 10000);
          setSaveError(null);
      } catch (e: any) {
@@ -95,13 +134,12 @@ export const usePdfSaver = ({
     if (!sourceBlob || !accessToken) return;
     
     setIsSaving(true);
-    setSaveMessage("Injetando metadados e enviando...");
+    setSaveMessage("Processando e enviando...");
     setTechnicalError(null);
     
     try {
-        const newBlob = await burnAnnotationsToPdf(sourceBlob, annotations, ocrToBurn, docPageOffset, lensData, password);
-        const name = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
-        await uploadFileToDrive(accessToken, newBlob, name, [folderId]);
+        const { blob, name, mime } = await generateFinalBlob();
+        await uploadFileToDrive(accessToken, blob, name, [folderId], mime);
         setSaveError(null);
     } catch (e: any) {
         console.error(e);
@@ -115,11 +153,9 @@ export const usePdfSaver = ({
     }
   }, [accessToken, annotations, currentBlobRef, originalBlob, ocrToBurn, docPageOffset, lensData, fileName, password]);
 
-  // Função auxiliar de salvamento offline/fila (DRY)
-  const executeOfflineFallback = async (blob: Blob, hash: string, mode: 'overwrite' | 'copy') => {
-      const fileMeta = { id: fileId, name: fileName, mimeType: 'application/pdf', parents: fileParents };
+  const executeOfflineFallback = async (blob: Blob, name: string, mime: string, hash: string, mode: 'overwrite' | 'copy') => {
+      const fileMeta = { id: fileId, name: name, mimeType: mime, parents: fileParents };
       
-      // 1. Salva localmente (acesso imediato)
       await saveOfflineFile(fileMeta, blob);
       setIsOfflineAvailable(true);
       
@@ -127,17 +163,15 @@ export const usePdfSaver = ({
           await saveAuditRecord(fileId, hash, annotations.length);
       }
 
-      // 2. Adiciona à fila de sincronização
       await addToSyncQueue({
           fileId: mode === 'overwrite' ? fileId : `new-${Date.now()}`,
           action: mode === 'overwrite' ? 'update' : 'create',
           blob: blob,
-          name: mode === 'overwrite' ? fileName : fileName.replace('.pdf', '') + ' (Anotado).pdf',
+          name: name,
           parents: fileParents,
-          mimeType: 'application/pdf'
+          mimeType: mime
       });
 
-      // 3. Atualiza estado da UI como "Salvo" (mas offline)
       setHasUnsavedOcr(false);
       if (mode === 'overwrite') {
           onOcrSaved();
@@ -161,7 +195,7 @@ export const usePdfSaver = ({
         return;
     }
 
-    setSaveMessage(mode === 'copy' ? "Criando Cópia Inteligente..." : "Sincronizando com a Nuvem...");
+    setSaveMessage("Sincronizando com a Nuvem...");
 
     try {
         const hasLock = await acquireFileLock(fileId);
@@ -170,15 +204,19 @@ export const usePdfSaver = ({
             return;
         }
 
-        const newBlob = await burnAnnotationsToPdf(sourceBlob, annotations, ocrToBurn, docPageOffset, lensData, password);
+        // Gera o blob final (PDF ou .lect fallback)
+        const { blob: newBlob, name: finalName, mime: finalMime, isFallback } = await generateFinalBlob();
         const newHash = await computeSparseHash(newBlob);
         
+        // Se houve fallback para .lect, forçamos o modo 'copy' para não corromper o ID original do PDF
+        // com um binário de tipo diferente, a menos que seja um arquivo local novo.
+        const effectiveMode = isFallback && !fileId.startsWith('local-') ? 'copy' : mode;
+
         const isLocal = fileId.startsWith('local-') || fileId.startsWith('native-') || !fileId;
 
-        // Caso Offline Explícito: Sem internet detectada
         if (!isLocal && !navigator.onLine && accessToken) {
             try {
-                await executeOfflineFallback(newBlob, newHash, mode === 'overwrite' ? 'overwrite' : 'copy');
+                await executeOfflineFallback(newBlob, finalName, finalMime, newHash, effectiveMode);
             } catch (err: any) {
                 console.error("Critical offline save error", err);
                 setTechnicalError("Offline Fallback Failed: " + (err.message || String(err)));
@@ -189,33 +227,32 @@ export const usePdfSaver = ({
 
         if (accessToken && !isLocal) {
             try {
-                if (mode === 'overwrite') {
-                    await updateDriveFile(accessToken, fileId, newBlob);
+                if (effectiveMode === 'overwrite') {
+                    await updateDriveFile(accessToken, fileId, newBlob, finalMime);
                     onUpdateOriginalBlob(newBlob);
                     onOcrSaved();
                     await saveAuditRecord(fileId, newHash, annotations.length);
                     setHasUnsavedOcr(false);
                 } else {
-                    const name = fileName.replace('.pdf', '') + ' (Anotado).pdf';
-                    await uploadFileToDrive(accessToken, newBlob, name, fileParents);
+                    await uploadFileToDrive(accessToken, newBlob, finalName, fileParents, finalMime);
                 }
+                
+                if (isFallback) {
+                    alert("Aviso: O arquivo original é protegido. Suas alterações foram salvas num novo arquivo '.lect' (Lectorium Workspace) para manter suas anotações.");
+                }
+
             } catch (e: any) {
                 const msg = e.message?.toLowerCase() || "";
-                
-                // Erros Críticos de Auth/Permissão -> Mostra Modal
                 if (msg.includes('401') || msg.includes('unauthorized')) {
                     setSaveError('auth');
                 } else if (msg.includes('403') || msg.includes('permission')) {
                     setSaveError('forbidden');
                 } else {
-                    // Erro de Rede ou Genérico (API falhou, internet caiu, etc) -> FALLBACK PARA FILA
                     console.warn("[Saver] Falha de rede. Ativando fallback para SyncQueue.", e);
                     try {
-                        await executeOfflineFallback(newBlob, newHash, mode === 'overwrite' ? 'overwrite' : 'copy');
-                        // Limpa qualquer erro residual pois o fallback cuidou disso
+                        await executeOfflineFallback(newBlob, finalName, finalMime, newHash, effectiveMode);
                         setSaveError(null);
                     } catch (fallbackErr: any) {
-                        // Se falhar localmente também, aí sim mostramos erro crítico
                         console.error("Fallback failed", fallbackErr);
                         setTechnicalError("Cloud & Offline Fallback Failed: " + (fallbackErr.message || String(fallbackErr)));
                         setSaveError('network');

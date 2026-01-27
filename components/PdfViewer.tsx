@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
 import { Loader2, ShieldCheck, ScanLine, Save, Lock, Unlock, Zap } from 'lucide-react';
 import { PDFDocumentProxy } from 'pdfjs-dist';
@@ -11,6 +10,7 @@ import { usePdfStore, PdfStoreProvider, usePdfStoreApi } from '../stores/usePdfS
 import { usePdfSaver } from '../hooks/usePdfSaver';
 import { usePdfGestures } from '../hooks/usePdfGestures'; 
 import { usePdfPreloader } from '../hooks/usePdfPreloader';
+import { Annotation, SemanticLensData } from '../types';
 
 // Components
 import { PdfPage } from './pdf/PdfPage';
@@ -43,6 +43,11 @@ interface Props {
   onToggleNavigation?: () => void;
   onToggleMenu?: () => void; 
   onAuthError?: () => void;
+  
+  // Props para dados importados (LectAdapter)
+  initialAnnotations?: Annotation[];
+  initialPageOffset?: number;
+  initialSemanticData?: Record<number, SemanticLensData>;
 }
 
 interface PdfViewerContentProps extends Props {
@@ -56,7 +61,7 @@ interface PdfViewerContentProps extends Props {
   isCheckingIntegrity: boolean;
   hasPageMismatch: boolean;
   resolveConflict: (action: 'use_external' | 'restore_lectorium' | 'merge') => void;
-  password?: string; // Recebe a senha para o saver
+  password?: string;
 }
 
 const PdfViewerContent: React.FC<PdfViewerContentProps> = ({ 
@@ -80,45 +85,42 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
   // Auto-Sanitize State
   const [isSanitizing, setIsSanitizing] = useState(false);
   const [sanitizeSuccess, setSanitizeSuccess] = useState(false);
+  const [showOwnerPasswordPrompt, setShowOwnerPasswordPrompt] = useState(false);
   const sanitizeAttemptedRef = useRef(false);
 
-  // --- AUTOMATIC SANITIZATION (THE BYPASS) ---
+  // --- AUTOMATIC SANITIZATION CHECK (WITH PASSWORD PROMPT) ---
   useEffect(() => {
     if (!pdfDoc || !originalBlob || sanitizeAttemptedRef.current) return;
     
-    const checkAndSanitize = async () => {
+    const checkPermissions = async () => {
         sanitizeAttemptedRef.current = true;
-        
-        // Verifica permissões do PDF (PDF.js retorna null se não houver restrições)
         const permissions = await pdfDoc.getPermissions();
         
-        // Se permissions não for null, significa que existem restrições de Owner (cópia, impressão, etc)
-        // Ou se simplesmente quisermos garantir um arquivo limpo
+        // Se permissions não for null, significa que existem restrições de Owner
         if (permissions !== null) {
-            console.log("[Lectorium Security] Bloqueio detectado. Iniciando Protocolo de Reconstrução...");
-            setIsSanitizing(true);
-            
-            try {
-                // Clona o PDF para um novo container sem senha
-                const cleanBlob = await sanitizePdf(originalBlob, password);
-                
-                // Substitui o blob original em memória pela versão limpa
-                setOriginalBlob(cleanBlob);
-                setSanitizeSuccess(true);
-                
-                // Remove o aviso de sucesso após 3 segundos
-                setTimeout(() => setSanitizeSuccess(false), 4000);
-            } catch (e) {
-                console.error("Falha ao reconstruir PDF:", e);
-            } finally {
-                setIsSanitizing(false);
-            }
+            console.log("[Lectorium Security] Permissões restritas detectadas.");
+            setShowOwnerPasswordPrompt(true);
         }
     };
-    
-    checkAndSanitize();
-  }, [pdfDoc, originalBlob, password, setOriginalBlob]);
+    checkPermissions();
+  }, [pdfDoc, originalBlob]);
 
+  const handleOwnerPasswordSubmit = async (ownerPassword: string) => {
+      setShowOwnerPasswordPrompt(false);
+      setIsSanitizing(true);
+      try {
+          // Tenta reconstruir o PDF usando a senha fornecida para quebrar a criptografia
+          const cleanBlob = await sanitizePdf(originalBlob!, ownerPassword);
+          setOriginalBlob(cleanBlob);
+          setSanitizeSuccess(true);
+          setTimeout(() => setSanitizeSuccess(false), 4000);
+      } catch (e) {
+          console.warn("Falha ao desbloquear PDF com a senha fornecida:", e);
+          alert("Senha incorreta ou método de criptografia não suportado para edição.");
+      } finally {
+          setIsSanitizing(false);
+      }
+  };
 
   // --- Session Persistence Logic (Auto-Save Page & Zoom) ---
   useEffect(() => {
@@ -148,7 +150,6 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
   useEffect(() => {
     if (!pdfDoc) return;
     let mounted = true;
-    
     const fetchSizes = async () => {
         const sizes: { width: number, height: number }[] = [];
         for (let i = 1; i <= pdfDoc.numPages; i++) {
@@ -163,7 +164,6 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
         }
         if (mounted) setStorePageSizes(sizes);
     };
-    
     setTimeout(fetchSizes, 100);
     return () => { mounted = false; };
   }, [pdfDoc, setStorePageSizes]);
@@ -391,7 +391,7 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
         <div className="fixed top-28 left-1/2 -translate-x-1/2 z-[90] animate-in fade-in slide-in-from-top-4 duration-300">
             <div className="bg-blue-600/90 backdrop-blur-md border border-blue-400/30 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3">
                 <Loader2 size={18} className="text-white animate-spin" />
-                <span className="text-sm font-bold text-white tracking-wide">Recriando estrutura do PDF (Bypass)...</span>
+                <span className="text-sm font-bold text-white tracking-wide">Recriando estrutura do PDF...</span>
             </div>
         </div>
       )}
@@ -503,7 +503,7 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
         onSave={onSelectSaveMode}
         isOffline={!navigator.onLine}
         isLocalFile={isLocalFile}
-        isEncrypted={!!password} // Passa informação de criptografia
+        isEncrypted={!!password}
       />
 
       <DriveFolderPickerModal
@@ -523,6 +523,16 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
         onSaveCopy={() => { handleSave('copy'); setSaveError(null); }}
       />
       
+      <PasswordPromptModal 
+        isOpen={showOwnerPasswordPrompt}
+        onClose={() => setShowOwnerPasswordPrompt(false)}
+        onSubmit={handleOwnerPasswordSubmit}
+        fileName={fileName}
+        isRetry={false}
+        title="Restrição de Edição Detectada"
+        description="Este arquivo possui uma senha de proprietário que restringe a edição. Insira a senha para desbloquear todas as funcionalidades."
+      />
+
       {isSaving && (
           <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-300">
               <div className="relative mb-6">
@@ -555,22 +565,26 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
 };
 
 export const PdfViewer: React.FC<Props> = (props) => {
-  const { fileId, fileBlob, accessToken, uid, onAuthError } = props;
-  const [password, setPassword] = useState('');
-  
-  // UsePdfDocument é o HOOK GLOBAL que baixa o PDF e monta o objeto Proxy
+  const [password, setPassword] = useState<string | undefined>(undefined);
+  const [retryPassword, setRetryPassword] = useState(false);
+
   const { 
     pdfDoc, 
     originalBlob, 
     setOriginalBlob,
     numPages, 
-    loading: docLoading, 
-    error: docError,
-    scale: initialScale,
-    pageDimensions
-  } = usePdfDocument({ fileId, fileBlob, accessToken, onAuthError, password });
+    loading, 
+    error, 
+    scale, 
+    pageDimensions 
+  } = usePdfDocument({ 
+    fileId: props.fileId, 
+    fileBlob: props.fileBlob, 
+    accessToken: props.accessToken,
+    onAuthError: props.onAuthError,
+    password
+  });
 
-  // Annotations Hook (Global Logic)
   const { 
     annotations, 
     addAnnotation, 
@@ -582,99 +596,82 @@ export const PdfViewer: React.FC<Props> = (props) => {
     pageOffset,
     setPageOffset,
     semanticData
-  } = usePdfAnnotations(fileId, uid, pdfDoc, originalBlob);
+  } = usePdfAnnotations(
+      props.fileId, 
+      props.uid, 
+      pdfDoc, 
+      originalBlob || props.fileBlob,
+      props.initialAnnotations,
+      props.initialPageOffset,
+      props.initialSemanticData
+  );
 
   const jumpToPageRef = useRef<((page: number) => void) | null>(null);
 
-  // Restore Session (Page/Scale) from LocalStorage
-  const savedSession = useMemo(() => {
-      try {
-          const item = localStorage.getItem(`lectorium_session_${fileId}`);
-          return item ? JSON.parse(item) : null;
-      } catch { return null; }
-  }, [fileId]);
-
-  // Se o erro for senha requerida, mostramos o modal
-  if (docError === 'PASSWORD_REQUIRED') {
-      return (
-          <>
-            <div className="flex flex-col items-center justify-center h-full bg-black">
-                <div className="bg-red-500/10 p-6 rounded-full border border-red-500/20 mb-4 animate-pulse">
-                    <Lock size={48} className="text-red-500" />
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">Acesso Negado</h3>
-                <p className="text-text-sec text-sm">Este arquivo está criptografado.</p>
-                <button onClick={props.onBack} className="mt-6 px-6 py-2 rounded-full border border-white/20 hover:bg-white/10 text-white transition-colors">Voltar</button>
-            </div>
-            <PasswordPromptModal 
-                isOpen={true} 
-                onClose={props.onBack}
-                onSubmit={(pass) => setPassword(pass)}
-                fileName={props.fileName}
-                isRetry={!!password} // Se já tinha senha e caiu aqui de novo, é retry
-            />
-          </>
-      );
-  }
-
-  if (docLoading) {
+  if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-full bg-bg text-text">
-        <Loader2 size={40} className="animate-spin text-brand mb-4" />
-        <p className="text-sm text-text-sec animate-pulse">Carregando documento...</p>
+      <div className="flex flex-col h-full items-center justify-center bg-bg">
+        <Loader2 className="animate-spin text-brand mb-4" size={40} />
+        <p className="text-text-sec">Carregando documento...</p>
       </div>
     );
   }
 
-  if (docError) {
+  if (error === 'PASSWORD_REQUIRED') {
+      return (
+          <PasswordPromptModal 
+              isOpen={true} 
+              onClose={props.onBack} 
+              onSubmit={(pwd) => {
+                  setPassword(pwd);
+                  setRetryPassword(true);
+              }}
+              fileName={props.fileName}
+              isRetry={retryPassword} 
+          />
+      );
+  }
+
+  if (error || !pdfDoc) {
     return (
-      <div className="flex flex-col items-center justify-center h-full bg-bg text-text p-6 text-center">
-        <div className="bg-red-500/10 p-4 rounded-full mb-4 border border-red-500/20">
-            <Lock size={32} className="text-red-500" />
-        </div>
-        <h3 className="text-xl font-bold mb-2">Erro ao abrir arquivo</h3>
-        <p className="text-text-sec mb-6 max-w-md">{docError}</p>
-        <button onClick={props.onBack} className="bg-surface border border-border hover:bg-white/5 px-6 py-2 rounded-full font-bold transition-colors">
-            Voltar
-        </button>
+      <div className="flex flex-col h-full items-center justify-center bg-bg p-6 text-center">
+        <h3 className="text-xl font-bold text-red-500 mb-2">Erro ao abrir arquivo</h3>
+        <p className="text-text-sec mb-6">{error || "Falha desconhecida"}</p>
+        <button onClick={props.onBack} className="bg-surface border border-border px-4 py-2 rounded-lg hover:bg-white/5 transition-colors">Voltar</button>
       </div>
     );
   }
 
   return (
-    <PdfStoreProvider 
-        initialPage={savedSession?.page} 
-        initialScale={savedSession?.scale || initialScale}
-    >
+    <PdfStoreProvider initialPage={1} initialScale={scale}>
       <PdfProvider 
-        initialScale={savedSession?.scale || initialScale}
-        numPages={numPages}
-        annotations={annotations}
-        onAddAnnotation={addAnnotation}
+        numPages={numPages} 
+        annotations={annotations} 
+        onAddAnnotation={addAnnotation} 
         onRemoveAnnotation={removeAnnotation}
-        onJumpToPage={(page: number) => jumpToPageRef.current?.(page)}
-        accessToken={accessToken}
-        fileId={fileId}
+        accessToken={props.accessToken}
+        fileId={props.fileId}
         pdfDoc={pdfDoc}
-        currentBlob={originalBlob}
         onUpdateSourceBlob={setOriginalBlob}
+        currentBlob={originalBlob || props.fileBlob}
         initialPageOffset={pageOffset}
         onSetPageOffset={setPageOffset}
+        initialScale={scale}
         initialSemanticData={semanticData}
       >
         <PdfViewerContent 
-          {...props} 
-          originalBlob={originalBlob}
-          setOriginalBlob={setOriginalBlob}
-          pdfDoc={pdfDoc}
-          pageDimensions={pageDimensions}
-          numPages={numPages}
-          jumpToPageRef={jumpToPageRef}
-          conflictDetected={conflictDetected}
-          isCheckingIntegrity={isCheckingIntegrity}
-          hasPageMismatch={hasPageMismatch}
-          resolveConflict={resolveConflict}
-          password={password} // Passa a senha para o componente interno
+            {...props} 
+            originalBlob={originalBlob} 
+            setOriginalBlob={setOriginalBlob}
+            pdfDoc={pdfDoc} 
+            pageDimensions={pageDimensions}
+            numPages={numPages}
+            jumpToPageRef={jumpToPageRef}
+            conflictDetected={conflictDetected}
+            isCheckingIntegrity={isCheckingIntegrity}
+            hasPageMismatch={hasPageMismatch}
+            resolveConflict={resolveConflict}
+            password={password}
         />
       </PdfProvider>
     </PdfStoreProvider>

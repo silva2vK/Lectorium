@@ -1,9 +1,11 @@
+
 import React, { useEffect, useState } from 'react';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { DriveFile } from '../types';
 import { unpackLectoriumFile, LectoriumPackage } from '../services/lectService';
 import { downloadDriveFile } from '../services/driveService';
 import { DocEditor } from './DocEditor';
+import { PdfViewer } from './PdfViewer';
 
 interface Props {
   file: DriveFile;
@@ -12,9 +14,10 @@ interface Props {
   onBack: () => void;
   onToggleMenu: () => void;
   onAuthError: () => void;
+  onToggleNavigation?: () => void; // Adicionado para passar ao PdfViewer
 }
 
-export const LectAdapter: React.FC<Props> = ({ file, accessToken, uid, onBack, onToggleMenu, onAuthError }) => {
+export const LectAdapter: React.FC<Props> = ({ file, accessToken, uid, onBack, onToggleMenu, onAuthError, onToggleNavigation }) => {
   const [pkg, setPkg] = useState<LectoriumPackage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,11 +66,9 @@ export const LectAdapter: React.FC<Props> = ({ file, accessToken, uid, onBack, o
       );
   }
 
-  // Roteamento baseado no tipo do manifesto
+  // 1. Documento de Texto (Editor)
   if (pkg.manifest.type === 'document') {
-      // Cria um Blob JSON virtual para o DocEditor consumir (simula o arquivo de origem)
       const jsonBlob = new Blob([JSON.stringify(pkg.data)], { type: 'application/json' });
-      
       return (
         <DocEditor 
             fileId={file.id}
@@ -78,6 +79,35 @@ export const LectAdapter: React.FC<Props> = ({ file, accessToken, uid, onBack, o
             onAuthError={onAuthError}
             onBack={onBack}
         />
+      );
+  }
+
+  // 2. PDF Wrapper (Leitor com Anotações Externas)
+  if (pkg.manifest.type === 'pdf_wrapper') {
+      const sourceBlob = pkg.sourceBlob;
+      if (!sourceBlob) {
+          setError("O PDF original não foi encontrado dentro do pacote.");
+          return null;
+      }
+
+      // Dados extraídos do JSON
+      const { annotations, pageOffset, semanticData } = pkg.data || {};
+
+      return (
+          <PdfViewer
+            fileId={file.id}
+            fileName={file.name.replace('.lect', '.pdf')} // Mostra nome amigável
+            fileBlob={sourceBlob} // O PDF real
+            accessToken={accessToken}
+            uid={uid}
+            onBack={onBack}
+            onAuthError={onAuthError}
+            onToggleNavigation={onToggleNavigation}
+            // Injeta dados recuperados do pacote
+            initialAnnotations={annotations}
+            initialPageOffset={pageOffset}
+            initialSemanticData={semanticData}
+          />
       );
   }
 
