@@ -27,6 +27,7 @@ import { DriveFolderPickerModal } from './pdf/modals/DriveFolderPickerModal';
 import { SaveErrorModal } from './pdf/modals/SaveErrorModal';
 import { PasswordPromptModal } from './pdf/modals/PasswordPromptModal';
 import { PdfRestrictionModal } from './pdf/modals/PdfRestrictionModal';
+import { SaveSuccessModal } from './pdf/modals/SaveSuccessModal';
 
 // Services
 import { fetchDefinition } from '../services/dictionaryService';
@@ -206,7 +207,7 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
 
   const { 
     handleSave, uploadToSpecificFolder, isSaving, saveMessage, saveError, setSaveError,
-    setIsOfflineAvailable, technicalError
+    setIsOfflineAvailable, technicalError, successModal, closeSuccessModal
   } = usePdfSaver({
     fileId, fileName, fileParents, accessToken, annotations, 
     currentBlobRef, originalBlob, 
@@ -486,6 +487,13 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
         onReconnect={() => { setSaveError(null); onAuthError?.(); }}
         onDownload={() => { handleSave('local'); setSaveError(null); }}
         onSaveCopy={() => { handleSave('copy'); setSaveError(null); }}
+      />
+
+      <SaveSuccessModal 
+        isOpen={successModal.open}
+        onClose={closeSuccessModal}
+        mode={successModal.mode}
+        fileName={fileName}
       />
       
       {isSaving && (

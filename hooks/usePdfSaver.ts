@@ -10,6 +10,7 @@ import { computeSparseHash } from '../utils/hashUtils';
 import { blobRegistry } from '../services/blobRegistry';
 import { Annotation, SemanticLensData, MIME_TYPES } from '../types';
 import { packLectoriumFile } from '../services/lectService';
+import { SuccessMode } from '../components/pdf/modals/SaveSuccessModal';
 
 export type SaveErrorType = 'auth' | 'forbidden' | 'network' | null;
 
@@ -51,6 +52,9 @@ export const usePdfSaver = ({
   const [saveError, setSaveError] = useState<SaveErrorType>(null);
   const [technicalError, setTechnicalError] = useState<string | null>(null);
   const [isOfflineAvailable, setIsOfflineAvailable] = useState(false);
+  
+  // Success Modal State
+  const [successModal, setSuccessModal] = useState<{ open: boolean; mode: SuccessMode }>({ open: false, mode: 'overwrite' });
 
   useEffect(() => {
     return () => {
@@ -141,6 +145,7 @@ export const usePdfSaver = ({
         const { blob, name, mime } = await generateFinalBlob();
         await uploadFileToDrive(accessToken, blob, name, [folderId], mime);
         setSaveError(null);
+        setSuccessModal({ open: true, mode: 'upload' });
     } catch (e: any) {
         console.error(e);
         setTechnicalError(e.message || String(e));
@@ -177,6 +182,8 @@ export const usePdfSaver = ({
           onOcrSaved();
           onUpdateOriginalBlob(blob);
       }
+      
+      setSuccessModal({ open: true, mode: 'offline' });
   };
 
   const handleSave = async (mode: 'local' | 'overwrite' | 'copy' | 'drive_picker') => {
@@ -233,8 +240,10 @@ export const usePdfSaver = ({
                     onOcrSaved();
                     await saveAuditRecord(fileId, newHash, annotations.length);
                     setHasUnsavedOcr(false);
+                    setSuccessModal({ open: true, mode: 'overwrite' });
                 } else {
                     await uploadFileToDrive(accessToken, newBlob, finalName, fileParents, finalMime);
+                    setSuccessModal({ open: true, mode: 'upload' });
                 }
                 
                 if (isFallback) {
@@ -281,6 +290,8 @@ export const usePdfSaver = ({
     saveError,
     setSaveError,
     technicalError,
-    setIsOfflineAvailable
+    setIsOfflineAvailable,
+    successModal,
+    closeSuccessModal: () => setSuccessModal(prev => ({ ...prev, open: false }))
   };
 };
