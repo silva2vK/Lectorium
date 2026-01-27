@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { 
-  ArrowLeft, Loader2, RefreshCw, Menu, Cloud, UploadCloud, HardDrive, Sparkles, Lock, LogIn, X, Search, CloudOff, AlertTriangle
+  ArrowLeft, Loader2, RefreshCw, Menu, Cloud, UploadCloud, HardDrive, Sparkles, Lock, LogIn, X, Search, CloudOff, AlertTriangle, Plus
 } from 'lucide-react';
 import { DriveFile, MIME_TYPES } from '../types';
 import { downloadDriveFile, uploadFileToDrive } from '../services/driveService';
@@ -362,6 +362,17 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
                      <UploadCloud size={16} /><span className="hidden sm:inline">Upload</span>
                  </button>
              )}
+
+             {/* Create Mind Map Button */}
+             {mode === 'mindmaps' && onCreateMindMap && (
+                <button 
+                    onClick={() => onCreateMindMap()} 
+                    className="flex items-center gap-2 bg-brand text-bg px-3 py-2 rounded-lg font-bold text-xs hover:brightness-110 shadow-lg transition-all animate-in fade-in active:scale-95"
+                >
+                    <Plus size={16} /><span className="hidden sm:inline">Novo Mapa</span>
+                </button>
+             )}
+
              <button onClick={() => loadFiles()} className="p-2 text-text-sec hover:text-text rounded-full hover:bg-white/5 active:scale-95"><RefreshCw size={20} className={isLoading ? "animate-spin" : ""} /></button>
          </div>
       </div>

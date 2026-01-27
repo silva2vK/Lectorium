@@ -29,41 +29,21 @@ self.onmessage = async (e: MessageEvent) => {
         if (password) {
             loadedDoc = await PDFDocument.load(pdfBytes, { password });
         } else {
-            // Tenta carregar ignorando encriptação (funciona para Owner Password se não houver User Password)
             loadedDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
         }
-    } catch (loadError: any) {
-        // Detecção específica de erro de senha
-        if (loadError.message?.includes('Encrypted') || loadError.message?.includes('Password') || loadError.name === 'PasswordException') {
-             throw new Error('PDF_ENCRYPTED_PASSWORD_REQUIRED');
-        }
-        throw new Error('PDF_LOAD_FAILED: ' + loadError.message);
+    } catch (loadError) {
+        throw new Error('PDF_LOAD_FAILED');
     }
     
     let pdfDoc = loadedDoc;
 
-    // --- PROTOCOLO DE LAVAGEM (Sanitization) ---
-    if (command === 'sanitize') {
-        // ESTRATÉGIA CORRIGIDA: In-Place Decryption
-        // Ao carregar o PDF com a senha (ou ignorando se for apenas Owner Pwd), o pdf-lib já o decodifica na memória.
-        // Chamar .save() gera um novo binário SEM a tabela de encriptação, mantendo todos os assets visuais.
-        // A estratégia anterior de copiar páginas para um novo doc causava perda de recursos (páginas em branco).
-        
-        try {
-            const bytes = await loadedDoc.save();
-            (self as any).postMessage({ success: true, pdfBytes: bytes }, [bytes.buffer]);
-            return;
-        } catch (saveError: any) {
-            console.error("Erro ao salvar PDF sanitizado:", saveError);
-            throw new Error('PDF_PROTECTED: Não foi possível reconstruir o arquivo.');
-        }
+    if (loadedDoc.isEncrypted && !password) {
+        // Se estiver encriptado sem senha, pode ser que PDF-LIB não consiga editar.
+        // Se falhar mais tarde, o erro será capturado.
+        // Não tentamos mais sanitizar aqui.
     }
 
     // ... Continuação do Burn (Inserção de Anotações) ...
-    // Se o documento estiver encriptado mas o comando for 'burn', tentamos salvar direto também.
-    // Nota: Se tiver Owner Password, o save() pode falhar em alguns leitores se não removermos a proteção antes,
-    // mas o pdf-lib geralmente limpa isso no save padrão.
-
     const pages = pdfDoc.getPages();
     const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
 

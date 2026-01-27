@@ -4,11 +4,10 @@ import { DriveFile } from '../types';
 import { getRecentFiles, getStorageEstimate, clearAppStorage, StorageBreakdown, runJanitor, getWallpaper } from '../services/storageService';
 import { useSync } from '../hooks/useSync';
 import { SyncStatusModal } from './SyncStatusModal';
-import { FileText, Menu, Workflow, FilePlus, Database, X, Zap, Pin, Cloud, AlertCircle, CheckCircle, ArrowRight, Clock, HardDrive, Server, File, FolderOpen, LifeBuoy, Upload, Lock, Unlock } from 'lucide-react';
+import { FileText, Menu, Workflow, FilePlus, Database, X, Zap, Pin, Cloud, AlertCircle, CheckCircle, ArrowRight, Clock, HardDrive, Server, File, FolderOpen, LifeBuoy, Upload, Signal, SignalHigh } from 'lucide-react';
 import { GlobalHelpModal } from './GlobalHelpModal';
 import { useGlobalContext } from '../context/GlobalContext';
 import { createVirtualDirectoryHandle } from '../services/localFileService';
-import { UnlockPdfModal } from './modals/UnlockPdfModal';
 
 interface DashboardProps {
   userName?: string | null;
@@ -174,9 +173,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [showStorageModal, setShowStorageModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showSyncModal, setShowSyncModal] = useState(false); 
-  const [showUnlockModal, setShowUnlockModal] = useState(false);
-  const [unlockFile, setUnlockFile] = useState<File | null>(null);
-  
   const [storageData, setStorageData] = useState<StorageBreakdown | null>(null);
   const [wallpapers, setWallpapers] = useState<{ landscape: string | null, portrait: string | null }>({ landscape: null, portrait: null });
   
@@ -187,7 +183,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   
   // Referência para o input de arquivo (Upload Local)
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const unlockInputRef = useRef<HTMLInputElement>(null);
 
   // Detecção de Mobile/WebView
   // Se for mobile, assumimos que NÃO há suporte completo a Native File System (showDirectoryPicker falha em WebViews)
@@ -283,15 +278,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
       e.target.value = '';
   };
 
-  const handleUnlockFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-          setUnlockFile(file);
-          setShowUnlockModal(true);
-      }
-      e.target.value = '';
-  };
-
   // Wrapper para abrir o seletor de arquivos
   const handleLocalUploadClick = () => {
       fileInputRef.current?.click();
@@ -339,32 +325,42 @@ export const Dashboard: React.FC<DashboardProps> = ({
             
             <div className="flex items-center gap-2 md:gap-3 flex-wrap">
                 {onToggleSyncStrategy && (
-                    <div className="maker-target-group flex bg-black p-1.5 rounded-2xl border border-white/35">
+                    <div className="maker-target-group flex items-center bg-[#0a0a0a]/90 backdrop-blur-md p-1 rounded-xl border border-white/10 shadow-lg">
                         <button 
                             onClick={() => onToggleSyncStrategy('smart')}
-                            className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 ${syncStrategy === 'smart' ? 'bg-brand text-[#0b141a]' : 'text-white hover:text-white'}`}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all active:scale-95 ${syncStrategy === 'smart' ? 'bg-brand text-[#0b141a] shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                         >
-                            <Zap size={14} /> <span className="hidden sm:inline">Smart Sync</span>
+                            <Zap size={12} fill={syncStrategy === 'smart' ? 'currentColor' : 'none'} /> Smart Sync
                         </button>
+                        <div className="w-px h-3 bg-white/10 mx-1"></div>
                         <button 
                             onClick={() => onToggleSyncStrategy('online')}
-                            className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 ${syncStrategy === 'online' ? 'bg-blue-500 text-white' : 'text-white hover:text-white'}`}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all active:scale-95 ${syncStrategy === 'online' ? 'bg-blue-500 text-white shadow-sm' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                         >
-                            <Cloud size={14} /> <span className="hidden sm:inline">Online Puro</span>
+                            <Cloud size={12} fill={syncStrategy === 'online' ? 'currentColor' : 'none'} /> Online Puro
                         </button>
                     </div>
                 )}
 
                 <button 
                     onClick={() => setShowSyncModal(true)}
-                    className={`maker-target-btn flex items-center gap-2 px-3 md:px-4 py-2.5 bg-black border rounded-2xl text-sm font-bold transition-all active:scale-95 ${
-                        queue.length > 0 ? 'border-yellow-500/50 text-yellow-500 animate-pulse' : 'border-white/35 text-white hover:text-white'
+                    className={`maker-target-btn h-9 flex items-center gap-2 px-3 bg-[#0a0a0a]/80 backdrop-blur-md border rounded-xl text-xs font-bold transition-all active:scale-95 shadow-lg ${
+                        queue.length > 0 
+                            ? 'border-yellow-500/50 text-yellow-500 animate-pulse hover:bg-yellow-500/10' 
+                            : 'border-white/10 text-gray-300 hover:text-white hover:border-brand/30 hover:text-brand'
                     }`}
                 >
-                    {queue.length > 0 ? <><AlertCircle size={14} /> <span className="hidden sm:inline">{queue.length} Pendentes</span><span className="sm:hidden">{queue.length}</span></> : <><CheckCircle size={14} className="text-brand"/> <span className="hidden sm:inline">Sincronizado</span></>}
+                    {queue.length > 0 ? (
+                        <><AlertCircle size={14} /> <span className="font-mono">{queue.length}</span> <span className="hidden sm:inline">PENDENTES</span></>
+                    ) : (
+                        <><CheckCircle size={14} className="text-green-500"/> <span className="hidden sm:inline tracking-wider">SINCRONIZADO</span></>
+                    )}
                 </button>
 
-                <button onClick={openStorageModal} className="maker-target-btn flex items-center gap-2 px-3 md:px-4 py-2.5 bg-black border border-white/35 rounded-2xl text-white hover:text-white transition-all text-sm font-bold active:scale-95">
+                <button 
+                    onClick={openStorageModal} 
+                    className="maker-target-btn h-9 flex items-center gap-2 px-3 bg-[#0a0a0a]/80 backdrop-blur-md border border-white/10 rounded-xl text-gray-300 hover:text-white hover:border-white/30 transition-all text-xs font-bold active:scale-95 shadow-lg uppercase tracking-wider"
+                >
                     <Database size={14} /> <span className="hidden sm:inline">Armazenamento</span>
                 </button>
             </div>
@@ -450,22 +446,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     borderColorClass="hover:border-blue-500/50"
                 />
 
-                {/* Novo Azulejo: Desbloquear PDF */}
                 <ActionTile 
-                    onClick={() => unlockInputRef.current?.click()}
-                    title="Desbloquear PDF"
-                    subtitle="Remover Senha"
-                    icon={Unlock}
-                    iconColorClass="text-red-500"
-                    gradientClass="from-red-500/10 to-transparent"
-                    borderColorClass="hover:border-red-500/50"
-                />
-                <input 
-                    type="file"
-                    ref={unlockInputRef}
-                    className="hidden"
-                    accept=".pdf"
-                    onChange={handleUnlockFileChange}
+                    onClick={() => setShowHelpModal(true)}
+                    title="Suporte"
+                    subtitle="Guias e Tutoriais"
+                    icon={LifeBuoy}
+                    iconColorClass="text-purple-500"
+                    gradientClass="from-purple-500/10 to-transparent"
+                    borderColorClass="hover:border-purple-500/50"
                 />
               </div>
             </div>
@@ -499,7 +487,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       <GlobalHelpModal isOpen={showHelpModal} onClose={() => setShowHelpModal(false)} />
       <SyncStatusModal isOpen={showSyncModal} onClose={() => setShowSyncModal(false)} queue={queue} isSyncing={syncStatus.active} onForceSync={triggerSync} onRemoveItem={removeItem} onClearQueue={clearQueue} />
-      <UnlockPdfModal isOpen={showUnlockModal} onClose={() => { setShowUnlockModal(false); setUnlockFile(null); }} file={unlockFile} />
 
       {showStorageModal && (
           <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-300">

@@ -9,11 +9,9 @@ interface Props {
   onSubmit: (password: string) => void;
   fileName: string;
   isRetry?: boolean;
-  title?: string;
-  description?: React.ReactNode;
 }
 
-export const PasswordPromptModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, fileName, isRetry, title, description }) => {
+export const PasswordPromptModal: React.FC<Props> = ({ isOpen, onClose, onSubmit, fileName, isRetry }) => {
   const [password, setPassword] = useState('');
 
   if (!isOpen) return null;
@@ -29,7 +27,7 @@ export const PasswordPromptModal: React.FC<Props> = ({ isOpen, onClose, onSubmit
     <BaseModal
       isOpen={isOpen}
       onClose={onClose}
-      title={title || "Arquivo Criptografado"}
+      title="Arquivo Criptografado"
       icon={<Lock size={20} className="text-red-500" />}
       maxWidth="max-w-md"
       footer={
@@ -51,11 +49,9 @@ export const PasswordPromptModal: React.FC<Props> = ({ isOpen, onClose, onSubmit
             </div>
             <div>
                 <h4 className="text-sm font-bold text-white mb-1">Acesso Restrito</h4>
-                <div className="text-xs text-text-sec leading-relaxed">
-                    {description || (
-                        <span>O arquivo <strong>"{fileName}"</strong> é protegido pelo autor. Digite a senha para descriptografar o conteúdo e habilitar a leitura.</span>
-                    )}
-                </div>
+                <p className="text-xs text-text-sec leading-relaxed">
+                    O arquivo <strong>"{fileName}"</strong> é protegido pelo autor. Digite a senha para descriptografar o conteúdo e habilitar a leitura.
+                </p>
             </div>
         </div>
 
