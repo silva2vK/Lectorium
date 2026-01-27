@@ -8,7 +8,7 @@
   "lang": "pt-BR",
   "dir": "ltr",
   "start_url": "/?utm_source=pwa",
-  "display": "standalone",
+  "display": "fullscreen",
   "display_override": [
     "window-controls-overlay",
     "standalone",
