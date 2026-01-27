@@ -26,6 +26,7 @@ interface UsePdfSaverProps {
   onUpdateOriginalBlob: (blob: Blob) => void;
   onOcrSaved: () => void;
   setHasUnsavedOcr: (v: boolean) => void;
+  password?: string; // Prop opcional para senha
 }
 
 export const usePdfSaver = ({
@@ -41,7 +42,8 @@ export const usePdfSaver = ({
   lensData,
   onUpdateOriginalBlob,
   onOcrSaved,
-  setHasUnsavedOcr
+  setHasUnsavedOcr,
+  password
 }: UsePdfSaverProps) => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
@@ -65,7 +67,7 @@ export const usePdfSaver = ({
      setTechnicalError(null);
      
      try {
-         const newBlob = await burnAnnotationsToPdf(sourceBlob, annotations, ocrToBurn, docPageOffset, lensData);
+         const newBlob = await burnAnnotationsToPdf(sourceBlob, annotations, ocrToBurn, docPageOffset, lensData, password);
          const url = blobRegistry.register(URL.createObjectURL(newBlob));
          
          const a = document.createElement('a');
@@ -97,7 +99,7 @@ export const usePdfSaver = ({
     setTechnicalError(null);
     
     try {
-        const newBlob = await burnAnnotationsToPdf(sourceBlob, annotations, ocrToBurn, docPageOffset, lensData);
+        const newBlob = await burnAnnotationsToPdf(sourceBlob, annotations, ocrToBurn, docPageOffset, lensData, password);
         const name = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
         await uploadFileToDrive(accessToken, newBlob, name, [folderId]);
         setSaveError(null);
@@ -111,7 +113,7 @@ export const usePdfSaver = ({
         setIsSaving(false);
         setSaveMessage("");
     }
-  }, [accessToken, annotations, currentBlobRef, originalBlob, ocrToBurn, docPageOffset, lensData, fileName]);
+  }, [accessToken, annotations, currentBlobRef, originalBlob, ocrToBurn, docPageOffset, lensData, fileName, password]);
 
   // Função auxiliar de salvamento offline/fila (DRY)
   const executeOfflineFallback = async (blob: Blob, hash: string, mode: 'overwrite' | 'copy') => {
@@ -168,7 +170,7 @@ export const usePdfSaver = ({
             return;
         }
 
-        const newBlob = await burnAnnotationsToPdf(sourceBlob, annotations, ocrToBurn, docPageOffset, lensData);
+        const newBlob = await burnAnnotationsToPdf(sourceBlob, annotations, ocrToBurn, docPageOffset, lensData, password);
         const newHash = await computeSparseHash(newBlob);
         
         const isLocal = fileId.startsWith('local-') || fileId.startsWith('native-') || !fileId;

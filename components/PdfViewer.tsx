@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
-import { Loader2, ShieldCheck, ScanLine, Save, Lock } from 'lucide-react';
+import { Loader2, ShieldCheck, ScanLine, Save, Lock, Unlock, Zap } from 'lucide-react';
 import { PDFDocumentProxy } from 'pdfjs-dist';
 
 // Hooks & Context
@@ -29,6 +29,7 @@ import { PasswordPromptModal } from './pdf/modals/PasswordPromptModal';
 // Services
 import { fetchDefinition } from '../services/dictionaryService';
 import { isFileOffline } from '../services/storageService';
+import { sanitizePdf } from '../services/pdfModifierService';
 
 interface Props {
   accessToken?: string | null;
@@ -55,11 +56,12 @@ interface PdfViewerContentProps extends Props {
   isCheckingIntegrity: boolean;
   hasPageMismatch: boolean;
   resolveConflict: (action: 'use_external' | 'restore_lectorium' | 'merge') => void;
+  password?: string; // Recebe a senha para o saver
 }
 
 const PdfViewerContent: React.FC<PdfViewerContentProps> = ({ 
   accessToken, fileId, fileName, fileParents, onBack, originalBlob, setOriginalBlob, pdfDoc, pageDimensions, numPages, jumpToPageRef, onToggleNavigation, onToggleMenu,
-  conflictDetected, isCheckingIntegrity, hasPageMismatch, resolveConflict, onAuthError
+  conflictDetected, isCheckingIntegrity, hasPageMismatch, resolveConflict, onAuthError, password
 }) => {
   const scale = usePdfStore(state => state.scale);
   const setScale = usePdfStore(state => state.setScale);
@@ -74,6 +76,49 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
   const setStoreNumPages = usePdfStore(state => state.setNumPages);
   const setStorePageDimensions = usePdfStore(state => state.setPageDimensions);
   const setStorePageSizes = usePdfStore(state => state.setPageSizes);
+
+  // Auto-Sanitize State
+  const [isSanitizing, setIsSanitizing] = useState(false);
+  const [sanitizeSuccess, setSanitizeSuccess] = useState(false);
+  const sanitizeAttemptedRef = useRef(false);
+
+  // --- AUTOMATIC SANITIZATION (THE BYPASS) ---
+  useEffect(() => {
+    if (!pdfDoc || !originalBlob || sanitizeAttemptedRef.current) return;
+    
+    const checkAndSanitize = async () => {
+        sanitizeAttemptedRef.current = true;
+        
+        // Verifica permissões do PDF (PDF.js retorna null se não houver restrições)
+        const permissions = await pdfDoc.getPermissions();
+        
+        // Se permissions não for null, significa que existem restrições de Owner (cópia, impressão, etc)
+        // Ou se simplesmente quisermos garantir um arquivo limpo
+        if (permissions !== null) {
+            console.log("[Lectorium Security] Bloqueio detectado. Iniciando Protocolo de Reconstrução...");
+            setIsSanitizing(true);
+            
+            try {
+                // Clona o PDF para um novo container sem senha
+                const cleanBlob = await sanitizePdf(originalBlob, password);
+                
+                // Substitui o blob original em memória pela versão limpa
+                setOriginalBlob(cleanBlob);
+                setSanitizeSuccess(true);
+                
+                // Remove o aviso de sucesso após 3 segundos
+                setTimeout(() => setSanitizeSuccess(false), 4000);
+            } catch (e) {
+                console.error("Falha ao reconstruir PDF:", e);
+            } finally {
+                setIsSanitizing(false);
+            }
+        }
+    };
+    
+    checkAndSanitize();
+  }, [pdfDoc, originalBlob, password, setOriginalBlob]);
+
 
   // --- Session Persistence Logic (Auto-Save Page & Zoom) ---
   useEffect(() => {
@@ -189,7 +234,8 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
     lensData,
     onUpdateOriginalBlob: setOriginalBlob,
     onOcrSaved: () => markOcrAsSaved(Object.keys(getUnburntOcrMap()).map(Number)),
-    setHasUnsavedOcr
+    setHasUnsavedOcr,
+    password // Passa a senha para o saver
   });
 
   const isLocalFile = fileId.startsWith('local-') || fileId.startsWith('native-') || !fileId;
@@ -340,6 +386,25 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
       <div className="absolute inset-0 z-0 pointer-events-none opacity-20" style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '40px 40px', backgroundPosition: '0 0' }} />
       <div className="absolute inset-0 z-0 pointer-events-none bg-gradient-to-b from-transparent via-bg/50 to-bg"/>
       
+      {/* Toast de Sanização (Lavagem) */}
+      {isSanitizing && (
+        <div className="fixed top-28 left-1/2 -translate-x-1/2 z-[90] animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="bg-blue-600/90 backdrop-blur-md border border-blue-400/30 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3">
+                <Loader2 size={18} className="text-white animate-spin" />
+                <span className="text-sm font-bold text-white tracking-wide">Recriando estrutura do PDF (Bypass)...</span>
+            </div>
+        </div>
+      )}
+
+      {sanitizeSuccess && (
+        <div className="fixed top-28 left-1/2 -translate-x-1/2 z-[90] animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="bg-green-500/90 backdrop-blur-md border border-green-400/30 px-6 py-3 rounded-full shadow-2xl flex items-center gap-3">
+                <Unlock size={18} className="text-white" />
+                <span className="text-sm font-bold text-white tracking-wide">Arquivo Desbloqueado com Sucesso!</span>
+            </div>
+        </div>
+      )}
+
       {isCheckingIntegrity && (
           <div className="absolute inset-0 z-[100] bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in">
               <div className="bg-surface p-6 rounded-2xl border border-brand/20 shadow-2xl flex flex-col items-center gap-4">
@@ -438,6 +503,7 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
         onSave={onSelectSaveMode}
         isOffline={!navigator.onLine}
         isLocalFile={isLocalFile}
+        isEncrypted={!!password} // Passa informação de criptografia
       />
 
       <DriveFolderPickerModal
@@ -608,6 +674,7 @@ export const PdfViewer: React.FC<Props> = (props) => {
           isCheckingIntegrity={isCheckingIntegrity}
           hasPageMismatch={hasPageMismatch}
           resolveConflict={resolveConflict}
+          password={password} // Passa a senha para o componente interno
         />
       </PdfProvider>
     </PdfStoreProvider>

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, Download, Copy, AlertTriangle, CloudOff, CloudUpload } from 'lucide-react';
+import { X, Download, Copy, AlertTriangle, CloudOff, CloudUpload, Unlock } from 'lucide-react';
 
 interface SaveDocumentModalProps {
   isOpen: boolean;
@@ -8,6 +8,7 @@ interface SaveDocumentModalProps {
   onSave: (mode: 'local' | 'overwrite' | 'copy' | 'drive_picker') => void;
   isOffline: boolean;
   isLocalFile: boolean;
+  isEncrypted?: boolean; // Nova prop
 }
 
 export const SaveDocumentModal: React.FC<SaveDocumentModalProps> = ({
@@ -15,7 +16,8 @@ export const SaveDocumentModal: React.FC<SaveDocumentModalProps> = ({
   onClose,
   onSave,
   isOffline,
-  isLocalFile
+  isLocalFile,
+  isEncrypted
 }) => {
   if (!isOpen) return null;
 
@@ -24,6 +26,19 @@ export const SaveDocumentModal: React.FC<SaveDocumentModalProps> = ({
       <div className="bg-[#1e1e1e] border border-white/10 rounded-3xl p-6 max-w-md w-full shadow-2xl relative">
         <button onClick={onClose} className="absolute top-4 right-4 text-text-sec hover:text-text"><X size={20}/></button>
         <h3 className="text-xl font-bold mb-4 text-white">Salvar Arquivo</h3>
+        
+        {isEncrypted && (
+            <div className="bg-green-500/10 border border-green-500/20 p-3 rounded-xl mb-4 flex items-start gap-3">
+                <Unlock size={20} className="text-green-500 shrink-0 mt-0.5" />
+                <div>
+                    <h4 className="text-xs font-bold text-green-400 uppercase tracking-wide mb-1">Desbloqueio Automático</h4>
+                    <p className="text-[11px] text-green-200/80 leading-tight">
+                        A cópia salva será descriptografada permanentemente (sem senha).
+                    </p>
+                </div>
+            </div>
+        )}
+
         <div className="space-y-3">
           <button onClick={() => onSave('local')} className="w-full flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-transparent hover:border-brand/50 hover:bg-white/10 text-left transition-all group">
              <div className="bg-black border border-white/10 text-text p-2.5 rounded-lg group-hover:text-brand transition-colors"><Download size={20}/></div>

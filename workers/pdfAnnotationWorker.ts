@@ -19,11 +19,19 @@ function toBase64(str: string) {
 }
 
 self.onmessage = async (e: MessageEvent) => {
-  const { command, pdfBytes, annotations, ocrMap, pageOffset, lensData } = e.data;
+  const { command, pdfBytes, annotations, ocrMap, pageOffset, lensData, password } = e.data;
 
   try {
-    // 1. Carrega o documento original ignorando a trava de edição (apenas leitura de memória)
-    const loadedDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+    // 1. Carrega o documento original com a estratégia correta de senha
+    let loadedDoc: PDFDocument;
+    
+    if (password) {
+        // Se temos senha, tentamos descriptografar para poder ler o conteúdo
+        loadedDoc = await PDFDocument.load(pdfBytes, { password });
+    } else {
+        // Se não temos senha, tentamos carregar ignorando a criptografia (para ler metadados/páginas em branco)
+        loadedDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+    }
     
     let pdfDoc = loadedDoc;
 
@@ -31,7 +39,10 @@ self.onmessage = async (e: MessageEvent) => {
     // Se o arquivo original tiver "Owner Password" (é criptografado), salvar diretamente falhará
     // ou criará um arquivo corrompido/bloqueado.
     // Solução: Transplantar as páginas para um novo container PDF limpo (sem senha).
-    if (loadedDoc.isEncrypted) {
+    // NOTA: Para que 'copyPages' funcione e copie o conteúdo real, o loadedDoc deve ter sido carregado COM SENHA se for criptografado.
+    
+    // Se o comando for EXPLICITAMENTE 'sanitize' ou se detectarmos encriptação durante o 'burn-all'
+    if (command === 'sanitize' || loadedDoc.isEncrypted) {
         // Cria um container PDF novo em folha
         const newDoc = await PDFDocument.create();
         
@@ -41,9 +52,41 @@ self.onmessage = async (e: MessageEvent) => {
         const copiedPages = await newDoc.copyPages(loadedDoc, allPageIndices);
         
         copiedPages.forEach((page) => newDoc.addPage(page));
+
+        // TRANSPLANTE DE METADADOS
+        // Ao criar um novo doc, perdemos o título/autor original. Vamos copiá-los.
+        try {
+            const title = loadedDoc.getTitle();
+            const author = loadedDoc.getAuthor();
+            const subject = loadedDoc.getSubject();
+            const keywords = loadedDoc.getKeywords();
+            const creator = loadedDoc.getCreator();
+            const producer = loadedDoc.getProducer();
+            const creationDate = loadedDoc.getCreationDate();
+            const modDate = loadedDoc.getModificationDate();
+
+            if (title) newDoc.setTitle(title);
+            if (author) newDoc.setAuthor(author);
+            if (subject) newDoc.setSubject(subject);
+            if (keywords) newDoc.setKeywords(keywords.split(' ')); // pdf-lib retorna string única
+            if (creator) newDoc.setCreator(creator);
+            if (producer) newDoc.setProducer(producer);
+            if (creationDate) newDoc.setCreationDate(creationDate);
+            if (modDate) newDoc.setModificationDate(modDate);
+        } catch (metaErr) {
+            // Ignora falhas de metadados se o arquivo estiver muito bloqueado
+            console.warn("Aviso: Não foi possível migrar alguns metadados do PDF original.");
+        }
         
         // Substitui a referência para usarmos o novo documento limpo daqui para frente
         pdfDoc = newDoc;
+    }
+
+    // Se o comando for apenas sanitizar, salva e retorna agora
+    if (command === 'sanitize') {
+        const bytes = await pdfDoc.save();
+        (self as any).postMessage({ success: true, pdfBytes: bytes }, [bytes.buffer]);
+        return;
     }
 
     const pages = pdfDoc.getPages();
@@ -78,10 +121,17 @@ self.onmessage = async (e: MessageEvent) => {
             semanticData: lensData || {}
         };
         
-        // Define os metadados no documento (seja o original ou o novo lavado)
-        pdfDoc.setKeywords([`LECTORIUM_V2_B64:::${toBase64(JSON.stringify(meta))}`]);
-        pdfDoc.setTitle("Processado pelo Lectorium");
-        pdfDoc.setProducer("Lectorium Engine v1.7 (Mark VII)");
+        // Define os metadados Lectorium (sobrescrevendo ou adicionando aos originais)
+        // Adicionamos aos Keywords existentes para não perder tags originais se possível
+        const existingKeywords = pdfDoc.getKeywords() || '';
+        const lectoriumTag = `LECTORIUM_V2_B64:::${toBase64(JSON.stringify(meta))}`;
+        
+        // Remove tag antiga se existir para não duplicar
+        const cleanKeywords = existingKeywords.split(' ').filter(k => !k.startsWith('LECTORIUM_V2_B64:::'));
+        pdfDoc.setKeywords([...cleanKeywords, lectoriumTag]);
+
+        // Marca d'água técnica no produtor
+        pdfDoc.setProducer("Lectorium Engine v1.7 (Mark VII) + " + (pdfDoc.getProducer() || "Original"));
 
         const hexToRgb = (hex: string) => {
             const b = parseInt(hex.replace('#', ''), 16);
