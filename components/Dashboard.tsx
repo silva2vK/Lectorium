@@ -1,10 +1,9 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { DriveFile } from '../types';
 import { getRecentFiles, getStorageEstimate, clearAppStorage, StorageBreakdown, runJanitor, getWallpaper } from '../services/storageService';
 import { useSync } from '../hooks/useSync';
 import { SyncStatusModal } from './SyncStatusModal';
-import { FileText, Menu, Workflow, FilePlus, Database, X, Zap, Pin, Cloud, AlertCircle, CheckCircle, ArrowRight, Clock, HardDrive, Server, File, FolderOpen, LifeBuoy, Upload, Signal, SignalHigh } from 'lucide-react';
+import { FileText, Menu, Workflow, FilePlus, Database, X, Zap, Pin, Cloud, AlertCircle, CheckCircle, ArrowRight, Clock, HardDrive, Server, File, FolderOpen, LifeBuoy, Upload, Signal, SignalHigh, BrainCircuit } from 'lucide-react';
 import { GlobalHelpModal } from './GlobalHelpModal';
 import { useGlobalContext } from '../context/GlobalContext';
 import { createVirtualDirectoryHandle } from '../services/localFileService';
@@ -100,29 +99,37 @@ const RecentFileItem: React.FC<RecentFileItemProps> = ({ file, styles, onClick }
     return (
         <div 
             onClick={onClick} 
-            className="group flex items-center gap-5 p-3 rounded-lg hover:bg-white/5 transition-all cursor-pointer active:scale-95"
+            className="group flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 transition-all cursor-pointer active:scale-95 border border-transparent hover:border-white/10"
         >
+            {/* The Maker Aesthetic: Futuristic/Scientific Container */}
             <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
-                <div className="absolute inset-0 bg-gradient-to-br from-red-900 to-black border-2 border-red-600 rotate-45 shadow-[0_0_15px_rgba(220,38,38,0.5)] group-hover:shadow-[0_0_25px_rgba(220,38,38,0.8)] group-hover:border-red-500 transition-all duration-300"></div>
-                <div className="relative z-10 text-white group-hover:text-white transition-colors">
-                    {file.name.endsWith('.mindmap') ? <Workflow size={20} className="text-red-200" /> : 
-                     file.mimeType.includes('document') ? <FilePlus size={20} className="text-red-200" /> : 
-                     <FileText size={20} className="text-red-200" />}
+                {/* Background: Deep Tech Blue with subtle gradient */}
+                <div className="absolute inset-0 bg-gradient-to-br from-[#0f172a] to-[#1e293b] rounded-xl border border-blue-500/20 group-hover:border-blue-400/50 shadow-[0_0_15px_-5px_rgba(59,130,246,0.2)] group-hover:shadow-[0_0_20px_-5px_rgba(59,130,246,0.4)] transition-all duration-500"></div>
+                
+                {/* Icon with "Holographic" effect colors */}
+                <div className="relative z-10 transition-colors duration-300">
+                    {file.name.endsWith('.mindmap') ? (
+                        <BrainCircuit size={22} className="text-purple-300 group-hover:text-purple-200 drop-shadow-[0_0_5px_rgba(168,85,247,0.4)]" />
+                    ) : file.mimeType.includes('document') ? (
+                        <FileText size={22} className="text-cyan-300 group-hover:text-cyan-200 drop-shadow-[0_0_5px_rgba(34,211,238,0.4)]" />
+                    ) : (
+                        <File size={22} className="text-blue-300 group-hover:text-blue-200 drop-shadow-[0_0_5px_rgba(59,130,246,0.4)]" />
+                    )}
                 </div>
 
                 {file.pinned && (
-                    <div className="absolute -top-1 -right-1 z-20 text-yellow-500 bg-black rounded-full p-0.5 border border-yellow-600 shadow-sm">
-                        <Pin size={8} fill="currentColor" />
+                    <div className="absolute -top-1 -right-1 z-20 text-cyan-400 bg-[#020617] rounded-full p-0.5 border border-cyan-500/50 shadow-[0_0_8px_rgba(34,211,238,0.3)]">
+                        <Pin size={9} fill="currentColor" />
                     </div>
                 )}
             </div>
 
             <div className="min-w-0 flex-1 flex flex-col justify-center">
-                <h3 className="font-gothic text-[27px] text-white truncate tracking-wide leading-none mb-1 group-hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.5)] transition-all">
+                <h3 className="font-sans font-bold text-[15px] text-gray-100 truncate tracking-tight leading-snug mb-0.5 group-hover:text-white transition-colors">
                     {file.name}
                 </h3>
-                <p className="text-[13px] text-red-400 font-mono uppercase tracking-widest flex items-center gap-1.5 transition-colors">
-                    <Clock size={12} /> {new Date(file.lastOpened).toLocaleDateString()}
+                <p className="text-[10px] text-blue-400/50 font-bold uppercase tracking-widest flex items-center gap-1.5 transition-colors group-hover:text-blue-400">
+                    <Clock size={10} /> {new Date(file.lastOpened).toLocaleDateString()}
                 </p>
             </div>
         </div>
@@ -466,7 +473,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <button onClick={() => onChangeView('browser')} className="text-[14px] font-bold text-brand hover:brightness-125 flex items-center gap-1 transition-all active:scale-95">VER TODOS <ArrowRight size={14}/></button>
               </div>
               <div className="space-y-4">
-                {recents.slice(0, 5).map((file) => (
+                {recents.slice(0, 3).map((file) => (
                     <RecentFileItem 
                         key={file.id} 
                         file={file} 
