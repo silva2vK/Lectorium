@@ -29,10 +29,15 @@ self.onmessage = async (e: MessageEvent) => {
         if (password) {
             loadedDoc = await PDFDocument.load(pdfBytes, { password });
         } else {
+            // Tenta carregar ignorando encriptação (funciona para Owner Password se não houver User Password)
             loadedDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
         }
-    } catch (loadError) {
-        throw new Error('PDF_LOAD_FAILED');
+    } catch (loadError: any) {
+        // Detecção específica de erro de senha
+        if (loadError.message?.includes('Encrypted') || loadError.message?.includes('Password') || loadError.name === 'PasswordException') {
+             throw new Error('PDF_ENCRYPTED_PASSWORD_REQUIRED');
+        }
+        throw new Error('PDF_LOAD_FAILED: ' + loadError.message);
     }
     
     let pdfDoc = loadedDoc;

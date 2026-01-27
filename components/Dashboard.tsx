@@ -4,10 +4,11 @@ import { DriveFile } from '../types';
 import { getRecentFiles, getStorageEstimate, clearAppStorage, StorageBreakdown, runJanitor, getWallpaper } from '../services/storageService';
 import { useSync } from '../hooks/useSync';
 import { SyncStatusModal } from './SyncStatusModal';
-import { FileText, Menu, Workflow, FilePlus, Database, X, Zap, Pin, Cloud, AlertCircle, CheckCircle, ArrowRight, Clock, HardDrive, Server, File, FolderOpen, LifeBuoy, Upload } from 'lucide-react';
+import { FileText, Menu, Workflow, FilePlus, Database, X, Zap, Pin, Cloud, AlertCircle, CheckCircle, ArrowRight, Clock, HardDrive, Server, File, FolderOpen, LifeBuoy, Upload, Lock, Unlock } from 'lucide-react';
 import { GlobalHelpModal } from './GlobalHelpModal';
 import { useGlobalContext } from '../context/GlobalContext';
 import { createVirtualDirectoryHandle } from '../services/localFileService';
+import { UnlockPdfModal } from './modals/UnlockPdfModal';
 
 interface DashboardProps {
   userName?: string | null;
@@ -173,6 +174,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [showStorageModal, setShowStorageModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showSyncModal, setShowSyncModal] = useState(false); 
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [unlockFile, setUnlockFile] = useState<File | null>(null);
+  
   const [storageData, setStorageData] = useState<StorageBreakdown | null>(null);
   const [wallpapers, setWallpapers] = useState<{ landscape: string | null, portrait: string | null }>({ landscape: null, portrait: null });
   
@@ -183,6 +187,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   
   // Referência para o input de arquivo (Upload Local)
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const unlockInputRef = useRef<HTMLInputElement>(null);
 
   // Detecção de Mobile/WebView
   // Se for mobile, assumimos que NÃO há suporte completo a Native File System (showDirectoryPicker falha em WebViews)
@@ -275,6 +280,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
       }
       
       // Limpa input para permitir re-seleção
+      e.target.value = '';
+  };
+
+  const handleUnlockFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          setUnlockFile(file);
+          setShowUnlockModal(true);
+      }
       e.target.value = '';
   };
 
@@ -436,14 +450,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     borderColorClass="hover:border-blue-500/50"
                 />
 
+                {/* Novo Azulejo: Desbloquear PDF */}
                 <ActionTile 
-                    onClick={() => setShowHelpModal(true)}
-                    title="Suporte"
-                    subtitle="Guias e Tutoriais"
-                    icon={LifeBuoy}
-                    iconColorClass="text-purple-500"
-                    gradientClass="from-purple-500/10 to-transparent"
-                    borderColorClass="hover:border-purple-500/50"
+                    onClick={() => unlockInputRef.current?.click()}
+                    title="Desbloquear PDF"
+                    subtitle="Remover Senha"
+                    icon={Unlock}
+                    iconColorClass="text-red-500"
+                    gradientClass="from-red-500/10 to-transparent"
+                    borderColorClass="hover:border-red-500/50"
+                />
+                <input 
+                    type="file"
+                    ref={unlockInputRef}
+                    className="hidden"
+                    accept=".pdf"
+                    onChange={handleUnlockFileChange}
                 />
               </div>
             </div>
@@ -477,6 +499,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       <GlobalHelpModal isOpen={showHelpModal} onClose={() => setShowHelpModal(false)} />
       <SyncStatusModal isOpen={showSyncModal} onClose={() => setShowSyncModal(false)} queue={queue} isSyncing={syncStatus.active} onForceSync={triggerSync} onRemoveItem={removeItem} onClearQueue={clearQueue} />
+      <UnlockPdfModal isOpen={showUnlockModal} onClose={() => { setShowUnlockModal(false); setUnlockFile(null); }} file={unlockFile} />
 
       {showStorageModal && (
           <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-300">
