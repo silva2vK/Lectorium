@@ -279,11 +279,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="flex-1 h-full overflow-hidden bg-bg text-text relative font-sans">
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-transparent">
-          {wallpapers.landscape && (
-              <img src={wallpapers.landscape} className="hidden md:block absolute inset-0 w-full h-full object-cover opacity-50 scale-105" alt="" />
-          )}
-          {wallpapers.portrait && (
-              <img src={wallpapers.portrait} className="md:hidden absolute inset-0 w-full h-full object-cover opacity-50 scale-105" alt="" />
+          {/* Wallpapers com Fallback Inteligente */}
+          {(wallpapers.landscape || wallpapers.portrait) && (
+              <>
+                  {/* Desktop / Horizontal View (Fallback para Portrait se Landscape faltar) */}
+                  <img 
+                    src={wallpapers.landscape || wallpapers.portrait || ''} 
+                    className="hidden md:block absolute inset-0 w-full h-full object-cover opacity-50 scale-105" 
+                    alt="Background" 
+                  />
+                  {/* Mobile / Vertical View (Fallback para Landscape se Portrait faltar) */}
+                  <img 
+                    src={wallpapers.portrait || wallpapers.landscape || ''} 
+                    className="md:hidden absolute inset-0 w-full h-full object-cover opacity-50 scale-105" 
+                    alt="Background" 
+                  />
+              </>
           )}
           {/* Apenas um gradiente sutil para legibilidade, permitindo a cor de fundo do tema passar */}
           <div className="absolute inset-0 bg-gradient-to-br from-bg/20 via-bg/40 to-bg/90 z-10" />
