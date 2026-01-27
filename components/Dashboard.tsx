@@ -176,6 +176,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [storageData, setStorageData] = useState<StorageBreakdown | null>(null);
   const [wallpapers, setWallpapers] = useState<{ landscape: string | null, portrait: string | null }>({ landscape: null, portrait: null });
   
+  // Estado de Orientação (Landscape vs Portrait) para UI Responsiva
+  const [orientation, setOrientation] = useState<'landscape' | 'portrait'>(
+      typeof window !== 'undefined' ? (window.innerWidth > window.innerHeight ? 'landscape' : 'portrait') : 'landscape'
+  );
+  
   // Referência para o input de arquivo (Upload Local)
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -212,8 +217,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const handleUpdate = () => loadWallpapers();
     window.addEventListener('wallpaper-changed', handleUpdate);
     
+    // Listener de Orientação e Redimensionamento
+    const handleResize = () => {
+        setOrientation(window.innerWidth > window.innerHeight ? 'landscape' : 'portrait');
+    };
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    
+    // Check inicial
+    handleResize();
+
     return () => {
         window.removeEventListener('wallpaper-changed', handleUpdate);
+        window.removeEventListener('resize', handleResize);
+        window.removeEventListener('orientationchange', handleResize);
         if (wallpapers.landscape) URL.revokeObjectURL(wallpapers.landscape);
         if (wallpapers.portrait) URL.revokeObjectURL(wallpapers.portrait);
     };
@@ -279,22 +296,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="flex-1 h-full overflow-hidden bg-bg text-text relative font-sans">
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-transparent">
-          {/* Wallpapers com Fallback Inteligente */}
+          {/* Wallpapers com Fallback Inteligente e Detecção de Orientação */}
           {(wallpapers.landscape || wallpapers.portrait) && (
-              <>
-                  {/* Desktop / Horizontal View (Fallback para Portrait se Landscape faltar) */}
-                  <img 
-                    src={wallpapers.landscape || wallpapers.portrait || ''} 
-                    className="hidden md:block absolute inset-0 w-full h-full object-cover opacity-50 scale-105" 
-                    alt="Background" 
-                  />
-                  {/* Mobile / Vertical View (Fallback para Landscape se Portrait faltar) */}
-                  <img 
-                    src={wallpapers.portrait || wallpapers.landscape || ''} 
-                    className="md:hidden absolute inset-0 w-full h-full object-cover opacity-50 scale-105" 
-                    alt="Background" 
-                  />
-              </>
+              <img 
+                src={
+                    orientation === 'landscape' 
+                    ? (wallpapers.landscape || wallpapers.portrait || '') 
+                    : (wallpapers.portrait || wallpapers.landscape || '')
+                } 
+                className="absolute inset-0 w-full h-full object-cover opacity-50 scale-105 transition-all duration-700 ease-in-out" 
+                alt="Background" 
+                key={orientation} // Força transição suave ao trocar de modo
+              />
           )}
           {/* Apenas um gradiente sutil para legibilidade, permitindo a cor de fundo do tema passar */}
           <div className="absolute inset-0 bg-gradient-to-br from-bg/20 via-bg/40 to-bg/90 z-10" />
@@ -343,7 +356,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
 
-          <header className="mb-16 md:mb-28 animate-in fade-in slide-in-from-left-6 duration-700">
+          <header className="mb-32 md:mb-60 animate-in fade-in slide-in-from-left-6 duration-700">
             <h1 className="text-5xl md:text-7xl font-light text-white mb-4 tracking-tight leading-tight">
               {(new Date().getHours() >= 5 && new Date().getHours() < 12) ? 'Bom dia' : (new Date().getHours() >= 12 && new Date().getHours() < 18) ? 'Boa tarde' : 'Boa noite'}, <br/>
               <span className="text-brand font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand to-brand-to">
