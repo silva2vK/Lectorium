@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { 
-  ArrowLeft, Loader2, RefreshCw, Menu, Cloud, UploadCloud, HardDrive, Sparkles, Lock, LogIn, X, Search
+  ArrowLeft, Loader2, RefreshCw, Menu, Cloud, UploadCloud, HardDrive, Sparkles, Lock, LogIn, X, Search, CloudOff, AlertTriangle
 } from 'lucide-react';
 import { DriveFile, MIME_TYPES } from '../types';
 import { downloadDriveFile, uploadFileToDrive } from '../services/driveService';
@@ -67,7 +67,6 @@ export const DriveBrowser: React.FC<Props> = ({
   const [showUploadPicker, setShowUploadPicker] = useState(false);
   const [filesToUpload, setFilesToUpload] = useState<FileList | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
-  // Removido uploadStatusMsg pois agora é background
 
   // Search UI State
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -125,7 +124,6 @@ export const DriveBrowser: React.FC<Props> = ({
       const newName = window.prompt("Novo nome:", file.name);
       if (newName && newName !== file.name) {
           try {
-              // Usa a mutação do React Query (invalidação automática)
               await renameFile({ fileId: file.id, newName });
           } catch (e: any) {
               alert("Erro ao renomear arquivo: " + e.message);
@@ -136,7 +134,6 @@ export const DriveBrowser: React.FC<Props> = ({
   const handleDelete = useCallback(async (file: DriveFile) => { 
       if (confirm(`Tem certeza que deseja excluir "${file.name}"?`)) {
           try {
-              // Usa a mutação do React Query
               await deleteFile(file.id);
           } catch (e: any) {
               alert("Erro ao excluir: " + e.message);
@@ -227,14 +224,12 @@ export const DriveBrowser: React.FC<Props> = ({
       setShowUploadPicker(false);
       if (!filesToUpload || filesToUpload.length === 0) return;
 
-      // Não bloqueia mais a UI. Dispara em "background".
-      const files: File[] = Array.from(filesToUpload); // Copia para closure
+      const files: File[] = Array.from(filesToUpload);
       const total = files.length;
       
       addNotification(`Iniciando upload de ${total} arquivo(s)...`, 'info');
-      setFilesToUpload(null); // Limpa input
+      setFilesToUpload(null);
 
-      // Processo assíncrono desconectado da UI
       (async () => {
         try {
             for (let i = 0; i < total; i++) {
@@ -248,8 +243,6 @@ export const DriveBrowser: React.FC<Props> = ({
                 );
             }
             
-            // Recarrega a lista se o usuário ainda estiver na mesma pasta
-            // (Verificação simples, idealmente verificaríamos o ID da pasta ativa atual)
             loadFiles();
             addNotification("Upload concluído com sucesso!", "success");
         } catch (e: any) {
@@ -374,23 +367,26 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
       </div>
       
       <div className="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar relative">
-         {authError ? (
-             <div className="flex flex-col items-center justify-center h-full py-12 animate-in fade-in text-center">
-                 <div className="bg-yellow-500/10 p-6 rounded-full mb-4 border border-yellow-500/20 shadow-[0_0_30px_-10px_rgba(234,179,8,0.2)]">
-                     <Lock className="text-yellow-500" size={48} />
+         {/* CARD DE AVISO: Token Expirado / Modo Degradado */}
+         {(authError || (!accessToken && (mode === 'default' || mode === 'shared'))) && (
+             <div className="mb-6 bg-[#131314] border border-yellow-500/30 rounded-xl p-6 flex flex-col items-center text-center animate-in fade-in slide-in-from-top-4 shadow-xl">
+                 <div className="bg-yellow-500/10 p-3 rounded-full mb-3 text-yellow-500 border border-yellow-500/20">
+                     <AlertTriangle size={24} />
                  </div>
-                 <h3 className="text-xl font-bold text-white mb-2">Conexão Expirada</h3>
-                 <p className="text-sm text-text-sec max-w-sm mb-8 leading-relaxed">
-                     Para acessar seus arquivos na nuvem, você precisa renovar sua conexão com o Google Drive.
+                 <h3 className="text-lg font-bold text-white mb-1">Conexão Interrompida</h3>
+                 <p className="text-sm text-gray-400 max-w-sm mb-4 leading-relaxed">
+                     Sua sessão com o Google Drive expirou. Você está visualizando apenas arquivos cacheados no dispositivo (Modo Offline).
                  </p>
                  <button 
                     onClick={onLogin} 
-                    className="flex items-center gap-3 bg-brand text-[#0b141a] px-8 py-3 rounded-xl font-bold hover:brightness-110 transition-all shadow-lg hover:scale-105 active:scale-95"
+                    className="flex items-center gap-2 bg-yellow-500 text-black px-6 py-2.5 rounded-lg font-bold hover:bg-yellow-400 transition-all shadow-lg active:scale-95"
                  >
-                     <LogIn size={20} /> Conectar ao Drive
+                     <LogIn size={18} /> Reconectar Agora
                  </button>
              </div>
-         ) : loading && files.length === 0 ? (
+         )}
+
+         {loading && files.length === 0 ? (
              <div className="flex items-center justify-center h-64"><Loader2 size={32} className="animate-spin text-brand" /></div>
          ) : (
              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -464,7 +460,7 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
           </div>
       )}
 
-      {/* Loading Overlay (Apenas para bloqueios críticos, não mais para upload ou pin) */}
+      {/* Loading Overlay */}
       {(isMutating || localActionLoading) && !openingFileId && (
           <div className="absolute inset-0 z-50 bg-bg/80 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in">
               <Loader2 size={40} className="animate-spin text-brand mb-2" />

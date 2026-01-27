@@ -95,21 +95,19 @@ export function useDriveFiles(
       
       // Default & Shared Mode (Hybrid Cloud/Local)
       if (mode === 'default' || mode === 'shared') {
-          // 1. Se estiver offline explicitamente, carrega do cache local imediatamente
+          // 1. Se estiver offline, carrega do cache local imediatamente
           if (isOffline) {
-              console.log("[DriveHook] Modo Offline detectado. Carregando arquivos locais...");
               const localFiles = await listOfflineFiles();
-              // Filtro opcional: Se quiser mostrar apenas arquivos da pasta atual, descomentar abaixo.
-              // Por enquanto, mostramos TUDO que está offline para garantir acesso fácil ("Flat View").
               if (searchQuery) {
                   return localFiles.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
               }
               return localFiles;
           }
 
-          // 2. Se não tem token e não está offline, erro de auth
+          // 2. Se não tem token (Expirado/Logout), NÃO lança erro fatal.
+          // Retorna arquivos locais para modo "Degradado" (Visualização Offline)
           if (!accessToken) {
-             throw new Error("DRIVE_TOKEN_EXPIRED");
+             return await listOfflineFiles();
           }
 
           try {
@@ -119,7 +117,12 @@ export function useDriveFiles(
               }
               return await listDriveContents(accessToken, currentFolder);
           } catch (e: any) {
-              // 4. Fallback: Se a API falhar (ex: internet caiu no meio, timeout), carrega local
+              // 4. Fallback: Se a API falhar (ex: Token Expirado 401 ou Rede), carrega local
+              // Dispara o callback de erro para a UI saber que precisa reautenticar
+              if (e.message === 'DRIVE_TOKEN_EXPIRED' || e.message.includes('401')) {
+                  onAuthError();
+              }
+              
               console.warn("[DriveHook] Falha na API Drive. Ativando fallback local.", e);
               const localFiles = await listOfflineFiles();
               if (searchQuery) {
@@ -130,14 +133,6 @@ export function useDriveFiles(
       }
 
       return [];
-    },
-    // Se der erro de auth, dispara callback (mas o fallback acima deve prevenir a maioria dos erros de rede)
-    meta: {
-      errorHandler: (err: any) => {
-        if (err.message === 'DRIVE_TOKEN_EXPIRED' || err.message.includes('401')) {
-          onAuthError();
-        }
-      }
     }
   });
 
@@ -186,14 +181,12 @@ export function useDriveFiles(
   // --- Navegação ---
 
   const handleFolderClick = useCallback((folder: DriveFile) => {
-    // Ao navegar, limpamos a busca para mostrar o conteúdo da pasta
     if (searchQuery) setSearchQuery('');
     setCurrentFolder(folder.id);
     setFolderHistory(prev => [...prev, { id: folder.id, name: folder.name }]);
   }, [searchQuery]);
 
   const handleNavigateUp = useCallback(() => {
-    // Ao navegar, limpamos a busca
     if (searchQuery) setSearchQuery('');
     if (folderHistory.length <= 1) return;
     const newHistory = [...folderHistory];
@@ -202,12 +195,12 @@ export function useDriveFiles(
     setFolderHistory(newHistory);
   }, [folderHistory, searchQuery]);
 
-  // Função helper para forçar atualização do cache offline (usada após salvar)
   const updateCacheStatus = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['offline-status'] });
   }, [queryClient]);
 
-  const authError = queryError?.message === 'DRIVE_TOKEN_EXPIRED';
+  // Auth Error agora é controlado pelo estado do token, já que a query não falha mais
+  const authError = !accessToken && (mode === 'default' || mode === 'shared');
 
   return {
     files,

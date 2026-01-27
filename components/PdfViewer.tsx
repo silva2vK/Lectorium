@@ -7,7 +7,7 @@ import { PDFDocumentProxy } from 'pdfjs-dist';
 import { usePdfDocument } from '../hooks/usePdfDocument';
 import { usePdfAnnotations } from '../hooks/usePdfAnnotations';
 import { PdfProvider, usePdfContext } from '../context/PdfContext';
-import { usePdfStore, PdfStoreProvider, usePdfStoreApi } from '../stores/usePdfStore'; // Import Provider & API
+import { usePdfStore, PdfStoreProvider, usePdfStoreApi } from '../stores/usePdfStore';
 import { usePdfSaver } from '../hooks/usePdfSaver';
 import { usePdfGestures } from '../hooks/usePdfGestures'; 
 import { usePdfPreloader } from '../hooks/usePdfPreloader';
@@ -24,6 +24,7 @@ import { SaveDocumentModal } from './pdf/modals/SaveDocumentModal';
 import { DefinitionModal } from './pdf/modals/DefinitionModal';
 import { DriveFolderPickerModal } from './pdf/modals/DriveFolderPickerModal';
 import { SaveErrorModal } from './pdf/modals/SaveErrorModal';
+import { PasswordPromptModal } from './pdf/modals/PasswordPromptModal';
 
 // Services
 import { fetchDefinition } from '../services/dictionaryService';
@@ -39,7 +40,7 @@ interface Props {
   fileBlob?: Blob;
   isPopup?: boolean;
   onToggleNavigation?: () => void;
-  onToggleMenu?: () => void; // Added for compatibility with App.tsx commonProps
+  onToggleMenu?: () => void; 
   onAuthError?: () => void;
 }
 
@@ -76,7 +77,6 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
 
   // --- Session Persistence Logic (Auto-Save Page & Zoom) ---
   useEffect(() => {
-    // Subscreve a mudanças na store para salvar estado da sessão
     const unsub = storeApi.subscribe(
         (state) => ({ page: state.currentPage, scale: state.scale }),
         (state) => {
@@ -92,7 +92,6 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
     return unsub;
   }, [fileId, storeApi]);
 
-  // Sync Document Properties to Store
   useEffect(() => {
     setStoreNumPages(numPages);
   }, [numPages, setStoreNumPages]);
@@ -101,7 +100,6 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
     if (pageDimensions) setStorePageDimensions(pageDimensions);
   }, [pageDimensions, setStorePageDimensions]);
 
-  // Background fetch of page sizes
   useEffect(() => {
     if (!pdfDoc) return;
     let mounted = true;
@@ -115,19 +113,17 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
                 const vp = page.getViewport({ scale: 1 });
                 sizes.push({ width: vp.width, height: vp.height });
             } catch (e) {
-                // Fallback
                 sizes.push(sizes.length > 0 ? sizes[sizes.length-1] : { width: 600, height: 800 });
             }
         }
         if (mounted) setStorePageSizes(sizes);
     };
     
-    // Non-blocking
     setTimeout(fetchSizes, 100);
     return () => { mounted = false; };
   }, [pdfDoc, setStorePageSizes]);
 
-  const numPagesStore = usePdfStore(state => state.numPages); // Used for UI display
+  const numPagesStore = usePdfStore(state => state.numPages); 
 
   const { 
     settings, 
@@ -157,7 +153,6 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
 
   const { handlers: gestureHandlers } = usePdfGestures(visualContentRef);
 
-  // Normalize navigation trigger (App uses onToggleMenu, internal uses onToggleNavigation)
   const handleToggleNav = onToggleNavigation || onToggleMenu;
 
   useEffect(() => {
@@ -230,7 +225,7 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
 
   const createHighlight = () => {
     if (!selection) return;
-    selection.relativeRects.forEach((rect, index) => {
+    selection.relativeRects.forEach((rect: any, index: number) => {
       addAnnotation({
         id: `hl-${Date.now()}-${Math.random()}`,
         page: selection.page,
@@ -251,12 +246,12 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
     const pageAnns = annotations.filter(a => a.page === selection.page && !a.isBurned);
     const idsToDelete = new Set<string>();
 
-    selection.relativeRects.forEach(selRect => {
+    selection.relativeRects.forEach((selRect: any) => {
        pageAnns.forEach(ann => {
            if (ann.bbox && ann.bbox[2] > 0) { 
                const [ax, ay, aw, ah] = ann.bbox;
                const [sx, sy, sw, sh] = [selRect.x, selRect.y, selRect.width, selRect.height];
-               const intersects = (ax < sx + sw) && (ax + aw > sx) && (ay < sy + sh) && (ax + aw > sx) && (ay < sy + sh) && (ax + aw > sx) && (ay < sy + sh) && (ax + aw > sx) && (ay + ah > sy);
+               const intersects = (ax < sx + sw) && (ax + aw > sx) && (ay < sy + sh) && (ay + ah > sy);
                
                if (intersects && ann.id) {
                    idsToDelete.add(ann.id);
@@ -342,7 +337,6 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
         <filter id="pdf-recolor"><feColorMatrix type="matrix" values={filterValues} /></filter>
       </svg>
       
-      {/* Background Effect - Removed explicit black bg to allow theme gradient */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-20" style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '40px 40px', backgroundPosition: '0 0' }} />
       <div className="absolute inset-0 z-0 pointer-events-none bg-gradient-to-b from-transparent via-bg/50 to-bg"/>
       
@@ -381,7 +375,6 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
         headerRef={headerRef}
       />
 
-      {/* THE TACTICAL PULLER */}
       <div 
         className={`fixed left-1/2 -translate-x-1/2 z-[60] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] flex justify-center cursor-pointer ${isHeaderVisible ? 'top-[4.5rem]' : 'top-0'}`}
         onClick={() => setIsHeaderVisible(!isHeaderVisible)}
@@ -497,6 +490,7 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
 
 export const PdfViewer: React.FC<Props> = (props) => {
   const { fileId, fileBlob, accessToken, uid, onAuthError } = props;
+  const [password, setPassword] = useState('');
   
   // UsePdfDocument é o HOOK GLOBAL que baixa o PDF e monta o objeto Proxy
   const { 
@@ -508,7 +502,7 @@ export const PdfViewer: React.FC<Props> = (props) => {
     error: docError,
     scale: initialScale,
     pageDimensions
-  } = usePdfDocument({ fileId, fileBlob, accessToken, onAuthError });
+  } = usePdfDocument({ fileId, fileBlob, accessToken, onAuthError, password });
 
   // Annotations Hook (Global Logic)
   const { 
@@ -533,6 +527,29 @@ export const PdfViewer: React.FC<Props> = (props) => {
           return item ? JSON.parse(item) : null;
       } catch { return null; }
   }, [fileId]);
+
+  // Se o erro for senha requerida, mostramos o modal
+  if (docError === 'PASSWORD_REQUIRED') {
+      return (
+          <>
+            <div className="flex flex-col items-center justify-center h-full bg-black">
+                <div className="bg-red-500/10 p-6 rounded-full border border-red-500/20 mb-4 animate-pulse">
+                    <Lock size={48} className="text-red-500" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">Acesso Negado</h3>
+                <p className="text-text-sec text-sm">Este arquivo está criptografado.</p>
+                <button onClick={props.onBack} className="mt-6 px-6 py-2 rounded-full border border-white/20 hover:bg-white/10 text-white transition-colors">Voltar</button>
+            </div>
+            <PasswordPromptModal 
+                isOpen={true} 
+                onClose={props.onBack}
+                onSubmit={(pass) => setPassword(pass)}
+                fileName={props.fileName}
+                isRetry={!!password} // Se já tinha senha e caiu aqui de novo, é retry
+            />
+          </>
+      );
+  }
 
   if (docLoading) {
     return (
@@ -559,8 +576,6 @@ export const PdfViewer: React.FC<Props> = (props) => {
   }
 
   return (
-    // PdfStoreProvider ISOLA o estado de UI (Página atual, Zoom, Ferramenta) para este componente
-    // Inicializa com valores salvos se disponíveis, ou usa defaults da factory
     <PdfStoreProvider 
         initialPage={savedSession?.page} 
         initialScale={savedSession?.scale || initialScale}

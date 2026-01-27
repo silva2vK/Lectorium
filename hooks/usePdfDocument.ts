@@ -16,9 +16,10 @@ interface UsePdfDocumentProps {
   fileBlob?: Blob;
   accessToken?: string | null;
   onAuthError?: () => void;
+  password?: string; // Novo parâmetro opcional
 }
 
-export const usePdfDocument = ({ fileId, fileBlob, accessToken, onAuthError }: UsePdfDocumentProps) => {
+export const usePdfDocument = ({ fileId, fileBlob, accessToken, onAuthError, password }: UsePdfDocumentProps) => {
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [originalBlob, setOriginalBlob] = useState<Blob | null>(null);
   const [numPages, setNumPages] = useState(0);
@@ -76,14 +77,20 @@ export const usePdfDocument = ({ fileId, fileBlob, accessToken, onAuthError }: U
 
         if (mounted && !originalBlob) setOriginalBlob(blob);
 
-        // 2. Carregar PDF.js
+        // 2. Carregar PDF.js (Agora com suporte a Senha)
         const arrayBuffer = await blob.arrayBuffer();
-        const pdf = await getDocument({
+        
+        const loadingTask = getDocument({
           data: arrayBuffer,
           cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/cmaps/',
           cMapPacked: true,
-          standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/standard_fonts/'
-        }).promise;
+          standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/standard_fonts/',
+          password: password // Injeta senha se fornecida
+        });
+
+        // Adiciona listener de progresso de senha se necessário (PDF.js suporta callback, mas aqui usamos retry via props)
+        
+        const pdf = await loadingTask.promise;
 
         if (mounted) {
           setPdfDoc(pdf);
@@ -100,13 +107,12 @@ export const usePdfDocument = ({ fileId, fileBlob, accessToken, onAuthError }: U
             const isMobile = containerWidth < 768;
             
             // Margem de segurança para UI (Toolbars, Scrollbars)
-            // Mobile: 16px (bem rente) | Desktop: 96px (respiro confortável)
             const padding = isMobile ? 16 : 96;
             
-            // Fit Width: Calcula a escala exata para preencher a largura disponível
+            // Fit Width: Calcula a escala exata
             const autoScale = (containerWidth - padding) / viewport.width;
             
-            // Aplica sem limite superior artificial, mas garante um mínimo de legibilidade (0.5)
+            // Aplica sem limite superior artificial, mas garante um mínimo
             const initialScale = Math.max(autoScale, 0.5);
             setScale(initialScale);
             
@@ -117,7 +123,9 @@ export const usePdfDocument = ({ fileId, fileBlob, accessToken, onAuthError }: U
       } catch (err: any) {
         console.error("Erro ao carregar PDF:", err);
         if (mounted) {
-          if (err.message === "Unauthorized" || err.message.includes("401")) {
+          if (err.name === 'PasswordException' || err.message === 'No password given' || err.code === 1) {
+             setError('PASSWORD_REQUIRED');
+          } else if (err.message === "Unauthorized" || err.message.includes("401")) {
             if (onAuthError) onAuthError();
           } else {
             setError(err.message || "Falha ao abrir arquivo");
@@ -128,12 +136,13 @@ export const usePdfDocument = ({ fileId, fileBlob, accessToken, onAuthError }: U
       }
     };
 
+    // Recarrega se o ID mudou ou se a senha foi atualizada (para retry)
     if (!pdfDoc || fileId) {
         loadPdf();
     }
 
     return () => { mounted = false; };
-  }, [fileId, accessToken, fileBlob]);
+  }, [fileId, accessToken, fileBlob, password]); // Adicionado password nas dependências
 
   return { 
     pdfDoc, 

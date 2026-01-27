@@ -22,10 +22,30 @@ self.onmessage = async (e: MessageEvent) => {
   const { command, pdfBytes, annotations, ocrMap, pageOffset, lensData } = e.data;
 
   try {
-    // FIX: ignoreEncryption permite carregar PDFs que possuem flags de proteção de proprietário
-    // mas que não exigem senha de abertura (comum em artigos acadêmicos).
-    const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+    // 1. Carrega o documento original ignorando a trava de edição (apenas leitura de memória)
+    const loadedDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
     
+    let pdfDoc = loadedDoc;
+
+    // --- PROTOCOLO DE LAVAGEM DE PDF (Sanitization) ---
+    // Se o arquivo original tiver "Owner Password" (é criptografado), salvar diretamente falhará
+    // ou criará um arquivo corrompido/bloqueado.
+    // Solução: Transplantar as páginas para um novo container PDF limpo (sem senha).
+    if (loadedDoc.isEncrypted) {
+        // Cria um container PDF novo em folha
+        const newDoc = await PDFDocument.create();
+        
+        // Copia todas as páginas do original para o novo
+        // O método copyPages extrai o conteúdo visual mas descarta o dicionário de criptografia
+        const allPageIndices = loadedDoc.getPageIndices();
+        const copiedPages = await newDoc.copyPages(loadedDoc, allPageIndices);
+        
+        copiedPages.forEach((page) => newDoc.addPage(page));
+        
+        // Substitui a referência para usarmos o novo documento limpo daqui para frente
+        pdfDoc = newDoc;
+    }
+
     const pages = pdfDoc.getPages();
     const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
@@ -57,7 +77,11 @@ self.onmessage = async (e: MessageEvent) => {
             annotations: (annotations || []).map(a => ({ ...a, isBurned: true })),
             semanticData: lensData || {}
         };
+        
+        // Define os metadados no documento (seja o original ou o novo lavado)
         pdfDoc.setKeywords([`LECTORIUM_V2_B64:::${toBase64(JSON.stringify(meta))}`]);
+        pdfDoc.setTitle("Processado pelo Lectorium");
+        pdfDoc.setProducer("Lectorium Engine v1.7 (Mark VII)");
 
         const hexToRgb = (hex: string) => {
             const b = parseInt(hex.replace('#', ''), 16);

@@ -87,13 +87,21 @@ export async function refreshDriveTokenSilently(): Promise<string | null> {
             saveDriveToken(response.access_token, response.expires_in);
             resolve(response.access_token);
           } else {
+            console.warn("[GSI] Refresh falhou (sem token na resposta). Pode exigir re-login manual.");
             resolve(null);
           }
         },
       });
 
+      // Tenta obter o e-mail do usuário atual para desambiguação
+      const userEmail = auth.currentUser?.email;
+
       // prompt: '' instrui o Google a não mostrar UI se o usuário já consentiu
-      client.requestToken({ prompt: '' });
+      // login_hint: CRÍTICO para usuários com múltiplas contas logadas. Evita erro 'interaction_required'.
+      client.requestToken({ 
+        prompt: '',
+        login_hint: userEmail || undefined
+      });
     } catch (e) {
       console.warn("[GSI] Falha no refresh silencioso", e);
       resolve(null);
