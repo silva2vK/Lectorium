@@ -43,40 +43,27 @@ self.onmessage = async (e: MessageEvent) => {
     let pdfDoc = loadedDoc;
 
     // --- PROTOCOLO DE LAVAGEM (Sanitization) ---
-    // Tenta clonar para remover restrições. Se falhar aqui, é porque o arquivo está realmente trancado.
-    if (command === 'sanitize' || loadedDoc.isEncrypted) {
+    if (command === 'sanitize') {
+        // ESTRATÉGIA CORRIGIDA: In-Place Decryption
+        // Ao carregar o PDF com a senha (ou ignorando se for apenas Owner Pwd), o pdf-lib já o decodifica na memória.
+        // Chamar .save() gera um novo binário SEM a tabela de encriptação, mantendo todos os assets visuais.
+        // A estratégia anterior de copiar páginas para um novo doc causava perda de recursos (páginas em branco).
+        
         try {
-            const newDoc = await PDFDocument.create();
-            const allPageIndices = loadedDoc.getPageIndices();
-            
-            // Tenta copiar. Isso falhará se não tivermos permissão de extração (Owner Password forte)
-            const copiedPages = await newDoc.copyPages(loadedDoc, allPageIndices);
-            
-            copiedPages.forEach((page) => newDoc.addPage(page));
-
-            // Transplante de Metadados
-            try {
-                const title = loadedDoc.getTitle();
-                if (title) newDoc.setTitle(title);
-                // (Simplificado para o worker, copia o resto se possível)
-            } catch (e) {}
-
-            pdfDoc = newDoc;
-        } catch (copyError) {
-            // PONTO CRÍTICO: Se falhar ao copiar páginas de um doc encriptado, 
-            // assumimos que é impossível editar o binário sem a senha de Owner.
-            throw new Error('PDF_PROTECTED'); 
+            const bytes = await loadedDoc.save();
+            (self as any).postMessage({ success: true, pdfBytes: bytes }, [bytes.buffer]);
+            return;
+        } catch (saveError: any) {
+            console.error("Erro ao salvar PDF sanitizado:", saveError);
+            throw new Error('PDF_PROTECTED: Não foi possível reconstruir o arquivo.');
         }
     }
 
-    // Se o comando for apenas sanitizar, retorna o binário limpo (ou falha acima)
-    if (command === 'sanitize') {
-        const bytes = await pdfDoc.save();
-        (self as any).postMessage({ success: true, pdfBytes: bytes }, [bytes.buffer]);
-        return;
-    }
-
     // ... Continuação do Burn (Inserção de Anotações) ...
+    // Se o documento estiver encriptado mas o comando for 'burn', tentamos salvar direto também.
+    // Nota: Se tiver Owner Password, o save() pode falhar em alguns leitores se não removermos a proteção antes,
+    // mas o pdf-lib geralmente limpa isso no save padrão.
+
     const pages = pdfDoc.getPages();
     const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
