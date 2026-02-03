@@ -12,15 +12,20 @@ export const ChartExtension = Node.create({
   addAttributes() {
     return {
       type: { default: 'bar' },
-      data: { default: null },
+      data: { 
+        default: [
+          { nome: 'Grupo A', valor: 85 },
+          { nome: 'Grupo B', valor: 62 },
+        ] 
+      },
       title: { default: 'Gráfico' },
       palette: { default: 'default' },
+      customColors: { default: {} }, // Armazena cores personalizadas por série
       showGrid: { default: true },
       showLegend: { default: true },
-      showAverage: { default: true }, // Novo Toggle
+      showAverage: { default: true },
       isStacked: { default: false },
       insight: { default: '' },
-      // Novos atributos para rótulos
       xAxisLabel: { default: '' },
       yAxisLabel: { default: '' },
       yAxisRightLabel: { default: '' },
