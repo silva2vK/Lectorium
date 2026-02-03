@@ -217,3 +217,65 @@ export async function generateMindMapAi(topic: string): Promise<MindMapData> {
         throw new Error("Falha ao gerar mapa com IA.");
     }
 }
+
+export async function generateChartData(prompt: string): Promise<{ type: string, data: any[] }> {
+    const ai = getAiClient();
+    const systemPrompt = `Você é um Cientista de Dados especializado em visualização (Sexta-feira).
+    
+    Sua tarefa é analisar o pedido do usuário e gerar DOIS outputs em um único JSON:
+    1. 'type': O melhor tipo de gráfico para os dados ('bar', 'line', 'area', 'pie', 'radar', 'composed').
+    2. 'data': Um array JSON de objetos para popular o gráfico (Recharts).
+    
+    Regras para 'data':
+    - Cada objeto deve ter 'name' (rótulo Eixo X).
+    - Outras chaves devem ser numéricas para as séries.
+    
+    Regras para 'type':
+    - Comparação entre categorias: 'bar'.
+    - Tendência ao longo do tempo: 'line' ou 'area'.
+    - Distribuição de partes de um todo: 'pie'.
+    - Comparação multivariada (atributos): 'radar'.
+    - Dados complexos mistos: 'composed'.
+
+    Exemplo de saída:
+    {
+      "type": "bar",
+      "data": [
+        { "name": "2020", "Receita": 5000, "Despesa": 3000 },
+        { "name": "2021", "Receita": 6200, "Despesa": 3200 }
+      ]
+    }
+    
+    Seja criativo e realista com os números. Retorne APENAS o JSON.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+            config: { 
+                systemInstruction: systemPrompt,
+                responseMimeType: "application/json" 
+            }
+        });
+        return JSON.parse(response.text || '{"type": "bar", "data": []}');
+    } catch (e: any) {
+        throw new Error("Falha ao gerar dados do gráfico: " + e.message);
+    }
+}
+
+export async function analyzeChartData(data: any[]): Promise<string> {
+    const ai = getAiClient();
+    const prompt = `Analise os seguintes dados de um gráfico e forneça um insight analítico curto (máx 2 frases) para usar como legenda/conclusão. Foque em tendências, picos ou anomalias.
+    
+    DADOS: ${JSON.stringify(data.slice(0, 10))}`; // Slice para economizar tokens se for grande
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt
+        });
+        return response.text || "";
+    } catch (e) {
+        return "";
+    }
+}

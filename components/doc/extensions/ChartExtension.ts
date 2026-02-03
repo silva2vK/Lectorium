@@ -14,6 +14,16 @@ export const ChartExtension = Node.create({
       type: { default: 'bar' },
       data: { default: null },
       title: { default: 'Gráfico' },
+      palette: { default: 'default' },
+      showGrid: { default: true },
+      showLegend: { default: true },
+      showAverage: { default: true }, // Novo Toggle
+      isStacked: { default: false },
+      insight: { default: '' },
+      // Novos atributos para rótulos
+      xAxisLabel: { default: '' },
+      yAxisLabel: { default: '' },
+      yAxisRightLabel: { default: '' },
     };
   },
 

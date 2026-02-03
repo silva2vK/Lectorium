@@ -1,398 +1,564 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
 import { 
   BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell 
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, ComposedChart, ReferenceLine
 } from 'recharts';
-import { Settings2, BarChart3, LineChart as LineChartIcon, PieChart as PieIcon, Activity, Radar as RadarIcon, X, Check, Table, Code, Plus, Trash2 } from 'lucide-react';
+import { 
+  Settings2, Activity, X, Table, Plus, Trash2, Sparkles, Layout, Palette, Grid3X3, Layers, Wand2, HelpCircle,
+  AlignLeft, ActivitySquare
+} from 'lucide-react';
+import { generateChartData, analyzeChartData } from '../../../services/aiService';
 
-// Cores Modernas
-const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#a4de6c', '#d0ed57', '#83a6ed', '#8dd1e1'];
+// --- PALETAS TEMÁTICAS VIBRANTES ---
+const PALETTES: Record<string, { label: string, colors: string[] }> = {
+  default: { label: 'Vibrant', colors: ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'] }, // Indigo, Emerald, Amber, Pink, Violet
+  maker: { label: 'The Maker', colors: ['#2563eb', '#DC143C', '#f8fafc', '#64748b', '#0f172a'] }, // Tech Blue, Crimson, White, Slate
+  academic: { label: 'Sóbrio', colors: ['#334155', '#94a3b8', '#cbd5e1', '#475569', '#1e293b'] }, // Slates Monochrome
+  neon: { label: 'Cyberpunk', colors: ['#00f0ff', '#ff00aa', '#bc13fe', '#f9f871', '#00ff9f'] }, // High Saturation Neon
+  forest: { label: 'Bioluminescente', colors: ['#4ade80', '#2dd4bf', '#a3e635', '#0ea5e9', '#10b981'] }, // Greens & Teals
+  warm: { label: 'Solar', colors: ['#ff5722', '#ffc107', '#ff9800', '#f44336', '#e91e63'] } // Warm Spectrum
+};
 
+// Dados padrão com 5 pontos para formar Pentágono no Radar
 const DEFAULT_DATA = [
-  { name: 'Jan', valor: 400, meta: 240 },
-  { name: 'Fev', valor: 300, meta: 139 },
-  { name: 'Mar', valor: 200, meta: 980 },
-  { name: 'Abr', valor: 278, meta: 390 },
-  { name: 'Mai', valor: 189, meta: 480 },
+  { name: 'A', valor: 400, meta: 240 },
+  { name: 'B', valor: 300, meta: 139 },
+  { name: 'C', valor: 200, meta: 980 },
+  { name: 'D', valor: 278, meta: 390 },
+  { name: 'E', valor: 189, meta: 480 },
+];
+
+// Ícones SVG para os tipos de gráfico
+const ChartIcons = {
+  bar: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 20V10" /><path d="M18 20V4" /><path d="M6 20v-6" />
+    </svg>
+  ),
+  line: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+    </svg>
+  ),
+  area: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M3 3v18h18" /><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3V20h11.7V8z" fill="currentColor" fillOpacity="0.2"/>
+      <polyline points="7 14.3 10.8 10.5 13.6 13.2 18.7 8" />
+    </svg>
+  ),
+  pie: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21.21 15.89A10 10 0 1 1 8 2.83" /><path d="M22 12A10 10 0 0 0 12 2v10z" />
+    </svg>
+  ),
+  radar: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 2l7 4v6l-7 10-7-10V6l7-4z" />
+      <path d="M12 12l4.9 3.5" /><path d="M12 12l-4.9 3.5" /><path d="M12 12V6.5" />
+    </svg>
+  ),
+  composed: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 20v-6" /><path d="M6 20v-4" /><path d="M18 20v-8" />
+      <polyline points="2 8 8 4 16 10 22 6" className="text-brand"/>
+    </svg>
+  )
+};
+
+const CHART_TYPES = [
+    { id: 'bar', label: 'Colunas', icon: ChartIcons.bar },
+    { id: 'line', label: 'Linhas', icon: ChartIcons.line },
+    { id: 'area', label: 'Área', icon: ChartIcons.area },
+    { id: 'pie', label: 'Pizza', icon: ChartIcons.pie },
+    { id: 'radar', label: 'Radar', icon: ChartIcons.radar },
+    { id: 'composed', label: 'Misto', icon: ChartIcons.composed },
 ];
 
 export const ChartNodeView = (props: any) => {
   const { node, updateAttributes } = props;
   const [isEditing, setIsEditing] = useState(false);
   
-  const type = node.attrs.type || 'bar'; // bar, line, area, pie, radar
+  // Attributes
+  const type = node.attrs.type || 'bar';
   const data = node.attrs.data || DEFAULT_DATA;
   const title = node.attrs.title || 'Gráfico';
-  
-  // -- State for Editor --
-  const [editMode, setEditMode] = useState<'visual' | 'json'>('visual');
-  const [jsonText, setJsonText] = useState('');
-  const [tempTitle, setTempTitle] = useState('');
+  const paletteKey = node.attrs.palette || 'default';
+  const showGrid = node.attrs.showGrid !== false;
+  const showLegend = node.attrs.showLegend !== false;
+  const showAverage = node.attrs.showAverage !== false;
+  const isStacked = node.attrs.isStacked || false;
+  const insight = node.attrs.insight || '';
+  const xAxisLabel = node.attrs.xAxisLabel || '';
+  const yAxisLabel = node.attrs.yAxisLabel || '';
+  const yAxisRightLabel = node.attrs.yAxisRightLabel || '';
+
+  // -- Editor State --
+  const [editTab, setEditTab] = useState<'data' | 'ai' | 'style'>('data');
   const [visualData, setVisualData] = useState<any[]>([]);
   const [seriesKeys, setSeriesKeys] = useState<string[]>([]);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [tempTitle, setTempTitle] = useState('');
 
-  // Initialize Editor State when opening
+  // Sync state on open
   useEffect(() => {
     if (isEditing) {
-        setJsonText(JSON.stringify(data, null, 2));
+        setVisualData(JSON.parse(JSON.stringify(data)));
         setTempTitle(title);
-        setVisualData(JSON.parse(JSON.stringify(data))); // Deep copy
-        
-        // Extract series keys (keys that are not 'name')
         if (data.length > 0) {
-            const keys = Object.keys(data[0]).filter(k => k !== 'name');
-            setSeriesKeys(keys);
-        } else {
-            setSeriesKeys(['valor']);
+            setSeriesKeys(Object.keys(data[0]).filter(k => k !== 'name'));
         }
     }
   }, [isEditing, data, title]);
 
+  // Derived Values
+  const colors = PALETTES[paletteKey]?.colors || PALETTES['default'].colors;
   const dataKeys = Object.keys(data[0] || {}).filter(k => k !== 'name');
+
+  // Protocol "The Standard": Calculate Average
+  const averageValue = useMemo(() => {
+      if (!data || data.length === 0) return 0;
+      let sum = 0;
+      let count = 0;
+      data.forEach((item: any) => {
+          dataKeys.forEach(k => {
+              const val = parseFloat(item[k]);
+              if (!isNaN(val)) {
+                  sum += val;
+                  count++;
+              }
+          });
+      });
+      return count > 0 ? sum / count : 0;
+  }, [data, dataKeys]);
 
   const handleSave = () => {
     try {
-      let finalData = visualData;
-      
-      // Se estiver no modo JSON, o texto tem prioridade
-      if (editMode === 'json') {
-          finalData = JSON.parse(jsonText);
-      }
-
-      // Validação básica
-      if (!Array.isArray(finalData)) throw new Error("Dados devem ser uma lista.");
-
-      updateAttributes({ data: finalData, title: tempTitle });
+      updateAttributes({ data: visualData, title: tempTitle });
       setIsEditing(false);
     } catch (e) {
-      alert("Erro nos dados: Verifique se o formato está correto.");
+      alert("Erro ao salvar dados.");
     }
   };
 
-  // --- Visual Editor Helpers ---
+  // --- AI HANDLERS ---
+  const handleGenerateData = async () => {
+      if (!aiPrompt.trim()) return;
+      setIsAiLoading(true);
+      try {
+          const response = await generateChartData(aiPrompt);
+          
+          if (response && Array.isArray(response.data) && response.data.length > 0) {
+              setVisualData(response.data);
+              setSeriesKeys(Object.keys(response.data[0]).filter(k => k !== 'name'));
+              
+              if (response.type && CHART_TYPES.some(t => t.id === response.type)) {
+                  updateAttributes({ type: response.type });
+              }
+              
+              setEditTab('data'); 
+          }
+      } catch (e: any) {
+          alert(e.message);
+      } finally {
+          setIsAiLoading(false);
+      }
+  };
 
-  const updateVisualCell = (rowIndex: number, key: string, value: string | number) => {
+  const handleGenerateInsight = async () => {
+      setIsAiLoading(true);
+      try {
+          const text = await analyzeChartData(visualData);
+          updateAttributes({ insight: text });
+      } catch (e) {
+          console.warn(e);
+      } finally {
+          setIsAiLoading(false);
+      }
+  };
+
+  // --- DATA GRID HANDLERS ---
+  const updateVisualCell = (rowIndex: number, key: string, value: string) => {
       const newData = [...visualData];
-      // Se for numérico, tenta converter
       if (key !== 'name') {
-          const num = parseFloat(value as string);
+          const num = parseFloat(value);
           newData[rowIndex][key] = isNaN(num) ? 0 : num;
       } else {
           newData[rowIndex][key] = value;
       }
       setVisualData(newData);
-      setJsonText(JSON.stringify(newData, null, 2)); // Sync JSON
-  };
-
-  const addRow = () => {
-      const newRow: any = { name: 'Novo Item' };
-      seriesKeys.forEach(k => newRow[k] = 0);
-      const newData = [...visualData, newRow];
-      setVisualData(newData);
-      setJsonText(JSON.stringify(newData, null, 2));
-  };
-
-  const removeRow = (index: number) => {
-      const newData = visualData.filter((_, i) => i !== index);
-      setVisualData(newData);
-      setJsonText(JSON.stringify(newData, null, 2));
   };
 
   const addSeries = () => {
-      const name = prompt("Nome da nova série (ex: Meta, Lucro):");
+      const name = prompt("Nome da série:");
       if (name && !seriesKeys.includes(name)) {
-          const newKeys = [...seriesKeys, name];
-          setSeriesKeys(newKeys);
-          
-          const newData = visualData.map(row => ({ ...row, [name]: 0 }));
-          setVisualData(newData);
-          setJsonText(JSON.stringify(newData, null, 2));
+          setSeriesKeys([...seriesKeys, name]);
+          setVisualData(prev => prev.map(row => ({ ...row, [name]: 0 })));
       }
   };
 
   const removeSeries = (key: string) => {
-      if (seriesKeys.length <= 1) {
-          alert("É necessário ter pelo menos uma série de dados.");
-          return;
-      }
-      if (confirm(`Remover a coluna "${key}"?`)) {
-          const newKeys = seriesKeys.filter(k => k !== key);
-          setSeriesKeys(newKeys);
-          
-          const newData = visualData.map(row => {
+      if (seriesKeys.length > 1) {
+          setSeriesKeys(prev => prev.filter(k => k !== key));
+          setVisualData(prev => prev.map(row => {
               const { [key]: _, ...rest } = row;
               return rest;
-          });
-          setVisualData(newData);
-          setJsonText(JSON.stringify(newData, null, 2));
+          }));
       }
   };
 
-  // --- Rendering ---
+  const handlePaste = (e: React.ClipboardEvent) => {
+      e.preventDefault();
+      const text = e.clipboardData.getData('text');
+      const rows = text.trim().split(/\r?\n/);
+      
+      if (rows.length < 2) return;
+
+      try {
+          const headers = rows[0].split('\t');
+          const keys = headers.slice(1);
+          
+          const newData = rows.slice(1).map(rowStr => {
+              const cols = rowStr.split('\t');
+              const obj: any = { name: cols[0] };
+              keys.forEach((k, i) => {
+                  obj[k] = parseFloat(cols[i+1] || '0');
+              });
+              return obj;
+          });
+
+          setSeriesKeys(keys);
+          setVisualData(newData);
+          alert("Dados importados da área de transferência!");
+      } catch (err) {
+          alert("Formato inválido. Copie uma tabela do Excel/Sheets.");
+      }
+  };
+
+  // --- RENDER ---
+  const renderDefs = () => (
+      <defs>
+          {colors.map((color, index) => (
+              <linearGradient key={`grad-${index}`} id={`color-${index}`} x1="0" y1="0" x2="0" y2="1">
+                  {/* Neon Top */}
+                  <stop offset="0%" stopColor={color} stopOpacity={0.9}/>
+                  {/* Pastel Body */}
+                  <stop offset="50%" stopColor={color} stopOpacity={0.4}/>
+                  {/* Transparent Bottom */}
+                  <stop offset="100%" stopColor={color} stopOpacity={0.05}/>
+              </linearGradient>
+          ))}
+      </defs>
+  );
 
   const renderChart = () => {
-    const commonProps = { data, margin: { top: 10, right: 30, left: 0, bottom: 0 } };
-    const grid = <CartesianGrid strokeDasharray="3 3" stroke="#444" />;
-    const axis = (
+    const commonProps = { data, margin: { top: 20, right: 30, left: 10, bottom: 20 } };
+    const grid = showGrid ? <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} /> : null;
+    
+    // Customização Visual: Fontes Monospace e Branco Puro
+    const fontStyle = { fontFamily: 'monospace', fontSize: 10 };
+    const whiteColor = '#ffffff';
+    
+    const legend = showLegend ? <Legend wrapperStyle={{ ...fontStyle, color: whiteColor, paddingTop: '10px' }} /> : null;
+    const tooltip = <Tooltip contentStyle={{ backgroundColor: 'rgba(2, 6, 23, 0.9)', borderColor: '#1e3a8a', color: whiteColor, ...fontStyle }} itemStyle={{ color: whiteColor }} />;
+
+    // Protocol "The Standard" Line - No Label
+    const standardLine = (showAverage && averageValue > 0) ? (
+        <ReferenceLine 
+            y={averageValue} 
+            stroke="#DC143C" 
+            strokeDasharray="4 4" 
+            strokeWidth={1}
+            isFront={true}
+        />
+    ) : null;
+
+    if (type === 'pie') {
+        return (
+            <PieChart>
+                {renderDefs()}
+                <Pie data={data} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey={dataKeys[0]} stroke="none">
+                    {data.map((_, index) => (
+                        <Cell 
+                            key={`cell-${index}`} 
+                            fill={colors[index % colors.length]} 
+                            style={{ filter: 'drop-shadow(0 0 6px rgba(0,0,0,0.5))' }}
+                        />
+                    ))}
+                </Pie>
+                {tooltip} {legend}
+            </PieChart>
+        );
+    }
+
+    if (type === 'radar') {
+        return (
+            <RadarChart cx="50%" cy="50%" outerRadius="75%" data={data}>
+                {renderDefs()}
+                <PolarGrid stroke="#334155" /> 
+                <PolarAngleAxis dataKey="name" stroke={whiteColor} tick={{ fill: whiteColor, ...fontStyle }} />
+                <PolarRadiusAxis angle={30} stroke="#475569" />
+                {dataKeys.map((key, i) => (
+                    <Radar key={key} name={key} dataKey={key} stroke={colors[i % colors.length]} fill={colors[i % colors.length]} fillOpacity={0.4} />
+                ))}
+                {tooltip} {legend}
+            </RadarChart>
+        );
+    }
+
+    // Cartesian Charts
+    const axes = (
         <>
-            <XAxis dataKey="name" stroke="#888" fontSize={12} tick={{fill: '#888'}} />
-            <YAxis stroke="#888" fontSize={12} tick={{fill: '#888'}} />
-            <Tooltip 
-                contentStyle={{ backgroundColor: '#222', borderColor: '#444', color: '#fff' }} 
-                itemStyle={{ color: '#fff' }}
-                cursor={{fill: 'rgba(255,255,255,0.1)'}}
-            />
-            <Legend wrapperStyle={{ paddingTop: '10px' }} />
+            <XAxis dataKey="name" stroke={whiteColor} tick={{ fill: whiteColor, ...fontStyle }} tickLine={false} axisLine={{ stroke: '#334155' }}>
+                {xAxisLabel && (
+                    // @ts-ignore
+                    <Label value={xAxisLabel} offset={0} position="insideBottom" fill={whiteColor} style={fontStyle} fontSize={12} />
+                )}
+            </XAxis>
+            <YAxis stroke={whiteColor} tick={{ fill: whiteColor, ...fontStyle }} tickLine={false} axisLine={{ stroke: '#334155' }}>
+                {yAxisLabel && (
+                    // @ts-ignore
+                    <Label value={yAxisLabel} angle={-90} position="insideLeft" style={{ textAnchor: 'middle', ...fontStyle }} fill={whiteColor} fontSize={12} />
+                )}
+            </YAxis>
+            {yAxisRightLabel && (
+                <YAxis yAxisId="right" orientation="right" stroke={whiteColor} tick={{ fill: whiteColor, ...fontStyle }} tickLine={false} axisLine={false}>
+                    {/* @ts-ignore */}
+                    <Label value={yAxisRightLabel} angle={90} position="insideRight" style={{ textAnchor: 'middle', ...fontStyle }} fill={whiteColor} fontSize={12} />
+                </YAxis>
+            )}
+            {tooltip} {legend} {grid} {standardLine}
         </>
     );
 
-    switch (type) {
-        case 'line':
-            return (
-                <LineChart {...commonProps}>
-                    {grid}
-                    {axis}
-                    {dataKeys.map((key, i) => (
-                        <Line key={key} type="monotone" dataKey={key} stroke={COLORS[i % COLORS.length]} strokeWidth={3} dot={{r: 4}} activeDot={{r: 6}} />
-                    ))}
-                </LineChart>
-            );
-        case 'area':
-            return (
-                <AreaChart {...commonProps}>
-                    <defs>
-                        {dataKeys.map((key, i) => (
-                            <linearGradient key={key} id={`color${key}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0.8}/>
-                                <stop offset="95%" stopColor={COLORS[i % COLORS.length]} stopOpacity={0}/>
-                            </linearGradient>
-                        ))}
-                    </defs>
-                    {grid}
-                    {axis}
-                    {dataKeys.map((key, i) => (
-                        <Area key={key} type="monotone" dataKey={key} stroke={COLORS[i % COLORS.length]} fillOpacity={1} fill={`url(#color${key})`} />
-                    ))}
-                </AreaChart>
-            );
-        case 'pie':
-            const valKey = dataKeys[0];
-            return (
-                <PieChart>
-                    <Pie
-                        data={data}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={5}
-                        dataKey={valKey}
-                        label={({name, percent}: {name: string, percent: number}) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                        {data.map((entry: any, index: number) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: '#222', borderColor: '#444', color: '#fff' }} />
-                    <Legend />
-                </PieChart>
-            );
-        case 'radar':
-            return (
-                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
-                    <PolarGrid stroke="#444" />
-                    <PolarAngleAxis dataKey="name" stroke="#888" fontSize={12} />
-                    <PolarRadiusAxis angle={30} domain={[0, 'auto']} stroke="#666" />
-                    {dataKeys.map((key, i) => (
-                        <Radar key={key} name={key} dataKey={key} stroke={COLORS[i % COLORS.length]} fill={COLORS[i % COLORS.length]} fillOpacity={0.4} />
-                    ))}
-                    <Tooltip contentStyle={{ backgroundColor: '#222', borderColor: '#444', color: '#fff' }} />
-                    <Legend />
-                </RadarChart>
-            );
-        case 'bar':
-        default:
-            return (
-                <BarChart {...commonProps}>
-                    {grid}
-                    {axis}
-                    {dataKeys.map((key, i) => (
-                        <Bar key={key} dataKey={key} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} />
-                    ))}
-                </BarChart>
-            );
+    if (type === 'composed') {
+        return (
+            <ComposedChart {...commonProps}>
+                {renderDefs()}
+                {axes}
+                {dataKeys.map((key, i) => {
+                    if (i === 0) return <Bar key={key} dataKey={key} fill={`url(#color-${i % colors.length})`} stackId={isStacked ? 'a' : undefined} radius={[2, 2, 0, 0]} />;
+                    return <Line key={key} type="monotone" dataKey={key} stroke={colors[i % colors.length]} strokeWidth={3} dot={{r:4, fill:'#000', stroke:colors[i%colors.length], strokeWidth:2}} />;
+                })}
+            </ComposedChart>
+        );
     }
-  };
 
-  const ChartTypeButton = ({ t, icon: Icon, label }: any) => (
-      <button 
-        onClick={() => updateAttributes({ type: t })}
-        className={`p-2 rounded-lg flex flex-col items-center gap-1 text-[10px] transition-colors ${type === t ? 'bg-brand/20 text-brand border border-brand/30' : 'bg-surface/50 text-text-sec hover:bg-surface border border-transparent'}`}
-        title={label}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-          <Icon size={16} />
-      </button>
-  );
+    const ChartComp = type === 'line' ? LineChart : type === 'area' ? AreaChart : BarChart;
+    const SeriesComp: any = type === 'line' ? Line : type === 'area' ? Area : Bar;
+
+    return (
+        <ChartComp {...commonProps}>
+            {renderDefs()}
+            {axes}
+            {dataKeys.map((key, i) => (
+                <SeriesComp 
+                    key={key} 
+                    dataKey={key} 
+                    stroke={colors[i % colors.length]} 
+                    fill={`url(#color-${i % colors.length})`}
+                    stackId={isStacked ? 'a' : undefined}
+                    radius={type === 'bar' ? [2,2,0,0] : undefined}
+                    strokeWidth={type === 'line' ? 3 : undefined}
+                    fillOpacity={type === 'area' ? 1 : undefined}
+                    type="monotone"
+                    dot={type === 'line' ? {r:4, fill:'#000', stroke:colors[i%colors.length], strokeWidth:2} : undefined}
+                />
+            ))}
+        </ChartComp>
+    );
+  };
 
   return (
     <NodeViewWrapper className="react-renderer my-8 select-none w-full flex justify-center">
-      <div className="relative group p-6 border border-border/50 hover:border-brand/50 rounded-2xl transition-all w-full max-w-4xl bg-gradient-to-b from-[#1a1a1a] to-[#121212] shadow-xl">
+      {/* Containment Field: Technical Container */}
+      <div className="relative group p-6 border border-[#1e3a8a]/40 bg-[#020617] rounded-sm transition-all w-full max-w-4xl shadow-[0_0_40px_-10px_rgba(30,58,138,0.2)] overflow-hidden">
         
-        {/* Header Visual */}
-        <div className="flex flex-col items-center mb-6">
-           <h3 className="text-xl font-bold text-text tracking-tight">{title}</h3>
-           <div className="w-16 h-1 bg-brand/50 rounded-full mt-2"></div>
+        {/* Containment Grid Background */}
+        <div 
+            className="absolute inset-0 pointer-events-none z-0 opacity-20"
+            style={{
+                backgroundImage: `linear-gradient(rgba(59, 130, 246, 0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(59, 130, 246, 0.15) 1px, transparent 1px)`,
+                backgroundSize: '20px 20px'
+            }}
+        />
+
+        {/* Containment Markers (Corners) */}
+        <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-brand z-10"></div>
+        <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-brand z-10"></div>
+        <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-brand z-10"></div>
+        <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-brand z-10"></div>
+        
+        <div className="flex flex-col items-center mb-4 relative z-10">
+           <h3 className="text-xl font-bold text-white tracking-tight uppercase font-mono">{title}</h3>
+           <div className="w-16 h-0.5 bg-brand/50 mt-1"></div>
         </div>
 
-        {/* Toolbar (Hover) */}
-        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-2 z-20">
-            <button 
-            onClick={() => setIsEditing(true)}
-            className="p-2 bg-brand text-bg rounded-full shadow-lg hover:brightness-110 transition-transform hover:scale-110"
-            title="Editar Dados"
-            >
+        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-20">
+            <button onClick={handleGenerateInsight} className="p-2 bg-purple-500/10 text-purple-400 border border-purple-500/50 rounded-sm shadow-lg hover:bg-purple-500/20" title="Gerar Insight IA">
+                {isAiLoading ? <Activity className="animate-spin" size={18}/> : <Sparkles size={18}/>}
+            </button>
+            <button onClick={() => setIsEditing(true)} className="p-2 bg-brand/10 text-brand border border-brand/50 rounded-sm shadow-lg hover:bg-brand/20" title="Editar Gráfico">
                 <Settings2 size={18}/>
             </button>
         </div>
 
-        {/* Chart Area */}
-        <div className="w-full h-[350px] text-xs">
+        <div className="w-full h-[350px] text-xs relative z-10">
            <ResponsiveContainer width="100%" height="100%">
               {renderChart()}
            </ResponsiveContainer>
         </div>
 
-        {/* Editor Modal Overlay */}
+        {insight && (
+            <div className="mt-4 p-3 bg-brand/5 border-l-2 border-brand text-xs text-blue-200 italic flex gap-2 relative z-10">
+                <Sparkles size={14} className="text-brand shrink-0 mt-0.5" />
+                {insight}
+            </div>
+        )}
+
         {isEditing && (
-            <div 
-                className="absolute inset-0 bg-[#121212]/95 backdrop-blur-md z-50 p-6 rounded-2xl flex flex-col animate-in fade-in zoom-in-95 border border-border"
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-            >
-                <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-4">
-                    <span className="font-bold text-lg flex items-center gap-2 text-brand">
-                        <Settings2 size={20} /> Editor de Gráfico
-                    </span>
-                    <button onClick={() => setIsEditing(false)} className="text-text-sec hover:text-red-400 p-1 rounded-full hover:bg-white/5 transition-colors">
-                        <X size={20} />
-                    </button>
+            <div className="absolute inset-0 bg-[#020617] z-50 p-0 rounded-sm flex flex-col animate-in fade-in zoom-in-95 border border-brand/30 overflow-hidden font-sans">
+                <div className="flex border-b border-white/10 bg-[#0f172a]">
+                    <button onClick={() => setEditTab('data')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${editTab === 'data' ? 'text-brand border-b-2 border-brand' : 'text-gray-500'}`}><Table size={14} className="inline mr-1"/> Dados</button>
+                    <button onClick={() => setEditTab('style')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${editTab === 'style' ? 'text-brand border-b-2 border-brand' : 'text-gray-500'}`}><Palette size={14} className="inline mr-1"/> Estilo</button>
+                    <button onClick={() => setEditTab('ai')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${editTab === 'ai' ? 'text-brand border-b-2 border-brand' : 'text-gray-500'}`}><Sparkles size={14} className="inline mr-1"/> Sexta-feira</button>
+                    <button onClick={() => setIsEditing(false)} className="w-10 flex items-center justify-center text-gray-500 hover:text-white"><X size={16}/></button>
                 </div>
 
-                <div className="flex gap-2 mb-4 justify-center bg-black/20 p-2 rounded-xl">
-                    <ChartTypeButton t="bar" icon={BarChart3} label="Barras" />
-                    <ChartTypeButton t="line" icon={LineChartIcon} label="Linhas" />
-                    <ChartTypeButton t="area" icon={Activity} label="Área" />
-                    <ChartTypeButton t="pie" icon={PieIcon} label="Pizza" />
-                    <ChartTypeButton t="radar" icon={RadarIcon} label="Radar" />
-                </div>
-
-                <div className="flex gap-2 mb-4">
-                    <input 
-                       className="flex-1 bg-[#2c2c2c] border border-border rounded-lg p-3 text-sm text-white focus:border-brand outline-none"
-                       value={tempTitle}
-                       onChange={e => setTempTitle(e.target.value)}
-                       placeholder="Título do Gráfico"
-                       onKeyDown={(e) => e.stopPropagation()}
-                    />
-                    <div className="flex bg-[#2c2c2c] rounded-lg p-1 border border-border">
-                        <button 
-                            onClick={() => setEditMode('visual')}
-                            className={`px-3 py-1 text-xs rounded font-bold flex items-center gap-1 transition-colors ${editMode === 'visual' ? 'bg-brand text-black' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            <Table size={12} /> Visual
-                        </button>
-                        <button 
-                            onClick={() => setEditMode('json')}
-                            className={`px-3 py-1 text-xs rounded font-bold flex items-center gap-1 transition-colors ${editMode === 'json' ? 'bg-brand text-black' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            <Code size={12} /> JSON
-                        </button>
-                    </div>
-                </div>
-                
-                {/* EDITOR CONTENT AREA */}
-                <div className="flex-1 relative overflow-hidden bg-[#1e1e1e] border border-border rounded-lg">
-                    {editMode === 'visual' ? (
-                        <div className="h-full overflow-auto custom-scrollbar">
-                            <table className="w-full text-sm text-left">
-                                <thead className="text-xs text-text-sec uppercase bg-black/40 sticky top-0 z-10">
-                                    <tr>
-                                        <th className="px-4 py-3 font-bold border-b border-[#333] w-1/3">Categoria (Eixo X)</th>
-                                        {seriesKeys.map((key) => (
-                                            <th key={key} className="px-4 py-3 font-bold border-b border-[#333] relative group">
-                                                <div className="flex items-center justify-between">
-                                                    {key}
-                                                    <button onClick={() => removeSeries(key)} className="text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 p-1 rounded">
-                                                        <Trash2 size={12} />
-                                                    </button>
-                                                </div>
-                                            </th>
-                                        ))}
-                                        <th className="px-2 py-3 border-b border-[#333] w-10">
-                                            <button onClick={addSeries} className="text-brand hover:bg-brand/10 p-1 rounded" title="Nova Série">
-                                                <Plus size={14} />
-                                            </button>
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {visualData.map((row, rowIndex) => (
-                                        <tr key={rowIndex} className="border-b border-[#333] hover:bg-white/5">
-                                            <td className="p-2">
-                                                <input 
-                                                    className="w-full bg-transparent outline-none text-white font-medium focus:text-brand"
-                                                    value={row.name}
-                                                    onChange={(e) => updateVisualCell(rowIndex, 'name', e.target.value)}
-                                                />
-                                            </td>
-                                            {seriesKeys.map((key) => (
-                                                <td key={key} className="p-2">
-                                                    <input 
-                                                        type="number"
-                                                        className="w-full bg-transparent outline-none text-gray-300 font-mono text-right focus:text-brand"
-                                                        value={row[key]}
-                                                        onChange={(e) => updateVisualCell(rowIndex, key, e.target.value)}
-                                                    />
-                                                </td>
+                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                    {editTab === 'data' && (
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2 mb-2 p-2 bg-blue-900/10 border border-blue-500/20 rounded text-xs text-blue-300">
+                                <HelpCircle size={14}/> Dica: Cole (Ctrl+V) uma tabela do Excel aqui.
+                            </div>
+                            
+                            <div className="overflow-auto max-h-[300px] border border-white/10 rounded-sm" onPaste={handlePaste}>
+                                <table className="w-full text-xs text-left">
+                                    <thead className="bg-[#1e293b] text-gray-300 sticky top-0">
+                                        <tr>
+                                            {['name', ...seriesKeys].map(k => (
+                                                <th key={k} className="p-2 border-b border-[#333]">
+                                                    <div className="flex justify-between">{k} {k !== 'name' && <button onClick={() => removeSeries(k)}><Trash2 size={10} className="text-red-400"/></button>}</div>
+                                                </th>
                                             ))}
-                                            <td className="p-2 text-center">
-                                                <button onClick={() => removeRow(rowIndex)} className="text-red-500/50 hover:text-red-400 transition-colors">
-                                                    <X size={14} />
-                                                </button>
-                                            </td>
+                                            <th className="p-2 border-b border-[#333] w-8"><button onClick={addSeries}><Plus size={14} className="text-brand"/></button></th>
                                         </tr>
-                                    ))}
-                                    <tr>
-                                        <td colSpan={seriesKeys.length + 2} className="p-2">
-                                            <button onClick={addRow} className="w-full py-2 border border-dashed border-[#444] rounded text-xs text-text-sec hover:text-white hover:border-brand/50 transition-colors flex items-center justify-center gap-2">
-                                                <Plus size={12} /> Adicionar Linha de Dados
-                                            </button>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-[#333]">
+                                        {visualData.map((row, i) => (
+                                            <tr key={i} className="hover:bg-white/5">
+                                                {['name', ...seriesKeys].map(k => (
+                                                    <td key={k} className="p-1">
+                                                        <input className="bg-transparent w-full outline-none text-white text-right px-1 focus:text-brand" value={row[k]} onChange={e => updateVisualCell(i, k, e.target.value)} />
+                                                    </td>
+                                                ))}
+                                                <td></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div className="space-y-1">
+                                <label className="text-xs text-gray-500 font-bold uppercase">Título</label>
+                                <input value={tempTitle} onChange={e => setTempTitle(e.target.value)} className="w-full bg-[#1e293b] border border-[#333] rounded-sm p-2 text-sm text-white focus:border-brand outline-none" />
+                            </div>
                         </div>
-                    ) : (
-                        <textarea 
-                            className="w-full h-full bg-[#1e1e1e] p-3 text-xs font-mono resize-none text-green-400 focus:outline-none custom-scrollbar"
-                            value={jsonText}
-                            onChange={e => setJsonText(e.target.value)}
-                            spellCheck={false}
-                            onKeyDown={(e) => e.stopPropagation()}
-                        />
+                    )}
+
+                    {editTab === 'style' && (
+                        <div className="space-y-6">
+                            <div className="space-y-2">
+                                <label className="text-xs text-gray-500 font-bold uppercase">Tipo de Gráfico</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {CHART_TYPES.map(t => (
+                                        <button 
+                                            key={t.id} 
+                                            onClick={() => updateAttributes({ type: t.id })} 
+                                            className={`p-2 rounded-sm border text-xs flex flex-col items-center gap-1 transition-colors ${type === t.id ? 'bg-brand/10 text-brand border-brand font-bold' : 'bg-[#1e293b] border-[#333] text-gray-400 hover:text-white'}`}
+                                        >
+                                            <div className={type === t.id ? "text-brand" : "text-gray-400"}>
+                                                {t.icon}
+                                            </div>
+                                            {t.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-xs text-gray-500 font-bold uppercase">Paleta Temática</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {Object.entries(PALETTES).map(([pk, pData]) => (
+                                        <button key={pk} onClick={() => updateAttributes({ palette: pk })} className={`p-2 rounded-sm border text-xs capitalize flex items-center gap-2 ${paletteKey === pk ? 'border-brand bg-brand/10 text-white' : 'border-[#333] text-gray-400'}`}>
+                                            <div className="flex gap-0.5">
+                                                {pData.colors.slice(0,3).map(c => <div key={c} className="w-2 h-2 rounded-full" style={{backgroundColor: c}}/>)}
+                                            </div>
+                                            {pData.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="space-y-2 pt-2 border-t border-[#333]">
+                                <label className="text-xs text-gray-500 font-bold uppercase flex items-center gap-2">
+                                    <AlignLeft size={14}/> Rótulos dos Eixos
+                                </label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <span className="text-[10px] text-gray-400">Eixo Y (Esq)</span>
+                                        <input value={yAxisLabel} onChange={e => updateAttributes({ yAxisLabel: e.target.value })} className="w-full bg-[#1e293b] border border-[#333] rounded-sm p-1.5 text-xs text-white focus:border-brand outline-none" placeholder="Ex: Valores" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <span className="text-[10px] text-gray-400">Eixo Y (Dir)</span>
+                                        <input value={yAxisRightLabel} onChange={e => updateAttributes({ yAxisRightLabel: e.target.value })} className="w-full bg-[#1e293b] border border-[#333] rounded-sm p-1.5 text-xs text-white focus:border-brand outline-none" placeholder="Opcional" />
+                                    </div>
+                                    <div className="col-span-2 space-y-1">
+                                        <span className="text-[10px] text-gray-400">Eixo X</span>
+                                        <input value={xAxisLabel} onChange={e => updateAttributes({ xAxisLabel: e.target.value })} className="w-full bg-[#1e293b] border border-[#333] rounded-sm p-1.5 text-xs text-white focus:border-brand outline-none" placeholder="Ex: Meses" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4 pt-2 border-t border-[#333] flex-wrap">
+                                <label className="flex items-center gap-2 text-sm text-white cursor-pointer"><input type="checkbox" checked={showGrid} onChange={e => updateAttributes({ showGrid: e.target.checked })} className="accent-brand" /> <Grid3X3 size={14}/> Grid</label>
+                                <label className="flex items-center gap-2 text-sm text-white cursor-pointer"><input type="checkbox" checked={showLegend} onChange={e => updateAttributes({ showLegend: e.target.checked })} className="accent-brand" /> <Layout size={14}/> Legenda</label>
+                                <label className="flex items-center gap-2 text-sm text-white cursor-pointer"><input type="checkbox" checked={showAverage} onChange={e => updateAttributes({ showAverage: e.target.checked })} className="accent-brand" /> <ActivitySquare size={14}/> Linha de Média</label>
+                                {['bar', 'area', 'composed'].includes(type) && (
+                                    <label className="flex items-center gap-2 text-sm text-white cursor-pointer"><input type="checkbox" checked={isStacked} onChange={e => updateAttributes({ isStacked: e.target.checked })} className="accent-brand" /> <Layers size={14}/> Empilhado</label>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {editTab === 'ai' && (
+                        <div className="space-y-4 h-full flex flex-col">
+                            <div className="bg-purple-900/10 border border-purple-500/30 p-4 rounded-sm">
+                                <h4 className="text-sm font-bold text-purple-300 mb-2 flex items-center gap-2"><Wand2 size={16}/> Inteligência de Dados</h4>
+                                <p className="text-xs text-purple-200/70">Descreva os dados que precisa. A IA gerará a estrutura e os valores.</p>
+                            </div>
+                            <textarea 
+                                value={aiPrompt}
+                                onChange={e => setAiPrompt(e.target.value)}
+                                placeholder="Ex: Crie um gráfico de barras comparando a população das 5 maiores cidades do Brasil..."
+                                className="flex-1 bg-[#1e293b] border border-[#333] rounded-sm p-4 text-sm text-white focus:border-purple-500 outline-none resize-none"
+                            />
+                            <button 
+                                onClick={handleGenerateData} 
+                                disabled={isAiLoading || !aiPrompt.trim()}
+                                className="w-full bg-purple-600 text-white py-3 rounded-sm font-bold hover:brightness-110 disabled:opacity-50 flex justify-center gap-2 items-center shadow-lg"
+                            >
+                                {isAiLoading ? <Activity className="animate-spin"/> : <Sparkles/>} Gerar
+                            </button>
+                        </div>
                     )}
                 </div>
 
-                <button 
-                    onClick={handleSave} 
-                    className="mt-4 w-full bg-brand text-bg py-3 rounded-xl font-bold text-sm hover:brightness-110 transition-all flex items-center justify-center gap-2"
-                >
-                    <Check size={18} /> Salvar Alterações
-                </button>
+                <div className="p-4 border-t border-[#333] bg-[#0f172a]">
+                    <button onClick={handleSave} className="w-full bg-brand text-[#0b141a] py-3 rounded-sm font-bold hover:brightness-110 shadow-[0_0_15px_-5px_var(--brand)] transition-shadow">Aplicar Configuração</button>
+                </div>
             </div>
         )}
       </div>
