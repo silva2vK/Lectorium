@@ -299,13 +299,12 @@ export const ChartNodeView = (props: any) => {
 
   const renderChart = () => {
     // Aumentamos o bottom margin para acomodar a barra de legenda sem sobrepor o eixo X
-    const commonProps = { data, margin: { top: 20, right: 30, left: 10, bottom: 35 } };
+    const commonProps = { data, margin: { top: 20, right: 30, left: 10, bottom: 5 } };
     const grid = showGrid ? <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} /> : null;
     const fontStyle = { fontFamily: 'monospace', fontSize: 10 };
     const whiteColor = '#ffffff';
     
     // Se for Single Series OU PIZZA, usamos nossa legenda customizada e ESCONDEMOS a nativa do Recharts
-    // A lógica customizada (barra inferior) é muito melhor que a padrão
     const useCustomLegend = isSingleSeries || type === 'pie';
     const legend = !useCustomLegend && showLegend ? <Legend wrapperStyle={{ paddingTop: '15px' }} /> : null;
 
@@ -422,12 +421,12 @@ export const ChartNodeView = (props: any) => {
 
   return (
     <NodeViewWrapper className="react-renderer my-8 select-none w-full flex justify-center">
-      <div className="relative group p-6 border border-[#1e3a8a]/40 bg-[#020617] rounded-sm transition-all w-full max-w-4xl shadow-[0_0_40px_-10px_rgba(30,58,138,0.2)] overflow-hidden">
+      <div className="relative group border border-[#1e3a8a]/40 bg-[#020617] rounded-sm transition-all w-full max-w-4xl shadow-[0_0_40px_-10px_rgba(30,58,138,0.2)] overflow-hidden flex flex-col">
         
         {/* Background Grid */}
         <div className="absolute inset-0 pointer-events-none z-0 opacity-20" style={{ backgroundImage: `linear-gradient(rgba(59, 130, 246, 0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(59, 130, 246, 0.15) 1px, transparent 1px)`, backgroundSize: '20px 20px' }} />
 
-        <div className="flex flex-col items-center mb-4 relative z-10">
+        <div className="flex flex-col items-center mb-4 pt-6 px-6 relative z-10">
            <h3 className="text-xl font-bold text-white tracking-tight uppercase font-mono">{title}</h3>
            <div className="w-16 h-0.5 bg-brand/50 mt-1"></div>
         </div>
@@ -438,55 +437,55 @@ export const ChartNodeView = (props: any) => {
             </button>
         </div>
 
-        <div className="w-full h-[350px] text-xs relative z-10">
+        {/* CONTAINER DO GRÁFICO - Altura Fixa */}
+        <div className="w-full h-[350px] text-xs relative z-10 px-4 min-h-[350px]">
            <ResponsiveContainer width="100%" height="100%">
               {renderChart()}
            </ResponsiveContainer>
-
-           {/* OVERLAY DE LEGENDA CUSTOMIZADA - BARRA DE RODAPÉ FULL WIDTH */}
-           {/* Agora aplicado também para PIZZA */}
-           {(isSingleSeries || type === 'pie') && showLegend && (
-               <div className="absolute bottom-0 left-0 w-full z-20 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 p-2 pb-3 bg-[#020617]/90 backdrop-blur-md border-t border-white/10 transition-all">
-                   {/* Rótulo da Série (Sutil) */}
-                   <span className="text-[10px] font-bold text-white uppercase tracking-wider mr-2 border-r border-white/20 pr-3 hidden md:block">
-                       {dataKeys[0] || 'Dados'}
-                   </span>
-
-                   {/* Itens */}
-                   {data.map((item: any, idx: number) => {
-                       const valKey = dataKeys[0];
-                       const val = parseFloat(item[valKey]) || 0;
-                       const percent = grandTotal > 0 ? (val / grandTotal * 100).toFixed(1) : '0';
-                       const color = getItemColor(item, idx);
-                       
-                       return (
-                           <div key={idx} className="flex items-center gap-2 text-[11px] whitespace-nowrap">
-                               <div className="w-2.5 h-2.5 rounded-full shrink-0 shadow-[0_0_5px_rgba(0,0,0,0.5)]" style={{ backgroundColor: color }} />
-                               
-                               <span className="text-white font-medium drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
-                                   {item.nome}
-                               </span>
-                               
-                               <div className="flex items-center gap-1 font-mono text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
-                                  <span className="font-bold">{val}</span>
-                                  <span className="opacity-80 text-[10px]">({percent}%)</span>
-                               </div>
-                           </div>
-                       );
-                   })}
-                   
-                   {/* TOTAL - Separador e Valor */}
-                   <div className="w-px h-4 bg-white/20 mx-2 hidden sm:block"></div>
-                   <div className="flex items-center gap-2 text-[11px] whitespace-nowrap border border-white/10 px-3 py-0.5 rounded-full bg-white/5">
-                       <span className="text-[9px] font-bold text-brand uppercase tracking-wider">TOTAL</span>
-                       <span className="text-white font-mono font-bold">{grandTotal}</span>
-                   </div>
-               </div>
-           )}
         </div>
 
+        {/* LEGENDA CUSTOMIZADA - Container Flexível fora da área fixa */}
+        {(isSingleSeries || type === 'pie') && showLegend && (
+            <div className="w-full z-20 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 p-3 bg-[#020617]/50 border-t border-white/10 transition-all relative">
+                {/* Rótulo da Série (Sutil) */}
+                <span className="text-[10px] font-bold text-white uppercase tracking-wider mr-2 border-r border-white/20 pr-3 hidden md:block">
+                    {dataKeys[0] || 'Dados'}
+                </span>
+
+                {/* Itens */}
+                {data.map((item: any, idx: number) => {
+                    const valKey = dataKeys[0];
+                    const val = parseFloat(item[valKey]) || 0;
+                    const percent = grandTotal > 0 ? (val / grandTotal * 100).toFixed(1) : '0';
+                    const color = getItemColor(item, idx);
+                    
+                    return (
+                        <div key={idx} className="flex items-center gap-2 text-[11px] whitespace-nowrap">
+                            <div className="w-2.5 h-2.5 rounded-full shrink-0 shadow-[0_0_5px_rgba(0,0,0,0.5)]" style={{ backgroundColor: color }} />
+                            
+                            <span className="text-white font-medium drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
+                                {item.nome}
+                            </span>
+                            
+                            <div className="flex items-center gap-1 font-mono text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
+                                <span className="font-bold">{val}</span>
+                                <span className="opacity-80 text-[10px]">({percent}%)</span>
+                            </div>
+                        </div>
+                    );
+                })}
+                
+                {/* TOTAL - Separador e Valor */}
+                <div className="w-px h-4 bg-white/20 mx-2 hidden sm:block"></div>
+                <div className="flex items-center gap-2 text-[11px] whitespace-nowrap border border-white/10 px-3 py-0.5 rounded-full bg-white/5">
+                    <span className="text-[9px] font-bold text-brand uppercase tracking-wider">TOTAL</span>
+                    <span className="text-white font-mono font-bold">{grandTotal}</span>
+                </div>
+            </div>
+        )}
+
         {insight && (
-            <div className="mt-4 p-3 bg-brand/5 border-l-2 border-brand text-xs text-blue-200 italic flex gap-2 relative z-10">
+            <div className="p-4 bg-brand/5 border-t border-white/10 text-xs text-blue-200 italic flex gap-2 relative z-10">
                 <Sparkles size={14} className="text-brand shrink-0 mt-0.5" />
                 {insight}
             </div>
