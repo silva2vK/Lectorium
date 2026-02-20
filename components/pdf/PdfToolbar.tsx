@@ -1,14 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { MousePointer2, StickyNote, Pen, Eraser, ChevronLeft, ChevronRight, MoveHorizontal, Minus, Plus, Search, ZoomIn, Paintbrush } from 'lucide-react';
+import { MousePointer2, StickyNote, Pen, Eraser, ChevronLeft, ChevronRight, MoveHorizontal, Minus, Plus, Search, ZoomIn, Paintbrush, SplitSquareHorizontal } from 'lucide-react';
 import { usePdfContext } from '../../context/PdfContext';
 import { usePdfStore } from '../../stores/usePdfStore';
 
 interface Props {
   onFitWidth: () => void;
+  onToggleSplitView?: () => void;
 }
 
-export const PdfToolbar: React.FC<Props> = ({ onFitWidth }) => {
+export const PdfToolbar: React.FC<Props> = ({ onFitWidth, onToggleSplitView }) => {
   // Consumindo ESTADOS diretamente do Store (Zustand)
   const activeTool = usePdfStore(s => s.activeTool);
   const setActiveTool = usePdfStore(s => s.setActiveTool);
@@ -37,9 +38,9 @@ export const PdfToolbar: React.FC<Props> = ({ onFitWidth }) => {
 
   useEffect(() => {
     if (!isEditingPage) {
-      setTempPageInput((hasOffset ? displayPage : currentPage).toString());
+      setTempPageInput(displayPage.toString());
     }
-  }, [currentPage, isEditingPage, hasOffset, displayPage]);
+  }, [displayPage, isEditingPage]);
 
   const handlePageSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +53,7 @@ export const PdfToolbar: React.FC<Props> = ({ onFitWidth }) => {
             jumpToPage(targetPhysical);
         }
     } else {
-        setTempPageInput((hasOffset ? displayPage : currentPage).toString());
+        setTempPageInput(displayPage.toString());
     }
     setIsEditingPage(false);
   };
@@ -115,7 +116,7 @@ export const PdfToolbar: React.FC<Props> = ({ onFitWidth }) => {
                     <ChevronLeft size={20} strokeWidth={1.5} />
                 </button>
                 
-                <div className="flex items-center justify-center px-3 py-1.5 rounded-full bg-white/5 border border-white/10 min-w-[90px] gap-2 mx-1 shadow-inner">
+                <div className={`flex items-center justify-center px-3 py-1.5 rounded-full border min-w-[90px] gap-2 mx-1 shadow-inner transition-colors duration-300 ${isSplitView ? 'bg-brand/10 border-brand/30' : 'bg-white/5 border-white/10'}`}>
                     {isEditingPage ? (
                     <form onSubmit={handlePageSubmit} className="flex items-center justify-center">
                         <input 
@@ -132,12 +133,12 @@ export const PdfToolbar: React.FC<Props> = ({ onFitWidth }) => {
                     ) : (
                     <button 
                         onClick={() => {
-                        setTempPageInput((hasOffset ? displayPage : currentPage).toString());
+                        setTempPageInput(displayPage.toString());
                         setIsEditingPage(true);
                         }}
                         className="font-mono text-sm font-bold text-white hover:text-brand transition-colors text-center"
                     >
-                        {hasOffset ? displayPage : currentPage}
+                        {displayPage}
                     </button>
                     )}
                     <span className="text-white text-xs font-mono select-none">/</span>
@@ -156,8 +157,17 @@ export const PdfToolbar: React.FC<Props> = ({ onFitWidth }) => {
             {/* Divider */}
             <div className="h-8 w-px bg-white/20 mx-2"></div>
 
-            {/* Zone 3: Zoom */}
+            {/* Zone 3: View & Zoom */}
             <div className="flex items-center gap-1">
+                {onToggleSplitView && (
+                    <ToolbarBtn 
+                        active={false} 
+                        onClick={onToggleSplitView} 
+                        icon={SplitSquareHorizontal} 
+                        title="Dividir Tela (Split View)" 
+                    />
+                )}
+
                 <button 
                     onClick={onFitWidth} 
                     className="p-2.5 rounded-full text-white hover:bg-white/10 transition-all active:scale-90 group" 

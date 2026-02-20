@@ -45,6 +45,7 @@ interface Props {
   onToggleNavigation?: () => void;
   onToggleMenu?: () => void; 
   onAuthError?: () => void;
+  onToggleSplitView?: () => void;
   
   // Props para dados importados (LectAdapter)
   initialAnnotations?: Annotation[];
@@ -67,7 +68,7 @@ interface PdfViewerContentProps extends Props {
 }
 
 const PdfViewerContent: React.FC<PdfViewerContentProps> = ({ 
-  accessToken, fileId, fileName, fileParents, onBack, originalBlob, setOriginalBlob, pdfDoc, pageDimensions, numPages, jumpToPageRef, onToggleNavigation, onToggleMenu,
+  accessToken, fileId, fileName, fileParents, onBack, originalBlob, setOriginalBlob, pdfDoc, pageDimensions, numPages, jumpToPageRef, onToggleNavigation, onToggleMenu, onToggleSplitView,
   conflictDetected, isCheckingIntegrity, hasPageMismatch, resolveConflict, onAuthError, password
 }) => {
   const scale = usePdfStore(state => state.scale);
@@ -434,7 +435,7 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
             className={`flex-1 overflow-auto relative flex flex-col items-center p-4 md:p-8 pt-[3.5cm] ${(activeTool === 'ink' || activeTool === 'brush') ? 'touch-none' : ''}`} 
             {...gestureHandlers}
         >
-            <PdfToolbar onFitWidth={handleFitWidth} />
+            <PdfToolbar onFitWidth={handleFitWidth} onToggleSplitView={onToggleSplitView} />
             {selection && (
                 <SelectionMenu 
                     selection={selection} 

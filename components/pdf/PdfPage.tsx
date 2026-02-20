@@ -21,6 +21,8 @@ interface PdfPageProps {
 export const PdfPage: React.FC<PdfPageProps> = React.memo(({ pageNumber, filterValues, pdfDoc }) => {
   const scale = usePdfStore(state => state.scale);
   const currentPage = usePdfStore(state => state.currentPage); // Consumindo currentPage para Priority Rendering
+  const secondaryPage = usePdfStore(state => state.secondaryPage);
+  const isSplitView = usePdfStore(state => state.isSplitView);
   const activeTool = usePdfStore(state => state.activeTool);
   const isSpread = usePdfStore(state => state.isSpread); // Estado consumido da UI
   const spreadSide = usePdfStore(state => state.spreadSide);
@@ -42,8 +44,8 @@ export const PdfPage: React.FC<PdfPageProps> = React.memo(({ pageNumber, filterV
   const ocrData = ocrMap[pageNumber] || [];
   const translationData = translationMap[pageNumber] || [];
 
-  // Priority Rendering Logic: Se for a página atual, força visibilidade total.
-  const isPageActive = pageNumber === currentPage;
+  // Priority Rendering Logic: Se for a página atual (ou secundária em split), força visibilidade total.
+  const isPageActive = pageNumber === currentPage || (isSplitView && pageNumber === secondaryPage);
 
   useEffect(() => {
     const el = pageContainerRef.current;

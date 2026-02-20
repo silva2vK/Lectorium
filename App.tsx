@@ -115,6 +115,10 @@ const AppContent = () => {
   // Fullscreen Prompt State
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
 
+  // Split View State
+  const [isSplitMode, setIsSplitMode] = useState(false);
+  const [secondaryTab, setSecondaryTab] = useState<string | null>(null);
+
   const [transitionId, setTransitionId] = useState<string | null>(null);
   const [showSecretThemeModal, setShowSecretThemeModal] = useState(false);
   const { isOcrRunning, addNotification } = useGlobalContext();
@@ -464,12 +468,27 @@ const AppContent = () => {
       }
   };
 
-  const commonProps = useMemo(() => ({ accessToken: accessToken || '', uid: user?.uid || 'guest', onBack: handleReturnToDashboard, onAuthError: handleAuthError, onToggleMenu: () => setIsSidebarOpen(v => !v) }), [accessToken, user?.uid, handleAuthError]);
+  const commonProps = useMemo(() => ({ accessToken: accessToken || '', uid: user?.uid || 'guest', onBack: handleReturnToDashboard, onAuthError: handleAuthError, onToggleMenu: () => setIsSidebarOpen(v => !v), onToggleSplitView: () => setIsSplitMode(v => !v) }), [accessToken, user?.uid, handleAuthError]);
+
+  const renderFileContent = useCallback((fileId: string) => {
+    const file = openFiles.find(f => f.id === fileId);
+    if (!file) return <GlobalLoader />;
+    
+    if (file.name.endsWith('.lect') || file.mimeType === MIME_TYPES.LECTORIUM) return <LectAdapter key={file.id} {...commonProps} file={file} />;
+    
+    if (file.name.endsWith('.mindmap') || file.name.endsWith('.json') || file.mimeType === MIME_TYPES.MINDMAP || file.mimeType === 'application/json') {
+        return <MindMapEditor key={file.id} {...commonProps} fileId={file.id} fileName={file.name} fileBlob={file.blob} onRename={(newName) => handleRenameActiveFile(file.id, newName)} />;
+    }
+
+    if (file.name.endsWith('.docx') || file.mimeType === MIME_TYPES.DOCX || file.mimeType === MIME_TYPES.GOOGLE_DOC) return <DocEditor key={file.id} {...commonProps} fileId={file.id} fileName={file.name} fileBlob={file.blob} fileParents={file.parents} />;
+    if (file.mimeType.startsWith('image/') || file.mimeType === 'application/dicom' || file.mimeType.startsWith('text/') || file.name.endsWith('.cbz')) return <UniversalMediaAdapter key={file.id} {...commonProps} file={file} onToggleNavigation={() => setIsSidebarOpen(true)} />;
+    
+    return <PdfViewer key={file.id} {...commonProps} fileId={file.id} fileName={file.name} fileBlob={file.blob} fileParents={file.parents} />;
+  }, [openFiles, commonProps, handleRenameActiveFile]);
 
   const activeContent = useMemo(() => {
     if (activeTab === 'dashboard') return <Dashboard userName={user?.displayName} onOpenFile={handleOpenFile} onUploadLocal={(e) => { const f = e.target.files?.[0]; if (f) handleCreateFileFromBlob(f, f.name, f.type); }} onCreateMindMap={() => handleCreateMindMap()} onCreateDocument={() => handleCreateDocument()} onCreateFileFromBlob={handleCreateFileFromBlob} onChangeView={(view) => setActiveTab(view)} onToggleMenu={() => setIsSidebarOpen(true)} storageMode={storageMode} onToggleStorageMode={setStorageMode} onLogin={handleLogin} onOpenLocalFolder={handleOpenLocalFolder} savedLocalDirHandle={savedLocalDirHandle} onReconnectLocalFolder={handleReconnectLocalFolder} syncStrategy={syncStrategy} onToggleSyncStrategy={handleToggleSyncStrategy} />;
     
-    // Adicionado 'shared' à verificação de modo de navegação
     if (activeTab === 'browser' || activeTab === 'mindmaps' || activeTab === 'offline' || activeTab === 'local-fs' || activeTab === 'shared') {
         const mode = activeTab === 'browser' ? 'default' : activeTab === 'local-fs' ? 'local' : activeTab as any;
         return (
@@ -489,20 +508,67 @@ const AppContent = () => {
             />
         );
     }
-    const file = openFiles.find(f => f.id === activeTab);
-    if (!file) return <GlobalLoader />;
-    
-    if (file.name.endsWith('.lect') || file.mimeType === MIME_TYPES.LECTORIUM) return <LectAdapter key={file.id} {...commonProps} file={file} />;
-    
-    if (file.name.endsWith('.mindmap') || file.name.endsWith('.json') || file.mimeType === MIME_TYPES.MINDMAP || file.mimeType === 'application/json') {
-        return <MindMapEditor key={file.id} {...commonProps} fileId={file.id} fileName={file.name} fileBlob={file.blob} onRename={(newName) => handleRenameActiveFile(file.id, newName)} />;
+
+    if (isSplitMode) {
+        return (
+            <div className="flex h-full w-full overflow-hidden">
+                <div className="flex-1 border-r border-white/10 relative min-w-0">
+                    {renderFileContent(activeTab)}
+                </div>
+                <div className="flex-1 relative min-w-0 bg-surface/50">
+                    {secondaryTab ? (
+                        <div className="h-full w-full relative">
+                            {renderFileContent(secondaryTab)}
+                            <button 
+                                onClick={() => setSecondaryTab(null)}
+                                className="absolute top-2 right-2 z-[60] p-1.5 bg-black/60 hover:bg-red-500/80 rounded-full text-white/70 hover:text-white transition-colors backdrop-blur-sm border border-white/10"
+                                title="Fechar Painel Secundário"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center h-full p-6 animate-in fade-in">
+                            <div className="bg-surface border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                        <ScanLine className="text-brand" size={20} />
+                                        Split View
+                                    </h3>
+                                    <button onClick={() => setIsSplitMode(false)} className="text-xs text-red-400 hover:text-red-300">Fechar</button>
+                                </div>
+                                <p className="text-sm text-text-sec mb-4">Selecione um arquivo aberto para visualizar lado a lado:</p>
+                                <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {openFiles.filter(f => f.id !== activeTab).map(file => (
+                                        <button 
+                                            key={file.id}
+                                            onClick={() => setSecondaryTab(file.id)}
+                                            className="p-3 rounded-lg bg-black/40 border border-white/5 hover:border-brand/50 hover:bg-brand/5 text-left transition-all flex items-center gap-3 group"
+                                        >
+                                            <div className="w-8 h-8 rounded bg-white/5 flex items-center justify-center text-text-sec group-hover:text-brand transition-colors">
+                                                {file.mimeType.includes('pdf') ? 'PDF' : file.mimeType.includes('image') ? 'IMG' : 'DOC'}
+                                            </div>
+                                            <span className="truncate flex-1 text-sm text-text-sec group-hover:text-white font-medium">{file.name}</span>
+                                        </button>
+                                    ))}
+                                    {openFiles.filter(f => f.id !== activeTab).length === 0 && (
+                                        <div className="text-center py-8 text-text-sec text-sm border border-dashed border-white/10 rounded-lg">
+                                            Nenhum outro arquivo aberto.
+                                            <br/>
+                                            <button onClick={() => setIsSidebarOpen(true)} className="text-brand hover:underline mt-2">Abrir Arquivos</button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
     }
 
-    if (file.name.endsWith('.docx') || file.mimeType === MIME_TYPES.DOCX || file.mimeType === MIME_TYPES.GOOGLE_DOC) return <DocEditor key={file.id} {...commonProps} fileId={file.id} fileName={file.name} fileBlob={file.blob} fileParents={file.parents} />;
-    if (file.mimeType.startsWith('image/') || file.mimeType === 'application/dicom' || file.mimeType.startsWith('text/') || file.name.endsWith('.cbz')) return <UniversalMediaAdapter key={file.id} {...commonProps} file={file} onToggleNavigation={() => setIsSidebarOpen(true)} />;
-    
-    return <PdfViewer key={file.id} {...commonProps} fileId={file.id} fileName={file.name} fileBlob={file.blob} fileParents={file.parents} />;
-  }, [activeTab, openFiles, commonProps, user, handleOpenFile, handleAuthError, accessToken, handleCreateMindMap, handleCreateDocument, handleCreateFileFromBlob, storageMode, handleLogin, handleOpenLocalFolder, localDirHandle, savedLocalDirHandle, handleReconnectLocalFolder, syncStrategy, handleToggleSyncStrategy, handleGenerateMindMapWithAi, transitionId]);
+    return renderFileContent(activeTab);
+  }, [activeTab, openFiles, commonProps, user, handleOpenFile, handleAuthError, accessToken, handleCreateMindMap, handleCreateDocument, handleCreateFileFromBlob, storageMode, handleLogin, handleOpenLocalFolder, localDirHandle, savedLocalDirHandle, handleReconnectLocalFolder, syncStrategy, handleToggleSyncStrategy, handleGenerateMindMapWithAi, transitionId, isSplitMode, secondaryTab, renderFileContent]);
 
   return (
     <>

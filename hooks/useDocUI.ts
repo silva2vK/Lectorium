@@ -20,7 +20,8 @@ export const useDocUI = () => {
     headerFooter: false,
     styleConfig: false,
     columns: false,
-    footnote: false
+    footnote: false,
+    extraction: false
   });
 
   const [sidebars, setSidebars] = useState({

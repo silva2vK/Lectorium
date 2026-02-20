@@ -144,6 +144,7 @@ export const DocEditorLayout: React.FC = () => {
                editor={editor} 
                onInsertImage={triggerImageUpload} 
                onAddFootnote={() => ui.toggleModal('footnote', true)} 
+               onExtract={() => ui.toggleModal('extraction', true)}
                currentPage={currentPage} 
                totalPages={layout.totalPages} 
                onJumpToPage={handleJumpToPage} 

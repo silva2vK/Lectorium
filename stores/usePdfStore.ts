@@ -11,6 +11,11 @@ interface PdfUiState {
   currentPage: number;
   numPages: number;
   
+  // Split View State
+  isSplitView: boolean;
+  secondaryPage: number;
+  activeViewport: 'primary' | 'secondary';
+  
   // Layout State (Spread supported within Single View)
   isSpread: boolean;
   spreadSide: 'left' | 'right';
@@ -26,12 +31,21 @@ interface PdfUiState {
   setScale: (scale: number | ((prev: number) => number)) => void;
   setRotation: (rotation: number) => void;
   setCurrentPage: (page: number | ((prev: number) => number)) => void;
+  setSecondaryPage: (page: number | ((prev: number) => number)) => void;
   setNumPages: (num: number) => void;
   setIsSpread: (isSpread: boolean) => void;
   setSpreadSide: (side: 'left' | 'right') => void;
   setActiveTool: (tool: ToolType) => void;
   setPageDimensions: (dims: { width: number, height: number } | null) => void;
   setPageSizes: (sizes: { width: number, height: number }[]) => void;
+  
+  // Split Actions
+  toggleSplitView: () => void;
+  setActiveViewport: (viewport: 'primary' | 'secondary') => void;
+  
+  // Data Sharing
+  currentText: string;
+  setCurrentText: (text: string) => void;
   
   // Navigation
   zoomIn: () => void;
@@ -55,6 +69,15 @@ const createPdfStore = (initProps?: PdfStoreInitProps) => createStore<PdfUiState
     rotation: 0,
     currentPage: initProps?.defaultPage || 1,
     numPages: 0,
+    
+    // Split View Initial
+    isSplitView: false,
+    secondaryPage: 1,
+    activeViewport: 'primary',
+    
+    // Data Sharing
+    currentText: "",
+    
     isSpread: false,
     spreadSide: 'left',
     pageDimensions: null,
@@ -69,20 +92,26 @@ const createPdfStore = (initProps?: PdfStoreInitProps) => createStore<PdfUiState
     
     setRotation: (rotation) => set({ rotation }),
     
+    setCurrentText: (text) => set({ currentText: text }),
+    
     setCurrentPage: (input) => set((state) => {
         const next = typeof input === 'function' ? input(state.currentPage) : input;
-        // Se numPages for 0 (carregando), permite definir qualquer página (confia no restore)
-        // Se numPages > 0, clamp normal.
         const max = state.numPages > 0 ? state.numPages : 99999;
         const safePage = Math.max(1, Math.min(next, max));
         return { currentPage: safePage };
     }),
 
+    setSecondaryPage: (input) => set((state) => {
+        const next = typeof input === 'function' ? input(state.secondaryPage) : input;
+        const max = state.numPages > 0 ? state.numPages : 99999;
+        const safePage = Math.max(1, Math.min(next, max));
+        return { secondaryPage: safePage };
+    }),
+
     setNumPages: (numPages) => set((state) => {
-        // Ao definir o número real de páginas, garantimos que a página atual não exceda o limite
-        // Útil se o arquivo mudou ou se o restore tentou ir para uma página inexistente
         const correctedPage = state.currentPage > numPages && numPages > 0 ? numPages : state.currentPage;
-        return { numPages, currentPage: correctedPage };
+        const correctedSecondary = state.secondaryPage > numPages && numPages > 0 ? numPages : state.secondaryPage;
+        return { numPages, currentPage: correctedPage, secondaryPage: correctedSecondary };
     }),
 
     setIsSpread: (isSpread) => set({ isSpread }),
@@ -90,6 +119,19 @@ const createPdfStore = (initProps?: PdfStoreInitProps) => createStore<PdfUiState
     setActiveTool: (activeTool) => set({ activeTool }),
     setPageDimensions: (pageDimensions) => set({ pageDimensions }),
     setPageSizes: (pageSizes) => set({ pageSizes }),
+
+    // Split Actions
+    toggleSplitView: () => set((state) => {
+        const nextState = !state.isSplitView;
+        return { 
+            isSplitView: nextState,
+            // Ao ativar, a segunda página começa igual a atual (ou +1 se preferir, mas igual é melhor para comparar)
+            secondaryPage: nextState ? state.currentPage : state.secondaryPage,
+            activeViewport: 'primary' 
+        };
+    }),
+
+    setActiveViewport: (activeViewport) => set({ activeViewport }),
 
     // Helpers
     zoomIn: () => {
@@ -103,51 +145,71 @@ const createPdfStore = (initProps?: PdfStoreInitProps) => createStore<PdfUiState
     },
 
     fitWidth: (containerWidth) => {
-        const { pageDimensions, setScale } = get();
+        const { pageDimensions, setScale, isSplitView } = get();
         if (!pageDimensions) return;
         
         const padding = containerWidth < 768 ? 20 : 60;
-        const availableWidth = containerWidth - padding;
+        // Se estiver em split view, a largura disponível é metade
+        const effectiveWidth = isSplitView ? (containerWidth / 2) : containerWidth;
+        const availableWidth = effectiveWidth - padding;
         const newScale = availableWidth / pageDimensions.width;
         
         setScale(newScale);
     },
 
     jumpToPage: (page: number) => {
-        const { setCurrentPage, setIsSpread, setSpreadSide } = get();
-        setCurrentPage(page);
+        const { setCurrentPage, setSecondaryPage, activeViewport, isSplitView, setIsSpread, setSpreadSide } = get();
+        
+        if (isSplitView && activeViewport === 'secondary') {
+            setSecondaryPage(page);
+        } else {
+            setCurrentPage(page);
+        }
+        
         // Reset spread logic on direct jump
         setIsSpread(false);
         setSpreadSide('left');
     },
 
     nextPage: () => {
-        const { currentPage, numPages, isSpread, spreadSide, setCurrentPage, setSpreadSide } = get();
+        const { currentPage, secondaryPage, numPages, isSpread, spreadSide, setCurrentPage, setSecondaryPage, setSpreadSide, isSplitView, activeViewport } = get();
         
-        // Spread Logic (Optional)
-        if (isSpread && spreadSide === 'left') {
+        // Spread Logic (Optional - only for primary view for now)
+        if (!isSplitView && isSpread && spreadSide === 'left') {
             setSpreadSide('right');
             return;
         }
         
-        if (currentPage < numPages) {
-            setCurrentPage(currentPage + 1);
-            if (isSpread) setSpreadSide('left');
+        if (isSplitView && activeViewport === 'secondary') {
+            if (secondaryPage < numPages) {
+                setSecondaryPage(secondaryPage + 1);
+            }
+        } else {
+            if (currentPage < numPages) {
+                setCurrentPage(currentPage + 1);
+                if (isSpread) setSpreadSide('left');
+            }
         }
     },
 
     prevPage: () => {
-        const { currentPage, isSpread, spreadSide, setCurrentPage, setSpreadSide } = get();
+        const { currentPage, secondaryPage, isSpread, spreadSide, setCurrentPage, setSecondaryPage, setSpreadSide, isSplitView, activeViewport } = get();
         
         // Spread Logic (Optional)
-        if (isSpread && spreadSide === 'right') {
+        if (!isSplitView && isSpread && spreadSide === 'right') {
             setSpreadSide('left');
             return;
         }
         
-        if (currentPage > 1) {
-            setCurrentPage(currentPage - 1);
-            if (isSpread) setSpreadSide('right');
+        if (isSplitView && activeViewport === 'secondary') {
+            if (secondaryPage > 1) {
+                setSecondaryPage(secondaryPage - 1);
+            }
+        } else {
+            if (currentPage > 1) {
+                setCurrentPage(currentPage - 1);
+                if (isSpread) setSpreadSide('right');
+            }
         }
     }
   }))

@@ -28,7 +28,6 @@ export default defineConfig(({ mode }) => {
       target: 'esnext',
       chunkSizeWarningLimit: 1600,
       rollupOptions: {
-        external: ['unrar-js'],
         output: {
           manualChunks: {
             'vendor-react': ['react', 'react-dom'],
