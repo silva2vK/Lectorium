@@ -1,7 +1,7 @@
 
-import { getDb, OfflineRecord } from "./db";
+import { getDb, OfflineRecord, PdfMetadata } from "./db";
 import { opfs } from "./opfs"; 
-export type { DocVersion } from "./db";
+export type { DocVersion, PdfMetadata } from "./db";
 
 // Re-export Repositories
 export * from "../repositories/fileRepository";
@@ -129,4 +129,25 @@ export async function clearAppStorage(): Promise<void> {
   
   localStorage.clear();
   window.location.reload();
+}
+
+export async function savePdfMetadata(metadata: PdfMetadata): Promise<void> {
+  const db = await getDb();
+  await db.put('pdfMetadata', metadata);
+}
+
+export async function searchPdfMetadata(query: string): Promise<PdfMetadata[]> {
+  const db = await getDb();
+  const all = await db.getAll('pdfMetadata');
+  if (!query) return all;
+  const lowerQuery = query.toLowerCase();
+  return all.filter(m => 
+    m.title.toLowerCase().includes(lowerQuery) || 
+    m.author.toLowerCase().includes(lowerQuery)
+  );
+}
+
+export async function getAllPdfMetadata(): Promise<PdfMetadata[]> {
+    const db = await getDb();
+    return db.getAll('pdfMetadata');
 }

@@ -51,6 +51,7 @@ export const DocEditorLayout: React.FC = () => {
     handleVersionRestore,
     handleHeaderFooterApply,
     insertFootnote,
+    handleInsertBibliography,
     onToggleMenu,
     onBack,
     spellCheck,
@@ -114,7 +115,9 @@ export const DocEditorLayout: React.FC = () => {
                             onHeader={() => { setActiveHeaderFooterTab('header'); ui.toggleModal('headerFooter', true); }} 
                             onFooter={() => { setActiveHeaderFooterTab('footer'); ui.toggleModal('headerFooter', true); }} 
                             onAddFootnote={() => ui.toggleModal('footnote', true)}
-                            onAddCitation={() => ui.toggleModal('citation', true)} onPrint={() => window.print()} onLanguage={() => ui.toggleModal('language', true)}
+                            onAddCitation={() => ui.toggleModal('citation', true)} 
+                            onInsertBibliography={handleInsertBibliography}
+                            onPrint={() => window.print()} onLanguage={() => ui.toggleModal('language', true)}
                             onSpellCheck={() => setSpellCheck(!spellCheck)} onFindReplace={() => ui.toggleModal('findReplace', true)}
                             onColumns={() => ui.toggleModal('columns', true)}
                             showRuler={layout.showRuler} setShowRuler={layout.setShowRuler} zoom={layout.zoom} setZoom={layout.setZoom}

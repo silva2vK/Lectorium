@@ -1,54 +1,66 @@
+import Mention from '@tiptap/extension-mention'
+import { ReactRenderer } from '@tiptap/react'
+import tippy from 'tippy.js'
+import { CitationList } from './CitationList'
+import { searchPdfMetadata } from '../../../services/storageService'
 
-import { Node, ReactNodeViewRenderer } from '@tiptap/react';
-import { CitationNode } from './CitationNode';
-
-export const CitationExtension = Node.create({
-  name: 'citation',
-
-  group: 'inline',
-
-  inline: true,
-
-  atom: true,
-
-  addAttributes() {
-    return {
-      referenceId: {
-        default: null,
-      },
-      label: {
-        default: '(REF)',
-      },
-    };
+export const CitationExtension = Mention.configure({
+  HTMLAttributes: {
+    class: 'citation-mention bg-brand/10 text-brand px-1 rounded font-medium decoration-clone',
   },
+  suggestion: {
+    char: '@',
+    items: async ({ query }) => {
+      return await searchPdfMetadata(query)
+    },
+    render: () => {
+      let component: any
+      let popup: any
 
-  parseHTML() {
-    return [
-      {
-        tag: 'citation-node',
-      },
-    ];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return ['citation-node', HTMLAttributes];
-  },
-
-  addNodeView() {
-    return ReactNodeViewRenderer(CitationNode);
-  },
-
-  addCommands() {
-    return {
-      insertCitation: (referenceId: string, label: string) => ({ chain }: any) => {
-        return chain()
-          .insertContent({
-            type: this.name,
-            attrs: { referenceId, label },
+      return {
+        onStart: (props) => {
+          component = new ReactRenderer(CitationList, {
+            props,
+            editor: props.editor,
           })
-          .insertContent(' ') // Add space after
-          .run();
-      },
-    } as any;
+
+          if (!props.clientRect) {
+            return
+          }
+
+          popup = tippy('body', {
+            getReferenceClientRect: props.clientRect as any,
+            appendTo: () => document.body,
+            content: component.element,
+            showOnCreate: true,
+            interactive: true,
+            trigger: 'manual',
+            placement: 'bottom-start',
+          })
+        },
+        onUpdate(props) {
+          component.updateProps(props)
+
+          if (!props.clientRect) {
+            return
+          }
+
+          popup[0].setProps({
+            getReferenceClientRect: props.clientRect,
+          })
+        },
+        onKeyDown(props) {
+          if (props.event.key === 'Escape') {
+            popup[0].hide()
+            return true
+          }
+          return component.ref?.onKeyDown(props)
+        },
+        onExit() {
+          popup[0].destroy()
+          component.destroy()
+        },
+      }
+    },
   },
-});
+})

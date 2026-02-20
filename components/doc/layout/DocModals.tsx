@@ -13,6 +13,7 @@ import { TablePropertiesModal } from '../modals/TablePropertiesModal';
 import { LanguageModal } from '../modals/LanguageModal';
 import { PageNumberModal } from '../modals/PageNumberModal';
 import { ExtractionModal } from '../modals/ExtractionModal';
+import { CitationModal } from '../modals/CitationModal';
 import { Reference, EditorStats } from '../../../types';
 import { usePdfStore } from '../../../stores/usePdfStore';
 import { extractDataFromText } from '../../../services/aiService';
@@ -87,8 +88,17 @@ export const DocModals: React.FC<DocModalsProps> = ({
       }
   };
 
+  const handleInsertCitation = (id: string, label: string) => {
+      editor.chain().focus().insertContent({ type: 'mention', attrs: { id, label } }).insertContent(' ').run();
+  };
+
   return (
     <>
+       <CitationModal 
+          isOpen={modals.citation} 
+          onClose={() => toggleModal('citation', false)} 
+          onInsert={handleInsertCitation}
+       />
        <ExtractionModal 
           isOpen={modals.extraction} 
           onClose={() => toggleModal('extraction', false)} 

@@ -3,7 +3,7 @@ import { openDB, DBSchema, IDBPDatabase } from "idb";
 import { Annotation, DriveFile, SyncQueueItem, AuditRecord, VectorIndex } from "../types";
 
 export const DB_NAME = "pwa-drive-annotator";
-export const DB_VERSION = 16;
+export const DB_VERSION = 17;
 
 export interface DocVersion {
   id: string;
@@ -12,6 +12,15 @@ export interface DocVersion {
   author: string;
   content: any;
   name?: string;
+}
+
+export interface PdfMetadata {
+  fileId: string;
+  title: string;
+  author: string;
+  year: string;
+  publisher?: string;
+  addedAt: number;
 }
 
 export interface OfflineRecord extends DriveFile {
@@ -81,6 +90,11 @@ export interface LectoriumDB extends DBSchema {
     value: DocVersion;
     indexes: { 'fileId': string, 'timestamp': number };
   };
+  pdfMetadata: {
+    key: string;
+    value: PdfMetadata;
+    indexes: { 'title': string, 'author': string };
+  };
 }
 
 let dbPromise: Promise<IDBPDatabase<LectoriumDB>> | null = null;
@@ -129,6 +143,11 @@ export function getDb(): Promise<IDBPDatabase<LectoriumDB>> {
           const store = db.createObjectStore("document_versions", { keyPath: "id" });
           store.createIndex("fileId", "fileId", { unique: false });
           store.createIndex("timestamp", "timestamp", { unique: false });
+        }
+        if (!db.objectStoreNames.contains("pdfMetadata")) {
+          const store = db.createObjectStore("pdfMetadata", { keyPath: "fileId" });
+          store.createIndex("title", "title", { unique: false });
+          store.createIndex("author", "author", { unique: false });
         }
       }
     });

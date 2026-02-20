@@ -11,6 +11,7 @@ import { Reference, EditorStats, MIME_TYPES } from '../types';
 import { auth } from '../firebase';
 import { generateDocxBlob } from '../services/docxService';
 import { PageSettings } from '../components/doc/modals/PageSetupModal';
+import { getDb } from '../services/db';
 
 interface DocEditorContextProps {
   // Core
@@ -58,6 +59,7 @@ interface DocEditorContextProps {
   handleVersionRestore: (content: any) => void;
   handleHeaderFooterApply: (header: string, footer: string) => void;
   insertFootnote: (content: string) => void;
+  handleInsertBibliography: () => Promise<void>;
   
   // Navigation Callbacks (from props)
   onToggleMenu: () => void;
@@ -311,6 +313,48 @@ export const DocEditorProvider: React.FC<ProviderProps> = ({
       }
   };
 
+  const handleInsertBibliography = async () => {
+      if (!editor) return;
+      
+      const json = editor.getJSON();
+      const citations = new Set<string>();
+      
+      // Traverse JSON to find mentions
+      const traverse = (node: any) => {
+          if (node.type === 'mention') {
+              citations.add(node.attrs.id);
+          }
+          if (node.content) {
+              node.content.forEach(traverse);
+          }
+      };
+      traverse(json);
+      
+      if (citations.size === 0) {
+          alert("Nenhuma citação encontrada no documento.");
+          return;
+      }
+      
+      const db = await getDb();
+      const metadataList = [];
+      
+      for (const id of citations) {
+          const meta = await db.get('pdfMetadata', id);
+          if (meta) metadataList.push(meta);
+      }
+      
+      // Sort alphabetically
+      metadataList.sort((a, b) => a.author.localeCompare(b.author));
+      
+      // Format ABNT
+      let html = `<h1>Referências Bibliográficas</h1>`;
+      metadataList.forEach(m => {
+          html += `<p style="margin-bottom: 12px;">${m.author.toUpperCase()}. <strong>${m.title}</strong>. ${m.publisher || 'S.l.'}, ${m.year}.</p>`;
+      });
+      
+      editor.chain().focus().insertContent(html).run();
+  };
+
   const value: DocEditorContextProps = {
     editor,
     fileId,
@@ -348,6 +392,7 @@ export const DocEditorProvider: React.FC<ProviderProps> = ({
     handleVersionRestore,
     handleHeaderFooterApply,
     insertFootnote,
+    handleInsertBibliography,
     onToggleMenu,
     onBack
   };

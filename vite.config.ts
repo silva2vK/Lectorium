@@ -59,7 +59,10 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      port: 3000
+      port: 3000,
+      hmr: {
+        clientPort: 443,
+      },
     },
     define: {
       'process.env.API_KEY': JSON.stringify(process.env.API_KEY || env.API_KEY),
