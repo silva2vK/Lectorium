@@ -16,6 +16,7 @@ export const PdfToolbar: React.FC<Props> = ({ onFitWidth, onToggleSplitView }) =
   
   const currentPage = usePdfStore(s => s.currentPage);
   const numPages = usePdfStore(s => s.numPages);
+  const isSplitView = usePdfStore(s => s.isSplitView);
   
   const scale = usePdfStore(s => s.scale);
   const setScale = usePdfStore(s => s.setScale);
