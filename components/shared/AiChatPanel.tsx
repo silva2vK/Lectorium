@@ -187,12 +187,34 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
         setMessages(prev => [...prev, { role: 'model', text: "" }]);
 
         for await (const chunk of stream) {
-            assistantText += chunk;
-            setMessages(prev => {
-                const next = [...prev];
-                next[next.length - 1].text = assistantText;
-                return next;
-            });
+            if (chunk.text) {
+                assistantText += chunk.text;
+                setMessages(prev => {
+                    const next = [...prev];
+                    next[next.length - 1].text = assistantText;
+                    return next;
+                });
+            }
+
+            if (chunk.functionCalls) {
+                for (const call of chunk.functionCalls) {
+                    console.log("[Kalaki] Action requested:", call.name, call.args);
+                    
+                    // Dispatch custom event for the application to handle
+                    window.dispatchEvent(new CustomEvent('kalaki-action', { 
+                        detail: { name: call.name, args: call.args } 
+                    }));
+
+                    // Add a feedback message in the chat
+                    const actionMsg = `[Ação: ${call.name}] Executando comando na Cidade...`;
+                    assistantText += `\n\n*${actionMsg}*`;
+                    setMessages(prev => {
+                        const next = [...prev];
+                        next[next.length - 1].text = assistantText;
+                        return next;
+                    });
+                }
+            }
         }
     } catch (e: any) {
         setMessages(prev => [...prev, { role: 'model', text: "Erro: " + e.message }]);
@@ -226,7 +248,7 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
       <div className="p-3 border-b border-white/10 flex items-center justify-between bg-surface/80 backdrop-blur-md relative z-10 shadow-sm">
           <div className="flex items-center gap-2 text-brand">
               <MessageSquare size={16} />
-              <span className="text-xs font-bold uppercase tracking-wider">Sexta-feira</span>
+              <span className="text-xs font-bold uppercase tracking-wider">Kalaki</span>
           </div>
           <div className="flex items-center gap-1">
               {isDirectReadingAllowed && (
@@ -253,8 +275,8 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
                       <Sparkles size={48} className="text-brand animate-pulse relative z-10" />
                   </div>
                   <div className="space-y-1">
-                      <p className="text-sm font-bold text-white">Sexta-feira pronta.</p>
-                      <p className="text-xs text-text-sec">Lendo: {documentName}</p>
+                      <p className="text-sm font-bold text-white">Kalaki está atenta.</p>
+                      <p className="text-xs text-text-sec">Observando: {documentName}</p>
                       {Object.keys(lensData).length > 0 && (
                           <div className="mt-2 px-2 py-1 bg-purple-500/10 border border-purple-500/20 rounded-lg text-[10px] text-purple-300 font-bold backdrop-blur-sm">
                              <Sparkles size={10} className="inline mr-1" /> DADOS DA LENTE INTEGRADOS

@@ -220,7 +220,7 @@ export async function generateMindMapAi(topic: string): Promise<MindMapData> {
 
 export async function generateChartData(prompt: string): Promise<{ type: string, data: any[] }> {
     const ai = getAiClient();
-    const systemPrompt = `Você é um Cientista de Dados especializado em visualização (Sexta-feira).
+    const systemPrompt = `Você é um Cientista de Dados especializado em visualização (Kalaki).
     
     Sua tarefa é analisar o pedido do usuário e gerar DOIS outputs em um único JSON:
     1. 'type': O melhor tipo de gráfico para os dados ('bar', 'line', 'area', 'pie', 'radar', 'composed').
@@ -277,48 +277,5 @@ export async function analyzeChartData(data: any[]): Promise<string> {
         return response.text || "";
     } catch (e) {
         return "";
-    }
-}
-
-export async function extractDataFromText(text: string, fields: string[]): Promise<any[]> {
-    const ai = getAiClient();
-    
-    // Schema dinâmico baseado nos campos
-    const properties: Record<string, any> = {};
-    fields.forEach(field => {
-        properties[field] = { type: Type.STRING };
-    });
-
-    const prompt = `Analise o texto fornecido e extraia as informações para preencher uma tabela com as seguintes colunas: ${fields.join(', ')}.
-    
-    Retorne um JSON contendo um array de objetos, onde cada objeto representa uma linha da tabela.
-    Se o texto contiver múltiplos itens (ex: vários estudos, autores), crie múltiplas linhas.
-    Se uma informação não for encontrada, deixe como string vazia ou "N/A".
-    Seja conciso e objetivo.
-
-    TEXTO:
-    ${text.slice(0, 30000)} (Truncado)`;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.ARRAY,
-                    items: {
-                        type: Type.OBJECT,
-                        properties: properties,
-                        required: fields
-                    }
-                }
-            }
-        });
-        
-        return JSON.parse(response.text || "[]");
-    } catch (e: any) {
-        console.error("Extraction failed", e);
-        throw new Error("Falha na extração de dados: " + e.message);
     }
 }

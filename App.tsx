@@ -289,11 +289,30 @@ const AppContent = () => {
     };
     window.addEventListener(DRIVE_TOKEN_EVENT, handleTokenUpdate);
 
+    const handleKalakiAction = (e: Event) => {
+        const { name, args } = (e as CustomEvent).detail;
+        switch (name) {
+            case 'open_file':
+                handleOpenFile({ id: args.fileId, name: args.fileName || 'Arquivo solicitado', mimeType: '' });
+                break;
+            case 'search_drive':
+                setActiveTab('browser');
+                // A busca será tratada pelo componente DriveBrowser se integrarmos o estado
+                break;
+            case 'create_structure':
+                if (args.type === 'mindmap') handleCreateMindMap();
+                else handleCreateDocument();
+                break;
+        }
+    };
+    window.addEventListener('kalaki-action', handleKalakiAction);
+
     return () => {
         unsubscribeAuth();
         window.removeEventListener(DRIVE_TOKEN_EVENT, handleTokenUpdate);
+        window.removeEventListener('kalaki-action', handleKalakiAction);
     };
-  }, [checkOnboarding]);
+  }, [checkOnboarding, handleOpenFile, handleCreateMindMap, handleCreateDocument]);
 
   const handleCookieAccepted = () => {
       // Quando cookie é aceito, dispara verificação dos próximos passos

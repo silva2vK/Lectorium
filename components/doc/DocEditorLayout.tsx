@@ -51,7 +51,6 @@ export const DocEditorLayout: React.FC = () => {
     handleVersionRestore,
     handleHeaderFooterApply,
     insertFootnote,
-    handleInsertBibliography,
     onToggleMenu,
     onBack,
     spellCheck,
@@ -61,7 +60,8 @@ export const DocEditorLayout: React.FC = () => {
     isLocalFile,
     currentName,
     setCurrentName,
-    userInfo
+    userInfo,
+    accessToken
   } = useDocEditorContext();
 
   const [isMobileHeaderVisible, setIsMobileHeaderVisible] = useState(false);
@@ -115,9 +115,7 @@ export const DocEditorLayout: React.FC = () => {
                             onHeader={() => { setActiveHeaderFooterTab('header'); ui.toggleModal('headerFooter', true); }} 
                             onFooter={() => { setActiveHeaderFooterTab('footer'); ui.toggleModal('headerFooter', true); }} 
                             onAddFootnote={() => ui.toggleModal('footnote', true)}
-                            onAddCitation={() => ui.toggleModal('citation', true)} 
-                            onInsertBibliography={handleInsertBibliography}
-                            onPrint={() => window.print()} onLanguage={() => ui.toggleModal('language', true)}
+                            onAddCitation={() => ui.toggleModal('citation', true)} onPrint={() => window.print()} onLanguage={() => ui.toggleModal('language', true)}
                             onSpellCheck={() => setSpellCheck(!spellCheck)} onFindReplace={() => ui.toggleModal('findReplace', true)}
                             onColumns={() => ui.toggleModal('columns', true)}
                             showRuler={layout.showRuler} setShowRuler={layout.setShowRuler} zoom={layout.zoom} setZoom={layout.setZoom}
@@ -147,7 +145,6 @@ export const DocEditorLayout: React.FC = () => {
                editor={editor} 
                onInsertImage={triggerImageUpload} 
                onAddFootnote={() => ui.toggleModal('footnote', true)} 
-               onExtract={() => ui.toggleModal('extraction', true)}
                currentPage={currentPage} 
                totalPages={layout.totalPages} 
                onJumpToPage={handleJumpToPage} 
@@ -193,7 +190,7 @@ export const DocEditorLayout: React.FC = () => {
               userInfo={userInfo}
            />
 
-          <DocAiSidebar editor={editor} isOpen={ui.sidebars.aiChat} onClose={() => ui.toggleSidebar('aiChat', false)} documentName={currentName} />
+          <DocAiSidebar editor={editor} isOpen={ui.sidebars.aiChat} onClose={() => ui.toggleSidebar('aiChat', false)} documentName={currentName} accessToken={accessToken} />
           <CommentsSidebar editor={editor} isOpen={ui.sidebars.comments} onClose={() => ui.toggleSidebar('comments', false)} comments={comments} onAddComment={handleAddComment} onResolveComment={() => {}} onDeleteComment={() => {}} activeCommentId={activeCommentId} setActiveCommentId={setActiveCommentId} />
           <ImageOptionsSidebar editor={editor} isOpen={ui.sidebars.imageOptions} onClose={() => ui.toggleSidebar('imageOptions', false)} />
        </div>
