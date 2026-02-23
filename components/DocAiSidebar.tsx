@@ -9,7 +9,7 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   documentName: string;
-  accessToken?: string;
+  accessToken?: string | null;
 }
 
 export const DocAiSidebar: React.FC<Props> = ({ editor, isOpen, onClose, documentName, accessToken }) => {

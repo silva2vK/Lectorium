@@ -279,3 +279,30 @@ export async function analyzeChartData(data: any[]): Promise<string> {
         return "";
     }
 }
+
+export async function extractDataFromText(text: string, fields: string[]): Promise<any[]> {
+    const ai = getAiClient();
+    const prompt = `Extraia dados estruturados do texto abaixo seguindo exatamente os campos solicitados.
+    
+    CAMPOS: ${fields.join(', ')}
+    
+    TEXTO:
+    ${text}
+    
+    Retorne um array JSON de objetos, onde cada objeto tem os campos solicitados como chaves.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json"
+            }
+        });
+        const result = JSON.parse(response.text || '[]');
+        return Array.isArray(result) ? result : [];
+    } catch (e) {
+        console.error("Erro na extração de dados:", e);
+        return [];
+    }
+}

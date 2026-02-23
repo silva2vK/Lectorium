@@ -14,7 +14,9 @@ interface Props {
   className?: string;
   fileId?: string; 
   onIndexRequest?: () => Promise<void>; 
+  onIndexRequestWithToken?: (token: string) => Promise<void>;
   numPages?: number; 
+  accessToken?: string | null;
 }
 
 const MessageItem: React.FC<{ m: ChatMessage }> = ({ m }) => {
@@ -52,7 +54,7 @@ const MessageItem: React.FC<{ m: ChatMessage }> = ({ m }) => {
     );
 };
 
-export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, className = "", fileId, onIndexRequest, numPages = 0 }) => {
+export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, className = "", fileId, onIndexRequest, numPages = 0, accessToken }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -187,8 +189,9 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
         setMessages(prev => [...prev, { role: 'model', text: "" }]);
 
         for await (const chunk of stream) {
-            if (chunk.text) {
-                assistantText += chunk.text;
+            const c = chunk as any;
+            if (c.text) {
+                assistantText += c.text;
                 setMessages(prev => {
                     const next = [...prev];
                     next[next.length - 1].text = assistantText;
@@ -196,8 +199,8 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
                 });
             }
 
-            if (chunk.functionCalls) {
-                for (const call of chunk.functionCalls) {
+            if (c.functionCalls) {
+                for (const call of c.functionCalls) {
                     console.log("[Kalaki] Action requested:", call.name, call.args);
                     
                     // Dispatch custom event for the application to handle

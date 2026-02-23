@@ -10,7 +10,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "1.34.0",
@@ -31,6 +32,7 @@
     "@tiptap/extension-horizontal-rule": "2.11.5",
     "@tiptap/extension-image": "2.11.5",
     "@tiptap/extension-link": "2.11.5",
+    "@tiptap/extension-mention": "^3.20.0",
     "@tiptap/extension-paragraph": "2.11.5",
     "@tiptap/extension-placeholder": "2.11.5",
     "@tiptap/extension-subscript": "2.11.5",
@@ -63,9 +65,8 @@
     "qrcode": "1.5.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-markdown": "^10.1.0",
     "recharts": "3.6.0",
-    "remark-gfm": "^4.0.1",
+    "unrar-js": "^0.2.3",
     "utif": "3.1.0",
     "uuid": "13.0.0",
     "y-webrtc": "10.3.0",

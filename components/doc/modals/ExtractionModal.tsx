@@ -39,7 +39,7 @@ export const ExtractionModal: React.FC<Props> = ({ isOpen, onClose, onExtract })
   };
 
   return (
-    <BaseModal isOpen={isOpen} onClose={onClose} title="Extração Tabular (IA)" size="md">
+    <BaseModal isOpen={isOpen} onClose={onClose} title="Extração Tabular (IA)" maxWidth="max-w-md">
       <div className="space-y-6">
         <div className="bg-brand/10 border border-brand/20 p-4 rounded-lg flex gap-3 items-start">
             <Sparkles className="text-brand shrink-0 mt-0.5" size={18} />

@@ -40,6 +40,7 @@ export interface OcrRecord {
 }
 
 export interface LectoriumDB extends DBSchema {
+  [key: string]: any;
   annotations: {
     key: string;
     value: Annotation & { fileId: string, userId: string, updatedAt: string };

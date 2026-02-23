@@ -1,9 +1,9 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useDocEditorConfig } from '../hooks/useDocEditorConfig';
-import { useDocFileHandler } from '../hooks/useDocFileHandler';
-import { usePageLayout } from '../hooks/usePageLayout';
-import { useDocUI } from '../hooks/useDocUI';
+import { useDocEditorConfig } from './hooks/useDocEditorConfig';
+import { useDocFileHandler } from './hooks/useDocFileHandler';
+import { usePageLayout } from './hooks/usePageLayout';
+import { useDocUI } from './hooks/useDocUI';
 import { EditorContent } from '@tiptap/react';
 import { TopMenuBar } from './doc/TopMenuBar';
 import { DocToolbar } from './doc/DocToolbar';
@@ -16,8 +16,8 @@ import { CitationModal } from './doc/modals/CitationModal';
 import { ShareModal } from './doc/modals/ShareModal';
 import { ColumnsModal } from './doc/modals/ColumnsModal';
 import { Loader2, ArrowLeft, FileText, Cloud, CheckCircle, Sparkles, Users, Lock } from 'lucide-react';
-import { Reference, EditorStats } from '../types';
-import { auth } from '../firebase';
+import { Reference, EditorStats } from './types';
+import { auth } from './firebase';
 
 interface Props {
   fileId: string;

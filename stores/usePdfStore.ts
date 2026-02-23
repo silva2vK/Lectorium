@@ -216,11 +216,11 @@ const createPdfStore = (initProps?: PdfStoreInitProps) => createStore<PdfUiState
 );
 
 // 2. Context Definition
-const PdfStoreContext = createContext<StoreApi<PdfUiState> | null>(null);
+const PdfStoreContext = createContext<any>(null);
 
 // 3. Provider Component
 export const PdfStoreProvider: React.FC<{ children: React.ReactNode, initialPage?: number, initialScale?: number }> = ({ children, initialPage, initialScale }) => {
-  const storeRef = useRef<StoreApi<PdfUiState> | null>(null);
+  const storeRef = useRef<any>(null);
   if (!storeRef.current) {
     storeRef.current = createPdfStore({ defaultPage: initialPage, defaultScale: initialScale });
   }
@@ -238,7 +238,7 @@ export function usePdfStore<T>(selector: (state: PdfUiState) => T): T {
 }
 
 // 5. Hook to access store API directly (getState, setState, subscribe)
-export function usePdfStoreApi(): StoreApi<PdfUiState> {
+export function usePdfStoreApi(): any {
   const store = useContext(PdfStoreContext);
   if (!store) {
     throw new Error('Missing PdfStoreProvider');

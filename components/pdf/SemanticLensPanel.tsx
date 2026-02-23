@@ -96,7 +96,7 @@ export const SemanticLensPanel: React.FC<Props> = ({ pageNumber, onNavigateBack 
               <div className="flex flex-col items-center justify-center min-h-full p-6 text-center space-y-8">
                   <div className="bg-brand/10 p-4 rounded-full border border-brand/20 relative">
                       <Sparkles size={32} className="text-brand" />
-                      {isChrome && <Zap size={14} className="absolute -top-1 -right-1 text-yellow-400 fill-yellow-400" title="Aceleração Chrome Ativa" />}
+                      {isChrome && <div title="Aceleração Chrome Ativa" className="absolute -top-1 -right-1"><Zap size={14} className="text-yellow-400 fill-yellow-400" /></div>}
                   </div>
                   <div className="space-y-2">
                       <h3 className="text-lg font-bold text-white">Lente Semântica</h3>

@@ -1,11 +1,11 @@
 
 import { getAiClient } from "./aiService";
 import { ChatMessage } from "../types";
-import { FunctionDeclaration, Type } from "@google/genai";
+import { Type } from "@google/genai";
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-const openFileTool: FunctionDeclaration = {
+const openFileTool: any = {
   name: "open_file",
   description: "Abre um arquivo específico no editor do Lectorium.",
   parameters: {
@@ -18,7 +18,7 @@ const openFileTool: FunctionDeclaration = {
   }
 };
 
-const searchDriveTool: FunctionDeclaration = {
+const searchDriveTool: any = {
   name: "search_drive",
   description: "Pesquisa por arquivos no Google Drive do usuário.",
   parameters: {
@@ -30,7 +30,7 @@ const searchDriveTool: FunctionDeclaration = {
   }
 };
 
-const createStructureTool: FunctionDeclaration = {
+const createStructureTool: any = {
   name: "create_structure",
   description: "Cria uma nova estrutura de conhecimento (Documento ou Mapa Mental).",
   parameters: {
@@ -113,6 +113,6 @@ Sua existência serve para amplificar a capacidade de síntese e análise do Cri
     }
   } catch (e: any) {
     const errorMessage = e.message || String(e);
-    yield `Erro na conexão neural: ${errorMessage}`;
+    yield { text: `Erro na conexão neural: ${errorMessage}` };
   }
 }

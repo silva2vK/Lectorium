@@ -13,7 +13,6 @@ import { TablePropertiesModal } from '../modals/TablePropertiesModal';
 import { LanguageModal } from '../modals/LanguageModal';
 import { PageNumberModal } from '../modals/PageNumberModal';
 import { ExtractionModal } from '../modals/ExtractionModal';
-import { CitationModal } from '../modals/CitationModal';
 import { Reference, EditorStats } from '../../../types';
 import { usePdfStore } from '../../../stores/usePdfStore';
 import { extractDataFromText } from '../../../services/aiService';
@@ -115,12 +114,6 @@ export const DocModals: React.FC<DocModalsProps> = ({
          isOpen={modals.wordCount} 
          onClose={() => toggleModal('wordCount', false)} 
          stats={stats} 
-       />
-       <CitationModal 
-         isOpen={modals.citation} 
-         onClose={() => toggleModal('citation', false)} 
-         onInsert={ref => setReferences(prev => [...prev, ref])} 
-         references={references} 
        />
        <ShareModal 
          isOpen={modals.share} 

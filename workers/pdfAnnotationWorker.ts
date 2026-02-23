@@ -27,9 +27,9 @@ self.onmessage = async (e: MessageEvent) => {
     
     try {
         if (password) {
-            loadedDoc = await PDFDocument.load(pdfBytes, { password });
+            loadedDoc = await PDFDocument.load(pdfBytes, { password } as any);
         } else {
-            loadedDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+            loadedDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true } as any);
         }
     } catch (loadError) {
         throw new Error('PDF_LOAD_FAILED');

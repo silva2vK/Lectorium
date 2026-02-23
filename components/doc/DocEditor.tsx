@@ -1,19 +1,19 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useDocEditorConfig } from '../hooks/useDocEditorConfig';
-import { useDocFileHandler } from '../hooks/useDocFileHandler';
-import { usePageLayout } from '../hooks/usePageLayout';
-import { useDocUI } from '../hooks/useDocUI';
-import { TopMenuBar } from './doc/TopMenuBar';
-import { DocToolbar } from './doc/DocToolbar';
-import { DocCanvas } from './doc/layout/DocCanvas';
-import { DocModals } from './doc/layout/DocModals';
-import { CommentData } from './doc/CommentsSidebar';
+import { useDocEditorConfig } from '../../hooks/useDocEditorConfig';
+import { useDocFileHandler } from '../../hooks/useDocFileHandler';
+import { usePageLayout } from '../../hooks/usePageLayout';
+import { useDocUI } from '../../hooks/useDocUI';
+import { TopMenuBar } from './TopMenuBar';
+import { DocToolbar } from './DocToolbar';
+import { DocCanvas } from './layout/DocCanvas';
+import { DocModals } from './layout/DocModals';
+import { CommentData } from './CommentsSidebar';
 import { Loader2, ArrowLeft, FileText, Cloud, Sparkles, Users, Share2, Lock } from 'lucide-react';
-import { Reference, EditorStats, MIME_TYPES } from '../types';
-import { auth } from '../firebase';
-import { generateDocxBlob } from '../services/docxService';
-import { useSlideNavigation } from '../hooks/useSlideNavigation';
+import { Reference, EditorStats, MIME_TYPES } from '../../types';
+import { auth } from '../../firebase';
+import { generateDocxBlob } from '../../services/docxService';
+import { useSlideNavigation } from '../../hooks/useSlideNavigation';
 
 interface Props {
   fileId: string;
