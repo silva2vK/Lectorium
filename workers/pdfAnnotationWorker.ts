@@ -52,15 +52,44 @@ self.onmessage = async (e: MessageEvent) => {
         for (const w of words) {
             const bbox = Array.isArray(w.bbox) ? { x0: w.bbox[0], y0: w.bbox[1], x1: w.bbox[0]+w.bbox[2], y1: w.bbox[1]+w.bbox[3] } : w.bbox;
             if (w.text && bbox) {
-                page.drawText(w.text, {
-                    x: bbox.x0,
-                    y: height - bbox.y1,
-                    size: Math.max(1, (bbox.y1 - bbox.y0) * 0.9),
-                    font: helvetica,
-                    color: rgb(0, 0, 0),
-                    opacity: 0,
-                    maxWidth: (bbox.x1 - bbox.x0) + 1
-                });
+                try {
+                    page.drawText(w.text, {
+                        x: bbox.x0,
+                        y: height - bbox.y1,
+                        size: Math.max(1, (bbox.y1 - bbox.y0) * 0.9),
+                        font: helvetica,
+                        color: rgb(0, 0, 0),
+                        opacity: 0,
+                        maxWidth: (bbox.x1 - bbox.x0) + 1
+                    });
+                } catch (e: any) {
+                    if (e.message && e.message.includes('WinAnsi cannot encode')) {
+                        const sanitized = w.text.replace(/[^\x00-\xFF]/g, (match: string) => {
+                            const charMap: Record<string, string> = {
+                                '⁴': '^4', '³': '^3', '²': '^2', '¹': '^1', '⁰': '^0',
+                                '⁵': '^5', '⁶': '^6', '⁷': '^7', '⁸': '^8', '⁹': '^9',
+                                '“': '"', '”': '"', '‘': "'", '’': "'", '–': '-', '—': '-', '…': '...'
+                            };
+                            return charMap[match] || '';
+                        });
+                        
+                        if (sanitized) {
+                            try {
+                                page.drawText(sanitized, {
+                                    x: bbox.x0,
+                                    y: height - bbox.y1,
+                                    size: Math.max(1, (bbox.y1 - bbox.y0) * 0.9),
+                                    font: helvetica,
+                                    color: rgb(0, 0, 0),
+                                    opacity: 0,
+                                    maxWidth: (bbox.x1 - bbox.x0) + 1
+                                });
+                            } catch (e2) {
+                                // Ignora
+                            }
+                        }
+                    }
+                }
             }
         }
     };

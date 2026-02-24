@@ -9,7 +9,11 @@ export function createSmartCanvas(width: number, height: number): HTMLCanvasElem
   
   if (typeof OffscreenCanvas !== 'undefined' && isChrome) {
     // Chrome otimiza OffscreenCanvas com aceleração GPU por padrão
-    return new OffscreenCanvas(width, height);
+    try {
+        return new OffscreenCanvas(width, height);
+    } catch (e) {
+        console.warn("[SmartCanvas] OffscreenCanvas falhou, revertendo para DOM Canvas", e);
+    }
   }
   
   // Fallback para Canvas DOM padrão

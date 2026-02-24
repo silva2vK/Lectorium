@@ -154,6 +154,18 @@ async function convertTextToPdf(text: string): Promise<Blob> {
   let currentPage = pdfDoc.addPage([pageW, pageH]);
   let y = pageH - margin;
 
+  const sanitizeForWinAnsi = (t: string) => {
+      if (!t) return '';
+      return t.replace(/[^\x00-\xFF]/g, (match: string) => {
+          const charMap: Record<string, string> = {
+              '⁴': '^4', '³': '^3', '²': '^2', '¹': '^1', '⁰': '^0',
+              '⁵': '^5', '⁶': '^6', '⁷': '^7', '⁸': '^8', '⁹': '^9',
+              '“': '"', '”': '"', '‘': "'", '’': "'", '–': '-', '—': '-', '…': '...'
+          };
+          return charMap[match] || '';
+      });
+  };
+
   const lines = text.split(/\r?\n/);
 
   const wrapText = (line: string): string[] => {
@@ -183,7 +195,13 @@ async function convertTextToPdf(text: string): Promise<Blob> {
               currentPage = pdfDoc.addPage([pageW, pageH]);
               y = pageH - margin;
           }
-          currentPage.drawText(line, { x: margin, y, size: fontSize, font, color: rgb(0, 0, 0) });
+          try {
+              currentPage.drawText(line, { x: margin, y, size: fontSize, font, color: rgb(0, 0, 0) });
+          } catch (e: any) {
+              if (e.message && e.message.includes('WinAnsi cannot encode')) {
+                  currentPage.drawText(sanitizeForWinAnsi(line), { x: margin, y, size: fontSize, font, color: rgb(0, 0, 0) });
+              }
+          }
           y -= lineHeight;
       }
   }

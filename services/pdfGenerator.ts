@@ -5,6 +5,19 @@ import { PAPER_SIZES, CM_TO_PX } from '../components/doc/constants';
 // Helper para converter CM para Pontos (PDF usa 72 DPI, 1cm = 28.35pts)
 const cmToPt = (cm: number) => cm * 28.3465;
 
+// Helper para purgar caracteres não suportados pelo WinAnsi
+const sanitizeForWinAnsi = (text: string) => {
+    if (!text) return '';
+    return text.replace(/[^\x00-\xFF]/g, (match: string) => {
+        const charMap: Record<string, string> = {
+            '⁴': '^4', '³': '^3', '²': '^2', '¹': '^1', '⁰': '^0',
+            '⁵': '^5', '⁶': '^6', '⁷': '^7', '⁸': '^8', '⁹': '^9',
+            '“': '"', '”': '"', '‘': "'", '’': "'", '–': '-', '—': '-', '…': '...'
+        };
+        return charMap[match] || '';
+    });
+};
+
 const hexToRgb = (hex: string) => {
     if (!hex) return rgb(0, 0, 0);
     const cleanHex = hex.replace('#', '');
@@ -111,13 +124,25 @@ export async function generatePdfFromTiptap(
 
                           if (testWidth > contentWidth) {
                               // Draw current line
-                              currentPage.drawText(currentLine, {
-                                  x: margins.left,
-                                  y: yPosition,
-                                  size: run.fontSize,
-                                  font: run.font,
-                                  color: run.color
-                              });
+                              try {
+                                  currentPage.drawText(currentLine, {
+                                      x: margins.left,
+                                      y: yPosition,
+                                      size: run.fontSize,
+                                      font: run.font,
+                                      color: run.color
+                                  });
+                              } catch (e: any) {
+                                  if (e.message && e.message.includes('WinAnsi cannot encode')) {
+                                      currentPage.drawText(sanitizeForWinAnsi(currentLine), {
+                                          x: margins.left,
+                                          y: yPosition,
+                                          size: run.fontSize,
+                                          font: run.font,
+                                          color: run.color
+                                      });
+                                  }
+                              }
                               
                               yPosition -= (run.fontSize * lineHeightMultiplier);
                               if (yPosition < margins.bottom) addNewPage();
@@ -130,13 +155,25 @@ export async function generatePdfFromTiptap(
                       
                       // Draw remaining
                       if (currentLine) {
-                          currentPage.drawText(currentLine, {
-                              x: margins.left,
-                              y: yPosition,
-                              size: run.fontSize,
-                              font: run.font,
-                              color: run.color
-                          });
+                          try {
+                              currentPage.drawText(currentLine, {
+                                  x: margins.left,
+                                  y: yPosition,
+                                  size: run.fontSize,
+                                  font: run.font,
+                                  color: run.color
+                              });
+                          } catch (e: any) {
+                              if (e.message && e.message.includes('WinAnsi cannot encode')) {
+                                  currentPage.drawText(sanitizeForWinAnsi(currentLine), {
+                                      x: margins.left,
+                                      y: yPosition,
+                                      size: run.fontSize,
+                                      font: run.font,
+                                      color: run.color
+                                  });
+                              }
+                          }
                       }
                   }
                   // Add paragraph spacing
@@ -197,13 +234,25 @@ export async function generatePdfFromTiptap(
               if (node.type === 'mathNode') label = `[Fórmula: ${node.attrs?.latex || 'LaTeX'}]`;
               if (node.type === 'codeBlock') label = `[Código: ${node.attrs?.language || 'Texto'}]`;
 
-              currentPage.drawText(label, {
-                  x: margins.left,
-                  y: yPosition,
-                  size: 10,
-                  font: timesItalic,
-                  color: rgb(0.4, 0.4, 0.4)
-              });
+              try {
+                  currentPage.drawText(label, {
+                      x: margins.left,
+                      y: yPosition,
+                      size: 10,
+                      font: timesItalic,
+                      color: rgb(0.4, 0.4, 0.4)
+                  });
+              } catch (e: any) {
+                  if (e.message && e.message.includes('WinAnsi cannot encode')) {
+                      currentPage.drawText(sanitizeForWinAnsi(label), {
+                          x: margins.left,
+                          y: yPosition,
+                          size: 10,
+                          font: timesItalic,
+                          color: rgb(0.4, 0.4, 0.4)
+                      });
+                  }
+              }
               yPosition -= 24;
               if (yPosition < margins.bottom) addNewPage();
           }
