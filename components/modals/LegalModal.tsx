@@ -74,7 +74,7 @@ export const LegalModal: React.FC<Props> = ({ isOpen, onClose, initialTab = 'pri
           <strong>2.1. Google Drive API (Armazenamento em Nuvem).</strong> O Lectorium interage diretamente com a API do Google Drive para listar, baixar e atualizar arquivos. O token de acesso (Access Token) concedido pelo Usuário é armazenado de forma criptografada na memória local (localStorage) e é transmitido apenas para os servidores da Google LLC via protocolo HTTPS (TLS 1.3). Em nenhuma hipótese esse token é enviado, espelhado ou armazenado em servidores intermediários sob controle da Desenvolvedora. A segurança, integridade, disponibilidade e confidencialidade dos arquivos armazenados na nuvem são regidas exclusivamente pelos Termos de Serviço e Políticas de Privacidade da Google LLC.
         </p>
         <p>
-          <strong>2.2. Inteligência Artificial Generativa (Google Gemini/Vertex AI).</strong> Ao utilizar funcionalidades de IA (como "Kalaki", "Lente Semântica", resumos ou chats), o conteúdo textual selecionado ou extraído do documento é enviado diretamente do navegador do Usuário para a API da Google (Vertex AI ou Gemini API).
+          <strong>2.2. Inteligência Artificial Generativa (Google Gemini/Vertex AI).</strong> Ao utilizar funcionalidades de IA (como "Sexta-feira", "Lente Semântica", resumos ou chats), o conteúdo textual selecionado ou extraído do documento é enviado diretamente do navegador do Usuário para a API da Google (Vertex AI ou Gemini API).
           <br/><br/>
           (a) <strong>Transitoriedade:</strong> Não mantemos logs, histórico ou cópia das interações ("Prompts" e "Completions") em nossa infraestrutura.
           <br/>

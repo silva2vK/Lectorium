@@ -60,8 +60,7 @@ export const DocEditorLayout: React.FC = () => {
     isLocalFile,
     currentName,
     setCurrentName,
-    userInfo,
-    accessToken
+    userInfo
   } = useDocEditorContext();
 
   const [isMobileHeaderVisible, setIsMobileHeaderVisible] = useState(false);
@@ -190,7 +189,7 @@ export const DocEditorLayout: React.FC = () => {
               userInfo={userInfo}
            />
 
-          <DocAiSidebar editor={editor} isOpen={ui.sidebars.aiChat} onClose={() => ui.toggleSidebar('aiChat', false)} documentName={currentName} accessToken={accessToken} />
+          <DocAiSidebar editor={editor} isOpen={ui.sidebars.aiChat} onClose={() => ui.toggleSidebar('aiChat', false)} documentName={currentName} />
           <CommentsSidebar editor={editor} isOpen={ui.sidebars.comments} onClose={() => ui.toggleSidebar('comments', false)} comments={comments} onAddComment={handleAddComment} onResolveComment={() => {}} onDeleteComment={() => {}} activeCommentId={activeCommentId} setActiveCommentId={setActiveCommentId} />
           <ImageOptionsSidebar editor={editor} isOpen={ui.sidebars.imageOptions} onClose={() => ui.toggleSidebar('imageOptions', false)} />
        </div>

@@ -1,5 +1,5 @@
 {
-  "name": "Lectorium: Kalaki",
-  "description": "Domo Cognitivo Acadêmico. Sob o Protocolo Zidatel, Kalaki (A Cidade) atua como infraestrutura soberana para análise historiográfica e extração de dados no PPGED.",
+  "name": "Lectorium",
+  "description": "Workspace Acadêmico PWA. Agora com Modo Leve (estilo Google Docs) e Zelador Automático para gestão de armazenamento local.",
   "requestFramePermissions": []
 }

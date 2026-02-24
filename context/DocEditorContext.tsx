@@ -62,7 +62,6 @@ interface DocEditorContextProps {
   // Navigation Callbacks (from props)
   onToggleMenu: () => void;
   onBack?: () => void;
-  accessToken: string;
 }
 
 const DocEditorContext = createContext<DocEditorContextProps | null>(null);
@@ -350,8 +349,7 @@ export const DocEditorProvider: React.FC<ProviderProps> = ({
     handleHeaderFooterApply,
     insertFootnote,
     onToggleMenu,
-    onBack,
-    accessToken
+    onBack
   };
 
   return (

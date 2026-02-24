@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist';
 import { downloadDriveFile } from '../services/driveService';
-import { getOfflineFile, savePdfMetadata } from '../services/storageService';
+import { getOfflineFile } from '../services/storageService';
 import { blobRegistry } from '../services/blobRegistry';
 
 // Configuração do Worker - CRÍTICO: Versão deve bater com importmap
@@ -95,28 +95,6 @@ export const usePdfDocument = ({ fileId, fileBlob, accessToken, onAuthError, pas
         if (mounted) {
           setPdfDoc(pdf);
           setNumPages(pdf.numPages);
-          
-          // Extract Metadata
-          try {
-              const meta = await pdf.getMetadata();
-              const info = meta.info as any;
-              // Parse PDF Date format: D:YYYYMMDDHHmmSS...
-              let year = "S.d.";
-              if (info.CreationDate) {
-                  const match = info.CreationDate.match(/D:(\d{4})/);
-                  if (match) year = match[1];
-              }
-              
-              await savePdfMetadata({
-                  fileId: fileId,
-                  title: info.Title || (fileBlob as any)?.name || fileId, // Fallback
-                  author: info.Author || "Autor Desconhecido",
-                  year: year,
-                  addedAt: Date.now()
-              });
-          } catch (e) {
-              console.warn("Metadata extraction failed", e);
-          }
           
           // Setup Page 1 (Critical Path & Auto-Fit)
           try {

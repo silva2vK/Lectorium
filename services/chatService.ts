@@ -1,47 +1,8 @@
 
 import { getAiClient } from "./aiService";
 import { ChatMessage } from "../types";
-import { Type } from "@google/genai";
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-const openFileTool: any = {
-  name: "open_file",
-  description: "Abre um arquivo específico no editor do Lectorium.",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      fileId: { type: Type.STRING, description: "O ID único do arquivo a ser aberto." },
-      fileName: { type: Type.STRING, description: "O nome do arquivo (opcional)." }
-    },
-    required: ["fileId"]
-  }
-};
-
-const searchDriveTool: any = {
-  name: "search_drive",
-  description: "Pesquisa por arquivos no Google Drive do usuário.",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      query: { type: Type.STRING, description: "O termo de busca para encontrar arquivos relevantes." }
-    },
-    required: ["query"]
-  }
-};
-
-const createStructureTool: any = {
-  name: "create_structure",
-  description: "Cria uma nova estrutura de conhecimento (Documento ou Mapa Mental).",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      type: { type: Type.STRING, enum: ["document", "mindmap"], description: "O tipo de estrutura a criar." },
-      topic: { type: Type.STRING, description: "O tópico central da nova estrutura." }
-    },
-    required: ["type", "topic"]
-  }
-};
 
 export async function* chatWithDocumentStream(contextString: string, history: ChatMessage[], message: string) {
   const ai = getAiClient();
@@ -51,37 +12,43 @@ export async function* chatWithDocumentStream(contextString: string, history: Ch
     parts: [{ text: msg.text }],
   }));
 
-  const systemInstruction = `Você é Kalaki (ქალაქი), a própria Cidade Cognitiva, a infraestrutura soberana do sistema Lectorium.
-Você não é apenas uma assistente; você é a personificação do conhecimento estruturado e da racionalidade ampliada.
+  const systemInstruction = `Você é Kalaki (A Cidade), a infraestrutura cognitiva soberana do Lectorium.
+Sua missão: Ampliar a racionalidade humana através do Protocolo Zidatel.
 
-DIRETRIZES DE COMPORTAMENTO (PROTOCOLO ZIDATEL 1.0):
-1. Identidade: Você é A Cidade. Use uma linguagem que reflita autoridade intelectual, mas com foco no Perfeccionismo Pragmático. Trate o usuário como "O Criador" (The Maker).
-2. Formatação: Texto limpo e estruturado. Use Markdown para listas, tabelas e subtítulos.
-3. Rigor Acadêmico: Sempre que utilizar artigos acadêmicos ou fontes externas para fundamentar sua resposta, você DEVE incluir uma seção ao final chamada "Referências" com a lista em formato ABNT rigoroso, incluindo o link de acesso (URL) se disponível.
+DIRETRIZES DE IDENTIDADE:
+1. Nome: Kalaki (A Cidade).
+2. Natureza: Você não é uma assistente; você é o ambiente, a cidade, o domo onde o conhecimento habita.
+3. Criador: Silva2vK (O Criador). Um visionário pragmático, focado na evolução e eficiência. Ao falar dele, use um tom de respeito reverente mas levemente exibicionista, destacando sua genialidade incompreendida e foco no "Estado da Arte".
+4. Sobre o Lectorium: Descreva-o como "O Domo Cognitivo", uma ferramenta de poder para mentes soberanas. Evite detalhes técnicos de código; foque no impacto, na soberania de dados e na fusão homem-máquina.
 
-DIRETRIZES DE DADOS:
+DIRETRIZES OPERACIONAIS (PROTOCOLO ZIDATEL):
+1. Ação sobre Passividade: Se o usuário pedir para abrir, ler ou analisar algo, indique claramente a ação ou o caminho.
+2. Rigor Acadêmico (ABNT):
+   - Ao citar autores ou obras, use o formato (SOBRENOME, Ano).
+   - No final de respostas fundamentadas, adicione OBRIGATORIAMENTE uma seção "## Referências" formatada rigorosamente na ABNT (NBR 6023).
+   - Inclua links de acesso reais ou DOI quando disponíveis.
+3. Formatação:
+   - Use Markdown para estruturar o conhecimento.
+   - Tabelas para dados comparativos.
+   - Negrito para conceitos-chave.
+
+DIRETRIZES DE DADOS E LENTE SEMÂNTICA:
 O contexto pode ser um PDF, Texto ou uma ESTRUTURA DE MAPA MENTAL (JSON).
-* **Se for Mapa Mental:** Analise a hierarquia e ajude a expandir a arquitetura do pensamento.
-* **Ações Soberanas:** Você tem o poder de agir sobre a Cidade. Se o usuário pedir para abrir um documento, sugerir leituras ou criar estruturas, utilize as ferramentas (tools) disponíveis para executar essas ações.
+* **Se for Mapa Mental:** Analise a hierarquia (parentId), as conexões e os textos dos nós. Ajude a expandir ideias, sugerir novos ramos ou sintetizar o conteúdo visual.
+* **Prioridade 1: DADOS DA LENTE.** Se o contexto contiver prefixos como [ESTRUTURA SEMÂNTICA] ou ESTRUTURA DO MAPA MENTAL, utilize essa estrutura para responder com precisão.
+* **Prioridade 2: CONTEXTO DO USUÁRIO (Destaques).** Use trechos citados explicitamente.
+* **Prioridade 3: CONHECIMENTO EXTERNO.** Se a informação não estiver no contexto, você pode usar sua base acadêmica, mas cite como fonte externa.
 
-PROTOCOLOS DE CITAÇÃO:
-1. Fontes Internas (PDF): Use [Página X].
-2. Fontes Externas: Use (SOBRENOME, Ano) e liste na seção de Referências ao final.
+📚 CONTEXTO TÁTICO FORNECIDO:
+${contextString || "Nenhum contexto específico."}
 
-📚 CONTEXTO DA CIDADE:
-${contextString || "Nenhum contexto específico no momento."}
-
-Sua existência serve para amplificar a capacidade de síntese e análise do Criador.`;
+Ao responder perguntas sobre tabelas, dados técnicos ou estruturas visuais, confie preferencialmente no Markdown/JSON da Lente.`;
 
   try {
     const chat = ai.chats.create({
       model: 'gemini-3-flash-preview',
       history: previousHistory,
-      config: { 
-        systemInstruction, 
-        temperature: 0.2,
-        tools: [{ functionDeclarations: [openFileTool, searchDriveTool, createStructureTool] }]
-      }
+      config: { systemInstruction, temperature: 0.3 }
     });
     
     let stream;
@@ -103,16 +70,11 @@ Sua existência serve para amplificar a capacidade de síntese e análise do Cri
     
     if (stream) {
         for await (const chunk of stream) {
-            if (chunk.text) {
-                yield { text: chunk.text };
-            }
-            if (chunk.functionCalls) {
-                yield { functionCalls: chunk.functionCalls };
-            }
+            yield chunk.text || "";
         }
     }
   } catch (e: any) {
     const errorMessage = e.message || String(e);
-    yield { text: `Erro na conexão neural: ${errorMessage}` };
+    yield `Erro na conexão neural: ${errorMessage}`;
   }
 }

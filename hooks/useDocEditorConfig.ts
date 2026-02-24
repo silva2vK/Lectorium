@@ -33,7 +33,6 @@ import { PaginationExtension } from '../components/doc/extensions/PaginationExte
 import { TableOfContentsExtension } from '../components/doc/extensions/TableOfContentsExtension';
 import { FootnoteExtension } from '../components/doc/extensions/FootnoteExtension';
 import { CommentExtension } from '../components/doc/extensions/CommentExtension';
-import { CitationExtension } from '../components/doc/extensions/CitationExtension';
 
 interface UserInfo {
   name: string;
@@ -142,7 +141,6 @@ export const useDocEditorConfig = ({ onUpdate, fileId, userInfo, onTableDoubleCl
       TableOfContentsExtension,
       FootnoteExtension,
       CommentExtension,
-      CitationExtension,
       Placeholder.configure({
         placeholder: "Digite '/' para comandos ou comece a escrever...",
       }),

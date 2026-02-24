@@ -40,7 +40,7 @@ const THEME_COLORS = [
 export const PdfSidebar: React.FC<Props> = ({
   isOpen, onClose, activeTab, onTabChange, sidebarAnnotations, fichamentoText, onCopyFichamento, onDownloadFichamento, onNavigateBack
 }) => {
-  const { settings, updateSettings, removeAnnotation, ocrMap, nativeTextMap, hasUnsavedOcr, fileId, generateSearchIndex, docPageOffset, setDocPageOffset, accessToken } = usePdfContext();
+  const { settings, updateSettings, removeAnnotation, ocrMap, nativeTextMap, hasUnsavedOcr, fileId, generateSearchIndex, docPageOffset, setDocPageOffset } = usePdfContext();
   
   // Store consumption for navigation
   const jumpToPage = usePdfStore(s => s.jumpToPage);
@@ -252,7 +252,6 @@ export const PdfSidebar: React.FC<Props> = ({
                             fileId={fileId}
                             onIndexRequest={() => generateSearchIndex(contextForAi)}
                             numPages={numPages}
-                            accessToken={accessToken}
                         />
                     ) : activeTab === 'lens' ? (
                         <SemanticLensPanel pageNumber={currentPage} onNavigateBack={onNavigateBack} />

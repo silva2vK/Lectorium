@@ -43,10 +43,6 @@ interface PdfUiState {
   toggleSplitView: () => void;
   setActiveViewport: (viewport: 'primary' | 'secondary') => void;
   
-  // Data Sharing
-  currentText: string;
-  setCurrentText: (text: string) => void;
-  
   // Navigation
   zoomIn: () => void;
   zoomOut: () => void;
@@ -75,9 +71,6 @@ const createPdfStore = (initProps?: PdfStoreInitProps) => createStore<PdfUiState
     secondaryPage: 1,
     activeViewport: 'primary',
     
-    // Data Sharing
-    currentText: "",
-    
     isSpread: false,
     spreadSide: 'left',
     pageDimensions: null,
@@ -91,8 +84,6 @@ const createPdfStore = (initProps?: PdfStoreInitProps) => createStore<PdfUiState
     }),
     
     setRotation: (rotation) => set({ rotation }),
-    
-    setCurrentText: (text) => set({ currentText: text }),
     
     setCurrentPage: (input) => set((state) => {
         const next = typeof input === 'function' ? input(state.currentPage) : input;
@@ -216,11 +207,11 @@ const createPdfStore = (initProps?: PdfStoreInitProps) => createStore<PdfUiState
 );
 
 // 2. Context Definition
-const PdfStoreContext = createContext<any>(null);
+const PdfStoreContext = createContext<StoreApi<PdfUiState> | null>(null);
 
 // 3. Provider Component
 export const PdfStoreProvider: React.FC<{ children: React.ReactNode, initialPage?: number, initialScale?: number }> = ({ children, initialPage, initialScale }) => {
-  const storeRef = useRef<any>(null);
+  const storeRef = useRef<StoreApi<PdfUiState> | null>(null);
   if (!storeRef.current) {
     storeRef.current = createPdfStore({ defaultPage: initialPage, defaultScale: initialScale });
   }
@@ -238,7 +229,7 @@ export function usePdfStore<T>(selector: (state: PdfUiState) => T): T {
 }
 
 // 5. Hook to access store API directly (getState, setState, subscribe)
-export function usePdfStoreApi(): any {
+export function usePdfStoreApi(): StoreApi<PdfUiState> {
   const store = useContext(PdfStoreContext);
   if (!store) {
     throw new Error('Missing PdfStoreProvider');

@@ -9,10 +9,9 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   documentName: string;
-  accessToken?: string | null;
 }
 
-export const DocAiSidebar: React.FC<Props> = ({ editor, isOpen, onClose, documentName, accessToken }) => {
+export const DocAiSidebar: React.FC<Props> = ({ editor, isOpen, onClose, documentName }) => {
   if (!isOpen) return null;
 
   const documentText = editor?.getText() || "";
@@ -22,7 +21,7 @@ export const DocAiSidebar: React.FC<Props> = ({ editor, isOpen, onClose, documen
       <div className="flex items-center justify-between p-4 border-b border-[#444746] bg-surface">
         <h3 className="font-bold text-[#e3e3e3] flex items-center gap-2 text-sm uppercase tracking-widest">
           <Sparkles size={18} className="text-brand" />
-          Kalaki
+          Kalaki (A Cidade)
         </h3>
         <button onClick={onClose} className="text-gray-400 hover:text-white p-1">
           <X size={20} />
@@ -33,7 +32,6 @@ export const DocAiSidebar: React.FC<Props> = ({ editor, isOpen, onClose, documen
           <AiChatPanel 
             contextText={documentText} 
             documentName={documentName}
-            accessToken={accessToken}
           />
       </div>
     </div>

@@ -11,6 +11,7 @@ export const useDocUI = () => {
     wordCount: false,
     language: false,
     pageNumber: false,
+    citation: false,
     share: false,
     help: false,
     symbols: false,
@@ -19,9 +20,7 @@ export const useDocUI = () => {
     headerFooter: false,
     styleConfig: false,
     columns: false,
-    footnote: false,
-    extraction: false,
-    citation: false
+    footnote: false
   });
 
   const [sidebars, setSidebars] = useState({

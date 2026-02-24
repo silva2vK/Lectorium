@@ -17,8 +17,13 @@ interface ErrorBoundaryState {
  * ErrorBoundary component to catch rendering errors in child components.
  */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Explicitly declare properties to resolve "Property does not exist" errors
+  public props: ErrorBoundaryProps;
+  public state: ErrorBoundaryState;
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
+    this.props = props;
     this.state = {
       hasError: false,
       error: null

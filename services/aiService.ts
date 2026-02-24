@@ -220,7 +220,7 @@ export async function generateMindMapAi(topic: string): Promise<MindMapData> {
 
 export async function generateChartData(prompt: string): Promise<{ type: string, data: any[] }> {
     const ai = getAiClient();
-    const systemPrompt = `Você é um Cientista de Dados especializado em visualização (Kalaki).
+    const systemPrompt = `Você é Kalaki, a Cientista de Dados da Cidade.
     
     Sua tarefa é analisar o pedido do usuário e gerar DOIS outputs em um único JSON:
     1. 'type': O melhor tipo de gráfico para os dados ('bar', 'line', 'area', 'pie', 'radar', 'composed').
@@ -277,32 +277,5 @@ export async function analyzeChartData(data: any[]): Promise<string> {
         return response.text || "";
     } catch (e) {
         return "";
-    }
-}
-
-export async function extractDataFromText(text: string, fields: string[]): Promise<any[]> {
-    const ai = getAiClient();
-    const prompt = `Extraia dados estruturados do texto abaixo seguindo exatamente os campos solicitados.
-    
-    CAMPOS: ${fields.join(', ')}
-    
-    TEXTO:
-    ${text}
-    
-    Retorne um array JSON de objetos, onde cada objeto tem os campos solicitados como chaves.`;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json"
-            }
-        });
-        const result = JSON.parse(response.text || '[]');
-        return Array.isArray(result) ? result : [];
-    } catch (e) {
-        console.error("Erro na extração de dados:", e);
-        return [];
     }
 }

@@ -1,9 +1,9 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { useDocEditorConfig } from './hooks/useDocEditorConfig';
-import { useDocFileHandler } from './hooks/useDocFileHandler';
-import { usePageLayout } from './hooks/usePageLayout';
-import { useDocUI } from './hooks/useDocUI';
+import { useDocEditorConfig } from '../hooks/useDocEditorConfig';
+import { useDocFileHandler } from '../hooks/useDocFileHandler';
+import { usePageLayout } from '../hooks/usePageLayout';
+import { useDocUI } from '../hooks/useDocUI';
 import { EditorContent } from '@tiptap/react';
 import { TopMenuBar } from './doc/TopMenuBar';
 import { DocToolbar } from './doc/DocToolbar';
@@ -16,8 +16,8 @@ import { CitationModal } from './doc/modals/CitationModal';
 import { ShareModal } from './doc/modals/ShareModal';
 import { ColumnsModal } from './doc/modals/ColumnsModal';
 import { Loader2, ArrowLeft, FileText, Cloud, CheckCircle, Sparkles, Users, Lock } from 'lucide-react';
-import { Reference, EditorStats } from './types';
-import { auth } from './firebase';
+import { Reference, EditorStats } from '../types';
+import { auth } from '../firebase';
 
 interface Props {
   fileId: string;
@@ -143,7 +143,7 @@ export const DocEditor: React.FC<Props> = ({
                 <div ref={contentRef} className="relative z-10 min-h-screen" style={{ paddingTop: `${pageLayout.pageSettings.marginTop}cm`, paddingLeft: `${pageLayout.pageSettings.marginLeft}cm`, paddingRight: `${pageLayout.pageSettings.marginRight}cm` }}><EditorContent editor={editor} /></div>
              </div>
           </div>
-          <DocAiSidebar editor={editor} isOpen={sidebars.aiChat} onClose={() => toggleSidebar('aiChat', false)} documentName={fileHandler.currentName} accessToken={accessToken} />
+          <DocAiSidebar editor={editor} isOpen={sidebars.aiChat} onClose={() => toggleSidebar('aiChat', false)} documentName={fileHandler.currentName} />
           <CommentsSidebar editor={editor} isOpen={sidebars.comments} onClose={() => toggleSidebar('comments', false)} comments={comments} onAddComment={handleAddComment} onResolveComment={() => {}} onDeleteComment={() => {}} activeCommentId={activeCommentId} setActiveCommentId={setActiveCommentId} />
        </div>
 

@@ -437,13 +437,13 @@ const SECTIONS = [
   },
   {
     id: 'ai',
-    title: 'Kalaki (IA)',
+    title: 'Sexta-feira (IA)',
     icon: Workflow,
     content: (
       <div className="space-y-4">
         <h3 className="text-lg font-bold text-white">Sua Assistente de Pesquisa</h3>
         <p className="text-sm text-gray-300">
-          A "Kalaki" é a inteligência artificial integrada. Ela lê o que você está vendo.
+          A "Sexta-feira" é a inteligência artificial integrada. Ela lê o que você está vendo.
         </p>
 
         <div className="space-y-3">

@@ -98,8 +98,6 @@ export const PdfProvider: React.FC<any> = ({
   const activeTool = usePdfStore(s => s.activeTool);
   const scale = usePdfStore(s => s.scale);
   const setScale = usePdfStore(s => s.setScale);
-  const currentPage = usePdfStore(s => s.currentPage);
-  const setCurrentText = usePdfStore(s => s.setCurrentText);
 
   const [ocrMap, setOcrMap] = useState<Record<number, any[]>>({});
   const [nativeTextMap] = useState<Record<number, string>>({}); 
@@ -138,17 +136,6 @@ export const PdfProvider: React.FC<any> = ({
   useEffect(() => {
     if (initialScale && initialScale > 0) setScale(initialScale);
   }, [initialScale]);
-
-  // Sync Current Text to Store (for Split View / Extraction)
-  useEffect(() => {
-      const pageWords = ocrMap[currentPage];
-      if (pageWords && pageWords.length > 0) {
-          const text = pageWords.map(w => w.text).join(' ');
-          setCurrentText(text);
-      } else {
-          setCurrentText("");
-      }
-  }, [currentPage, ocrMap, setCurrentText]);
 
   useEffect(() => {
       if (initialSemanticData && Object.keys(initialSemanticData).length > 0) {

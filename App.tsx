@@ -211,6 +211,89 @@ const AppContent = () => {
       setOnboardingStep('none');
   }, []);
 
+  // Init & Theme Application
+  useEffect(() => {
+    const init = async () => {
+        const params = new URLSearchParams(window.location.search);
+        
+        // Deep Link: Suporte a links diretos para Termos/Privacidade
+        const legalParam = params.get('legal');
+        if (legalParam === 'privacy' || legalParam === 'terms') {
+            setLegalModalTab(legalParam as LegalTab);
+            setShowLegalModal(true);
+            window.history.replaceState({}, document.title, "/");
+        }
+
+        if (params.get('protocol') === 'genesis') {
+            setShowSecretThemeModal(true);
+            window.history.replaceState({}, document.title, "/");
+        }
+
+        // TENTA RECUPERAR RESULTADO DE REDIRECIONAMENTO (MOBILE AUTH)
+        await checkRedirectResult();
+
+        const root = document.documentElement;
+        const godModeTheme = localStorage.getItem('god_mode_theme');
+        
+        if (godModeTheme) {
+            try {
+                const parsed = JSON.parse(godModeTheme);
+                if (parsed.vars) {
+                    Object.entries(parsed.vars).forEach(([key, value]) => {
+                        root.style.setProperty(key, value as string);
+                    });
+                    root.classList.add('custom');
+                }
+            } catch (e) { console.warn("Erro ao carregar tema secreto"); }
+        } else {
+            const savedTheme = localStorage.getItem('app-theme') || 'forest';
+            const customColor = localStorage.getItem('custom-theme-brand');
+            
+            // Limpa classes antes de aplicar
+            root.className = ''; 
+            if (savedTheme !== 'forest') {
+                root.classList.add(savedTheme);
+                if (savedTheme === 'custom' && customColor) {
+                    root.style.setProperty('--custom-brand', customColor);
+                }
+            }
+        }
+
+        await performAppUpdateCleanup();
+        await runJanitor(); 
+        const storedHandle = await getLocalDirectoryHandle();
+        if (storedHandle) setSavedLocalDirHandle(storedHandle);
+
+        checkOnboarding();
+
+        // Check Fullscreen Preference
+        const fsPref = localStorage.getItem('fullscreen_pref');
+        if (fsPref === 'true' && !document.fullscreenElement) {
+            setTimeout(() => setShowFullscreenPrompt(true), 1000);
+        }
+    };
+    init();
+    
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (!currentUser) { setAccessToken(null); setOpenFiles([]); setActiveTab('dashboard'); } 
+      else { const storedToken = getValidDriveToken(); if (storedToken) setAccessToken(storedToken); }
+    });
+
+    const handleTokenUpdate = (e: Event) => {
+        const customEvent = e as CustomEvent;
+        if (customEvent.detail && customEvent.detail.token) {
+            setAccessToken(customEvent.detail.token);
+            setShowReauthToast(false);
+        }
+    };
+    window.addEventListener(DRIVE_TOKEN_EVENT, handleTokenUpdate);
+
+    return () => {
+        unsubscribeAuth();
+        window.removeEventListener(DRIVE_TOKEN_EVENT, handleTokenUpdate);
+    };
+  }, [checkOnboarding]);
 
   const handleCookieAccepted = () => {
       // Quando cookie é aceito, dispara verificação dos próximos passos
@@ -348,109 +431,6 @@ const AppContent = () => {
   }, [handleOpenFile]);
 
   const handleCreateFileFromBlob = useCallback((blob: Blob, name: string, mimeType: string) => { handleOpenFile({ id: `local-${Date.now()}`, name, mimeType, blob }); }, [handleOpenFile]);
-
-  // Init & Theme Application
-  useEffect(() => {
-    const init = async () => {
-        const params = new URLSearchParams(window.location.search);
-        
-        // Deep Link: Suporte a links diretos para Termos/Privacidade
-        const legalParam = params.get('legal');
-        if (legalParam === 'privacy' || legalParam === 'terms') {
-            setLegalModalTab(legalParam as LegalTab);
-            setShowLegalModal(true);
-            window.history.replaceState({}, document.title, "/");
-        }
-
-        if (params.get('protocol') === 'genesis') {
-            setShowSecretThemeModal(true);
-            window.history.replaceState({}, document.title, "/");
-        }
-
-        // TENTA RECUPERAR RESULTADO DE REDIRECIONAMENTO (MOBILE AUTH)
-        await checkRedirectResult();
-
-        const root = document.documentElement;
-        const godModeTheme = localStorage.getItem('god_mode_theme');
-        
-        if (godModeTheme) {
-            try {
-                const parsed = JSON.parse(godModeTheme);
-                if (parsed.vars) {
-                    Object.entries(parsed.vars).forEach(([key, value]) => {
-                        root.style.setProperty(key, value as string);
-                    });
-                    root.classList.add('custom');
-                }
-            } catch (e) { console.warn("Erro ao carregar tema secreto"); }
-        } else {
-            const savedTheme = localStorage.getItem('app-theme') || 'forest';
-            const customColor = localStorage.getItem('custom-theme-brand');
-            
-            // Limpa classes antes de aplicar
-            root.className = ''; 
-            if (savedTheme !== 'forest') {
-                root.classList.add(savedTheme);
-                if (savedTheme === 'custom' && customColor) {
-                    root.style.setProperty('--custom-brand', customColor);
-                }
-            }
-        }
-
-        await performAppUpdateCleanup();
-        await runJanitor(); 
-        const storedHandle = await getLocalDirectoryHandle();
-        if (storedHandle) setSavedLocalDirHandle(storedHandle);
-
-        checkOnboarding();
-
-        // Check Fullscreen Preference
-        const fsPref = localStorage.getItem('fullscreen_pref');
-        if (fsPref === 'true' && !document.fullscreenElement) {
-            setTimeout(() => setShowFullscreenPrompt(true), 1000);
-        }
-    };
-    init();
-    
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (!currentUser) { setAccessToken(null); setOpenFiles([]); setActiveTab('dashboard'); } 
-      else { const storedToken = getValidDriveToken(); if (storedToken) setAccessToken(storedToken); }
-    });
-
-    const handleTokenUpdate = (e: Event) => {
-        const customEvent = e as CustomEvent;
-        if (customEvent.detail && customEvent.detail.token) {
-            setAccessToken(customEvent.detail.token);
-            setShowReauthToast(false);
-        }
-    };
-    window.addEventListener(DRIVE_TOKEN_EVENT, handleTokenUpdate);
-
-    const handleKalakiAction = (e: Event) => {
-        const { name, args } = (e as CustomEvent).detail;
-        switch (name) {
-            case 'open_file':
-                handleOpenFile({ id: args.fileId, name: args.fileName || 'Arquivo solicitado', mimeType: '' });
-                break;
-            case 'search_drive':
-                setActiveTab('browser');
-                // A busca será tratada pelo componente DriveBrowser se integrarmos o estado
-                break;
-            case 'create_structure':
-                if (args.type === 'mindmap') handleCreateMindMap();
-                else handleCreateDocument();
-                break;
-        }
-    };
-    window.addEventListener('kalaki-action', handleKalakiAction);
-
-    return () => {
-        unsubscribeAuth();
-        window.removeEventListener(DRIVE_TOKEN_EVENT, handleTokenUpdate);
-        window.removeEventListener('kalaki-action', handleKalakiAction);
-    };
-  }, [checkOnboarding, handleOpenFile, handleCreateMindMap, handleCreateDocument]);
 
   const handleCloseFile = useCallback((id: string) => {
     setOpenFiles(prev => { const next = prev.filter(f => f.id !== id); if (activeTab === id) setActiveTab(next.length ? next[next.length - 1].id : 'dashboard'); return next; });

@@ -10,14 +10,13 @@ import {
   Type, MessageSquareQuote,
   Check, ArrowDownToLine,
   Minus, Terminal, Indent as IndentIcon,
-  ChevronLeft, ChevronRight, ScanLine
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 interface Props {
   editor: Editor | null;
   onInsertImage: () => void;
   onAddFootnote: () => void;
-  onExtract?: () => void;
   // Pagination Props
   currentPage: number;
   totalPages: number;
@@ -40,7 +39,7 @@ const FONTS = [
 ];
 
 export const DocToolbar: React.FC<Props> = ({ 
-  editor, onInsertImage, onAddFootnote, onExtract,
+  editor, onInsertImage, onAddFootnote,
   currentPage, totalPages, onJumpToPage
 }) => {
   const [activeMenu, setActiveMenu] = useState<'align' | 'format' | 'spacing' | null>(null);
@@ -392,7 +391,6 @@ export const DocToolbar: React.FC<Props> = ({
       <div className="flex items-center gap-0.5 bg-brand/5 p-1 rounded-lg shrink-0 border border-brand/20">
         <Button onClick={onInsertImage} title="Imagem"><ImageIcon size={16} className="text-brand" /></Button>
         <Button onClick={addTable} title="Tabela"><Table size={16} className="text-brand" /></Button>
-        {onExtract && <Button onClick={onExtract} title="Extração Tabular (IA)"><ScanLine size={16} className="text-brand" /></Button>}
         
         {/* Page Counter & Jumper */}
         <div className="flex items-center gap-2 px-2 bg-brand/10 rounded-lg ml-1 h-[32px] border border-brand/30">
