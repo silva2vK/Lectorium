@@ -3,6 +3,7 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,7 +12,17 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, (process as any).cwd(), '');
 
   return {
-    plugins: [react()],
+    plugins: [
+      react(),
+      nodePolyfills({
+        include: ['fs', 'path'],
+        globals: {
+          Buffer: true,
+          global: true,
+          process: true,
+        },
+      }),
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './'),
@@ -26,7 +37,7 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       target: 'esnext',
-      chunkSizeWarningLimit: 1600,
+      chunkSizeWarningLimit: 3000,
       rollupOptions: {
         external: ['unrar-js'],
         output: {
@@ -53,7 +64,8 @@ export default defineConfig(({ mode }) => {
               'qrcode'
             ],
             'pdf-engine': ['pdfjs-dist', 'pdf-lib'],
-            'image-utils': ['heic2any', 'utif', 'daikon', 'jszip'],
+            'image-utils-1': ['heic2any', 'utif'],
+            'image-utils-2': ['daikon', 'jszip'],
             'ai-sdk': ['@google/genai'],
           },
         },

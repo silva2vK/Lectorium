@@ -133,7 +133,9 @@ const AppContent = () => {
           wakeLock = await (navigator as any).wakeLock.request('screen');
           console.debug('[Lectorium] Wake Lock active (Screen On)');
         } catch (err: any) {
-          console.warn('[Lectorium] Wake Lock denied:', err.message);
+          if (err.name !== 'NotAllowedError') {
+            console.warn('[Lectorium] Wake Lock denied:', err.message);
+          }
         }
       }
     };
@@ -149,7 +151,7 @@ const AppContent = () => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (wakeLock) wakeLock.release();
+      if (wakeLock) wakeLock.release().catch(() => {});
     };
   }, []);
 
