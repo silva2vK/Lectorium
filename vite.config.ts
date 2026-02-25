@@ -43,30 +43,6 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks: {
             'vendor-react': ['react', 'react-dom'],
-            'lectorium-core': [
-              '@tiptap/react', 
-              '@tiptap/starter-kit',
-              '@tiptap/extension-table',
-              '@tiptap/extension-image',
-              '@tiptap/extension-link',
-              '@tiptap/extension-highlight',
-              '@tiptap/extension-underline',
-              '@tiptap/extension-text-align',
-              '@tiptap/extension-placeholder',
-              '@tiptap/extension-task-list',
-              '@tiptap/extension-typography',
-              'pdfjs-dist', 
-              'pdf-lib'
-            ],
-            'heavy-libs': [
-              'mermaid', 
-              'katex', 
-              'recharts', 
-              'docx',
-              'qrcode'
-            ],
-            'image-utils-1': ['heic2any', 'utif'],
-            'image-utils-2': ['daikon', 'jszip'],
             'ai-sdk': ['@google/genai'],
           },
         },
