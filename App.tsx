@@ -12,6 +12,7 @@ import { openDirectoryPicker, verifyPermission } from './services/localFileServi
 import { useSync } from './hooks/useSync';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
+import { OperationalArchive } from './components/OperationalArchive';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CookieConsent } from './components/CookieConsent';
 import { DriveFile, MIME_TYPES } from './types';
@@ -491,6 +492,10 @@ const AppContent = () => {
   const activeContent = useMemo(() => {
     if (activeTab === 'dashboard') return <Dashboard userName={user?.displayName} onOpenFile={handleOpenFile} onUploadLocal={(e) => { const f = e.target.files?.[0]; if (f) handleCreateFileFromBlob(f, f.name, f.type); }} onCreateMindMap={() => handleCreateMindMap()} onCreateDocument={() => handleCreateDocument()} onCreateFileFromBlob={handleCreateFileFromBlob} onChangeView={(view) => setActiveTab(view)} onToggleMenu={() => setIsSidebarOpen(true)} storageMode={storageMode} onToggleStorageMode={setStorageMode} onLogin={handleLogin} onOpenLocalFolder={handleOpenLocalFolder} savedLocalDirHandle={savedLocalDirHandle} onReconnectLocalFolder={handleReconnectLocalFolder} syncStrategy={syncStrategy} onToggleSyncStrategy={handleToggleSyncStrategy} />;
     
+    if (activeTab === 'operational-archive') {
+        return <OperationalArchive accessToken={accessToken || ''} onToggleMenu={() => setIsSidebarOpen(true)} />;
+    }
+
     if (activeTab === 'browser' || activeTab === 'mindmaps' || activeTab === 'offline' || activeTab === 'local-fs' || activeTab === 'shared') {
         const mode = activeTab === 'browser' ? 'default' : activeTab === 'local-fs' ? 'local' : activeTab as any;
         return (

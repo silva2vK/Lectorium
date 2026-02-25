@@ -211,6 +211,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button onClick={() => handleNavigation('mindmaps')} className={`w-full p-3 rounded-xl flex items-center px-4 transition-all duration-200 ${activeTab === 'mindmaps' ? 'bg-gradient-to-r from-brand/20 to-brand/5 text-brand font-bold border border-brand/20 shadow-[0_0_15px_-5px_rgba(74,222,128,0.1)]' : 'text-white/90 hover:bg-white/5 hover:text-white'}`}>
               <Workflow size={20} /><span className="ml-3 text-[17px]">Mapas Mentais</span>
             </button>
+            <button onClick={() => handleNavigation('operational-archive')} className={`w-full p-3 rounded-xl flex items-center px-4 transition-all duration-200 ${activeTab === 'operational-archive' ? 'bg-gradient-to-r from-brand/20 to-brand/5 text-brand font-bold border border-brand/20 shadow-[0_0_15px_-5px_rgba(74,222,128,0.1)]' : 'text-white/90 hover:bg-white/5 hover:text-white'}`}>
+              <Database size={20} /><span className="ml-3 text-[17px]">Arquivo Operacional</span>
+            </button>
           </div>
 
           <div className="pt-6 mt-2 space-y-1">
