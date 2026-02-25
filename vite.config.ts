@@ -43,7 +43,7 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks: {
             'vendor-react': ['react', 'react-dom'],
-            'editor-core': [
+            'lectorium-core': [
               '@tiptap/react', 
               '@tiptap/starter-kit',
               '@tiptap/extension-table',
@@ -54,7 +54,9 @@ export default defineConfig(({ mode }) => {
               '@tiptap/extension-text-align',
               '@tiptap/extension-placeholder',
               '@tiptap/extension-task-list',
-              '@tiptap/extension-typography'
+              '@tiptap/extension-typography',
+              'pdfjs-dist', 
+              'pdf-lib'
             ],
             'heavy-libs': [
               'mermaid', 
@@ -63,7 +65,6 @@ export default defineConfig(({ mode }) => {
               'docx',
               'qrcode'
             ],
-            'pdf-engine': ['pdfjs-dist', 'pdf-lib'],
             'image-utils-1': ['heic2any', 'utif'],
             'image-utils-2': ['daikon', 'jszip'],
             'ai-sdk': ['@google/genai'],
