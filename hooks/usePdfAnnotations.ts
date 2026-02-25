@@ -161,5 +161,15 @@ export const usePdfAnnotations = (
     try { await deleteLocalAnnotation(target.id!); } catch (e) {}
   }, [uid, fileId, isCheckingIntegrity, conflictDetected, mergeAndSet]);
 
-  return { annotations, addAnnotation, removeAnnotation, conflictDetected, resolveConflict, isCheckingIntegrity, hasPageMismatch, pageOffset, setPageOffset, semanticData };
+  const updateAnnotation = useCallback(async (updatedAnn: Annotation) => {
+    if (isCheckingIntegrity || conflictDetected || updatedAnn.isBurned || !updatedAnn.id) return;
+    
+    localAnnsRef.current = localAnnsRef.current.map(a => a.id === updatedAnn.id ? updatedAnn : a);
+    importedAnnsRef.current = importedAnnsRef.current.map(a => a.id === updatedAnn.id ? updatedAnn : a);
+    
+    mergeAndSet();
+    try { await saveAnnotation(uid, fileId, updatedAnn); } catch (e) {}
+  }, [uid, fileId, isCheckingIntegrity, conflictDetected, mergeAndSet]);
+
+  return { annotations, addAnnotation, removeAnnotation, updateAnnotation, conflictDetected, resolveConflict, isCheckingIntegrity, hasPageMismatch, pageOffset, setPageOffset, semanticData };
 };

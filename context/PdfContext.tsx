@@ -36,6 +36,7 @@ interface PdfContextState {
   annotations: Annotation[];
   addAnnotation: (ann: Annotation) => void;
   removeAnnotation: (ann: Annotation) => void;
+  updateAnnotation: (ann: Annotation) => void;
   ocrMap: Record<number, any[]>;
   nativeTextMap: Record<number, string>; 
   setPageOcrData: (page: number, words: any[]) => void;
@@ -92,7 +93,7 @@ const DEFAULT_SETTINGS: PdfSettings = {
 };
 
 export const PdfProvider: React.FC<any> = ({ 
-  children, numPages, annotations, onAddAnnotation, onRemoveAnnotation, accessToken, fileId, pdfDoc,
+  children, numPages, annotations, onAddAnnotation, onRemoveAnnotation, onUpdateAnnotation, accessToken, fileId, pdfDoc,
   onUpdateSourceBlob, currentBlob, initialPageOffset, onSetPageOffset, initialScale, initialSemanticData
 }) => {
   const activeTool = usePdfStore(s => s.activeTool);
@@ -310,7 +311,7 @@ export const PdfProvider: React.FC<any> = ({
 
   const value = useMemo(() => ({
     settings, updateSettings: (s: any) => setSettings(p => ({ ...p, ...s })), 
-    annotations, addAnnotation: onAddAnnotation, removeAnnotation: onRemoveAnnotation,
+    annotations, addAnnotation: onAddAnnotation, removeAnnotation: onRemoveAnnotation, updateAnnotation: onUpdateAnnotation,
     ocrMap, nativeTextMap, setPageOcrData: (p: any, w: any) => setOcrMap(prev => ({ ...prev, [p]: w })),
     showOcrModal, setShowOcrModal, hasUnsavedOcr, setHasUnsavedOcr, ocrNotification,
     accessToken, fileId, updateSourceBlob: onUpdateSourceBlob, currentBlobRef, 

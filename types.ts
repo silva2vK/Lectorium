@@ -65,6 +65,7 @@ export interface Annotation {
   opacity?: number;
   strokeWidth?: number;
   isBurned?: boolean;
+  tags?: string[];
 }
 
 export interface PdfMetadataV2 {
