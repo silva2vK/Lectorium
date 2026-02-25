@@ -1,12 +1,13 @@
 
 import React, { useMemo, useState } from 'react';
-import { X, Lock, FileText, Copy, Sparkles, AlertCircle, Palette, Droplets, Binary, Pen, Highlighter, ScanLine, MessageSquare, ScrollText, BookOpen, SplitSquareHorizontal, LayoutTemplate } from 'lucide-react';
+import { X, Lock, FileText, Copy, Sparkles, AlertCircle, Palette, Droplets, Binary, Pen, Highlighter, ScanLine, MessageSquare, ScrollText, BookOpen, SplitSquareHorizontal, LayoutTemplate, Hash } from 'lucide-react';
 import { Annotation } from '../../types';
 import { usePdfContext } from '../../context/PdfContext';
 import { usePdfStore } from '../../stores/usePdfStore';
 import { AiChatPanel } from '../shared/AiChatPanel';
 import { SemanticLensPanel } from './SemanticLensPanel';
 import { ColorPickerModal } from '../shared/ColorPickerModal';
+import { TagModal } from './modals/TagModal';
 
 export type SidebarTab = 'annotations' | 'settings' | 'fichamento' | 'ai' | 'chat' | 'lens';
 
@@ -40,7 +41,7 @@ const THEME_COLORS = [
 export const PdfSidebar: React.FC<Props> = ({
   isOpen, onClose, activeTab, onTabChange, sidebarAnnotations, fichamentoText, onCopyFichamento, onDownloadFichamento, onNavigateBack
 }) => {
-  const { settings, updateSettings, removeAnnotation, ocrMap, nativeTextMap, hasUnsavedOcr, fileId, generateSearchIndex, docPageOffset, setDocPageOffset } = usePdfContext();
+  const { settings, updateSettings, removeAnnotation, updateAnnotation, ocrMap, nativeTextMap, hasUnsavedOcr, fileId, generateSearchIndex, docPageOffset, setDocPageOffset } = usePdfContext();
   
   // Store consumption for navigation
   const jumpToPage = usePdfStore(s => s.jumpToPage);
@@ -53,6 +54,9 @@ export const PdfSidebar: React.FC<Props> = ({
 
   // State for Color Picker Modal
   const [colorModalType, setColorModalType] = useState<'page' | 'text' | null>(null);
+
+  // State for Tag Modal
+  const [taggingAnnotation, setTaggingAnnotation] = useState<Annotation | null>(null);
 
   // --- JARVIS PROTOCOL: SEMANTIC DEDUPLICATION (V2.1) ---
   const uniqueAnnotations = useMemo(() => {
@@ -221,10 +225,18 @@ export const PdfSidebar: React.FC<Props> = ({
                             )}
                             {uniqueAnnotations.map((ann, idx) => (
                                 <div key={ann.id || idx} onClick={() => jumpToPage(ann.page)} className="bg-[#1a1a1a] p-3 rounded-xl border border-white/5 hover:border-brand/50 cursor-pointer group transition-all hover:bg-white/5 relative">
-                                    <div className="flex items-center gap-2 mb-2">
+                                    <div className="flex items-center gap-2 mb-2 pr-6">
                                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: ann.color || '#08fc72', color: ann.color || '#08fc72' }} />
                                         <span className="text-[10px] text-white font-mono">PÁG {(ann.page + docPageOffset).toString().padStart(2, '0')}</span>
                                         {ann.isBurned && <span className="text-[9px] bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-white ml-auto flex items-center gap-1"><Lock size={8}/> GRAVADO</span>}
+                                        
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); setTaggingAnnotation(ann); }}
+                                            className={`p-1 rounded-lg transition-colors ${ann.tags?.length ? 'text-brand bg-brand/10' : 'text-white/30 hover:text-white hover:bg-white/10'} ${!ann.isBurned ? 'mr-4' : 'ml-auto'}`}
+                                            title="Adicionar Tag"
+                                        >
+                                            <Hash size={12} />
+                                        </button>
                                     </div>
                                     <p 
                                         className="text-sm text-white line-clamp-2 leading-relaxed font-medium select-text selection:bg-brand/30 selection:text-white"
@@ -232,6 +244,17 @@ export const PdfSidebar: React.FC<Props> = ({
                                     >
                                         {ann.text || <span className="italic opacity-50 text-xs">Anotação usando caneta</span>}
                                     </p>
+                                    
+                                    {ann.tags && ann.tags.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-2">
+                                            {ann.tags.map(tag => (
+                                                <span key={tag} className="text-[9px] bg-brand/10 text-brand border border-brand/20 px-1.5 py-0.5 rounded-md">
+                                                    #{tag}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+
                                     {!ann.isBurned && <button onClick={(e) => { e.stopPropagation(); removeAnnotation(ann); }} className="absolute top-2 right-2 text-white hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-white/5 rounded-lg"><X size={14} /></button>}
                                 </div>
                             ))}
@@ -529,6 +552,18 @@ export const PdfSidebar: React.FC<Props> = ({
             onSelect={(color) => {
                 if (colorModalType === 'page') updateSettings({ pageColor: color });
                 else if (colorModalType === 'text') updateSettings({ textColor: color });
+            }}
+        />
+
+        <TagModal 
+            isOpen={!!taggingAnnotation}
+            onClose={() => setTaggingAnnotation(null)}
+            annotation={taggingAnnotation}
+            onSave={(tags) => {
+                if (taggingAnnotation) {
+                    updateAnnotation({ ...taggingAnnotation, tags });
+                }
+                setTaggingAnnotation(null);
             }}
         />
     </>
