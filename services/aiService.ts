@@ -1,7 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { MindMapData } from "../types";
-import { getStoredApiKey } from "../utils/apiKeyUtils";
+import { getStoredApiKey, rotateApiKey } from "../utils/apiKeyUtils";
 
 // --- CONFIG ---
 export const getAiClient = () => {
@@ -18,10 +18,28 @@ export const getAiClient = () => {
 // Utils
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Wrapper for Key Rotation Logic
+export async function withKeyRotation<T>(operation: () => Promise<T>, retryCount = 0): Promise<T> {
+  try {
+    return await operation();
+  } catch (e: any) {
+    const isRateLimit = e.message?.includes('429') || e.message?.includes('quota');
+    
+    if (isRateLimit) {
+      const rotated = rotateApiKey();
+      if (rotated && retryCount < 3) {
+        console.warn(`[Key Pool] Cota excedida. Rotacionando chave e tentando novamente (Tentativa ${retryCount + 1})...`);
+        await sleep(1000); // Brief pause before retry
+        return withKeyRotation(operation, retryCount + 1);
+      }
+    }
+    throw e;
+  }
+}
+
 // --- AI FUNCTIONS ---
 
 export async function generateEmbeddings(texts: string[]): Promise<Float32Array[]> {
-  const ai = getAiClient();
   const model = "text-embedding-004";
   
   const embeddings: Float32Array[] = new Array(texts.length).fill(new Float32Array(0));
@@ -33,14 +51,17 @@ export async function generateEmbeddings(texts: string[]): Promise<Float32Array[
       if (!text || !text.trim()) return;
 
       try {
-          const result = await ai.models.embedContent({
-              model: model,
-              content: { parts: [{ text: text.trim() }] }
+          await withKeyRotation(async () => {
+              const ai = getAiClient(); // Get fresh client inside rotation wrapper
+              const result = await ai.models.embedContent({
+                  model: model,
+                  content: { parts: [{ text: text.trim() }] }
+              });
+              
+              if (result.embedding && result.embedding.values) {
+                  embeddings[index] = new Float32Array(result.embedding.values);
+              }
           });
-          
-          if (result.embedding && result.embedding.values) {
-              embeddings[index] = new Float32Array(result.embedding.values);
-          }
       } catch (e: any) {
           const isRateLimit = e.message?.includes('429') || e.message?.includes('quota');
           
@@ -71,8 +92,6 @@ export async function generateEmbeddings(texts: string[]): Promise<Float32Array[
 }
 
 export async function generateDocumentBriefing(fullText: string): Promise<string> {
-    const ai = getAiClient();
-    
     let textToAnalyze = fullText;
     if (fullText.length > 50000) {
         const start = fullText.slice(0, 15000); 
@@ -92,12 +111,15 @@ export async function generateDocumentBriefing(fullText: string): Promise<string
     ${textToAnalyze}`;
 
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: prompt,
-            config: { temperature: 0.3 }
+        return await withKeyRotation(async () => {
+            const ai = getAiClient();
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: prompt,
+                config: { temperature: 0.3 }
+            });
+            return response.text || "Não foi possível gerar o briefing.";
         });
-        return response.text || "Não foi possível gerar o briefing.";
     } catch (e: any) {
         if (e.message?.includes('429')) return "Tráfego intenso. Tente gerar o briefing novamente em alguns instantes.";
         throw e;
@@ -105,8 +127,6 @@ export async function generateDocumentBriefing(fullText: string): Promise<string
 }
 
 export async function refineOcrWords(words: string[]): Promise<string[]> {
-  const ai = getAiClient();
-  
   if (words.length > 500) {
       const chunks = [];
       for (let i = 0; i < words.length; i += 500) {
@@ -131,38 +151,40 @@ ENTRADA:
 ${JSON.stringify(words)}`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            correctedWords: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            }
-          },
-          required: ["correctedWords"]
+    return await withKeyRotation(async () => {
+      const ai = getAiClient();
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              correctedWords: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING }
+              }
+            },
+            required: ["correctedWords"]
+          }
         }
+      });
+      const result = JSON.parse(response.text || '{"correctedWords": []}');
+      const corrected = result.correctedWords || [];
+      
+      if (Math.abs(corrected.length - words.length) > 5) {
+          return words;
       }
+      
+      return corrected;
     });
-    const result = JSON.parse(response.text || '{"correctedWords": []}');
-    const corrected = result.correctedWords || [];
-    
-    if (Math.abs(corrected.length - words.length) > 5) {
-        return words;
-    }
-    
-    return corrected;
   } catch (e) {
     return words;
   }
 }
 
 export async function refineTranscript(rawText: string): Promise<string> {
-    const ai = getAiClient();
     const prompt = `Você é um Editor Sênior especialista em restauração de textos antigos e jornais.
     Sua tarefa é reorganizar a transcrição crua abaixo (OCR) que está fragmentada ou misturada.
 
@@ -177,12 +199,15 @@ export async function refineTranscript(rawText: string): Promise<string> {
     ${rawText.slice(0, 30000)} (Truncado por segurança)`;
 
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: prompt,
-            config: { temperature: 0.2 }
+        return await withKeyRotation(async () => {
+            const ai = getAiClient();
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: prompt,
+                config: { temperature: 0.2 }
+            });
+            return response.text || rawText;
         });
-        return response.text || rawText;
     } catch (e: any) {
         console.error("AI Refinement failed", e);
         throw new Error("Falha ao refinar texto com IA.");
@@ -190,7 +215,6 @@ export async function refineTranscript(rawText: string): Promise<string> {
 }
 
 export async function generateMindMapAi(topic: string): Promise<MindMapData> {
-    const ai = getAiClient();
     const prompt = `Crie uma estrutura inicial de mapa mental para o assunto: "${topic}".
     Retorne um JSON seguindo exatamente esta interface:
     interface MindMapNode {
@@ -206,12 +230,15 @@ export async function generateMindMapAi(topic: string): Promise<MindMapData> {
     4. O JSON deve ser o único retorno.`;
 
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
-            contents: prompt,
-            config: { responseMimeType: "application/json" }
+        return await withKeyRotation(async () => {
+            const ai = getAiClient();
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-pro-preview',
+                contents: prompt,
+                config: { responseMimeType: "application/json" }
+            });
+            return JSON.parse(response.text || "{}");
         });
-        return JSON.parse(response.text || "{}");
     } catch (e) {
         console.error("AI MindMap generation failed", e);
         throw new Error("Falha ao gerar mapa com IA.");
@@ -219,7 +246,6 @@ export async function generateMindMapAi(topic: string): Promise<MindMapData> {
 }
 
 export async function generateChartData(prompt: string): Promise<{ type: string, data: any[] }> {
-    const ai = getAiClient();
     const systemPrompt = `Você é Kalaki, a Cientista de Dados da Cidade.
     
     Sua tarefa é analisar o pedido do usuário e gerar DOIS outputs em um único JSON:
@@ -249,32 +275,37 @@ export async function generateChartData(prompt: string): Promise<{ type: string,
     Seja criativo e realista com os números. Retorne APENAS o JSON.`;
 
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: prompt,
-            config: { 
-                systemInstruction: systemPrompt,
-                responseMimeType: "application/json" 
-            }
+        return await withKeyRotation(async () => {
+            const ai = getAiClient();
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: prompt,
+                config: { 
+                    systemInstruction: systemPrompt,
+                    responseMimeType: "application/json" 
+                }
+            });
+            return JSON.parse(response.text || '{"type": "bar", "data": []}');
         });
-        return JSON.parse(response.text || '{"type": "bar", "data": []}');
     } catch (e: any) {
         throw new Error("Falha ao gerar dados do gráfico: " + e.message);
     }
 }
 
 export async function analyzeChartData(data: any[]): Promise<string> {
-    const ai = getAiClient();
     const prompt = `Analise os seguintes dados de um gráfico e forneça um insight analítico curto (máx 2 frases) para usar como legenda/conclusão. Foque em tendências, picos ou anomalias.
     
     DADOS: ${JSON.stringify(data.slice(0, 10))}`; // Slice para economizar tokens se for grande
 
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: prompt
+        return await withKeyRotation(async () => {
+            const ai = getAiClient();
+            const response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: prompt
+            });
+            return response.text || "";
         });
-        return response.text || "";
     } catch (e) {
         return "";
     }
