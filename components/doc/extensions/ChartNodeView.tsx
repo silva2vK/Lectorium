@@ -2,24 +2,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
 import { 
-  BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, ComposedChart, ReferenceLine, Label
-} from 'recharts';
-import { 
   Settings2, Activity, X, Table, Plus, Trash2, Sparkles, Layout, Palette, Grid3X3, Layers, Wand2, HelpCircle,
   AlignLeft, ActivitySquare, Eraser, Baseline, FileText
 } from 'lucide-react';
 import { generateChartData, analyzeChartData } from '../../../services/aiService';
-
-// --- PALETAS TEMÁTICAS VIBRANTES ---
-const PALETTES: Record<string, { label: string, colors: string[] }> = {
-  default: { label: 'Vibrant', colors: ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'] },
-  maker: { label: 'The Maker', colors: ['#2563eb', '#DC143C', '#f8fafc', '#64748b', '#0f172a'] },
-  academic: { label: 'Sóbrio', colors: ['#334155', '#94a3b8', '#cbd5e1', '#475569', '#1e293b'] },
-  neon: { label: 'Cyberpunk', colors: ['#00f0ff', '#ff00aa', '#bc13fe', '#f9f871', '#00ff9f'] },
-  forest: { label: 'Bioluminescente', colors: ['#4ade80', '#2dd4bf', '#a3e635', '#0ea5e9', '#10b981'] },
-  warm: { label: 'Solar', colors: ['#ff5722', '#ffc107', '#ff9800', '#f44336', '#e91e63'] }
-};
+import { VisualChart, PALETTES } from '../../shared/VisualChart';
 
 const DEFAULT_DATA = [
   { nome: 'Grupo A', valor: 85, desc: 'Meta Atingida' },
@@ -421,75 +408,28 @@ export const ChartNodeView = (props: any) => {
 
   return (
     <NodeViewWrapper className="react-renderer my-8 select-none w-full flex justify-center">
-      <div className="relative group border border-[#1e3a8a]/40 bg-[#020617] rounded-sm transition-all w-full max-w-4xl shadow-[0_0_40px_-10px_rgba(30,58,138,0.2)] overflow-hidden flex flex-col">
-        
-        {/* Background Grid */}
-        <div className="absolute inset-0 pointer-events-none z-0 opacity-20" style={{ backgroundImage: `linear-gradient(rgba(59, 130, 246, 0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(59, 130, 246, 0.15) 1px, transparent 1px)`, backgroundSize: '20px 20px' }} />
-
-        <div className="flex flex-col items-center mb-4 pt-6 px-6 relative z-10">
-           <h3 className="text-xl font-bold text-white tracking-tight uppercase font-mono">{title}</h3>
-           <div className="w-16 h-0.5 bg-brand/50 mt-1"></div>
-        </div>
+      <div className="relative group w-full max-w-4xl">
+        <VisualChart 
+          type={type}
+          data={data}
+          title={title}
+          paletteKey={paletteKey}
+          customColors={customColors}
+          showGrid={showGrid}
+          showLegend={showLegend}
+          showAverage={showAverage}
+          isStacked={isStacked}
+          insight={insight}
+          xAxisLabel={xAxisLabel}
+          yAxisLabel={yAxisLabel}
+          yAxisRightLabel={yAxisRightLabel}
+        />
 
         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-20">
             <button onClick={() => setIsEditing(true)} className="p-2 bg-brand/10 text-brand border border-brand/50 rounded-sm shadow-lg hover:bg-brand/20" title="Editar Gráfico">
                 <Settings2 size={18}/>
             </button>
         </div>
-
-        {/* CONTAINER DO GRÁFICO - Altura Fixa */}
-        <div className="w-full h-[350px] text-xs relative z-10 px-4 min-h-[350px]">
-           <ResponsiveContainer width="100%" height="100%">
-              {renderChart()}
-           </ResponsiveContainer>
-        </div>
-
-        {/* LEGENDA CUSTOMIZADA - Container Flexível fora da área fixa */}
-        {(isSingleSeries || type === 'pie') && showLegend && (
-            <div className="w-full z-20 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 p-3 bg-[#020617]/50 border-t border-white/10 transition-all relative">
-                {/* Rótulo da Série (Sutil) */}
-                <span className="text-[10px] font-bold text-white uppercase tracking-wider mr-2 border-r border-white/20 pr-3 hidden md:block">
-                    {dataKeys[0] || 'Dados'}
-                </span>
-
-                {/* Itens */}
-                {data.map((item: any, idx: number) => {
-                    const valKey = dataKeys[0];
-                    const val = parseFloat(item[valKey]) || 0;
-                    const percent = grandTotal > 0 ? (val / grandTotal * 100).toFixed(1) : '0';
-                    const color = getItemColor(item, idx);
-                    
-                    return (
-                        <div key={idx} className="flex items-center gap-2 text-[11px] whitespace-nowrap">
-                            <div className="w-2.5 h-2.5 rounded-full shrink-0 shadow-[0_0_5px_rgba(0,0,0,0.5)]" style={{ backgroundColor: color }} />
-                            
-                            <span className="text-white font-medium drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
-                                {item.nome}
-                            </span>
-                            
-                            <div className="flex items-center gap-1 font-mono text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
-                                <span className="font-bold">{val}</span>
-                                <span className="opacity-80 text-[10px]">({percent}%)</span>
-                            </div>
-                        </div>
-                    );
-                })}
-                
-                {/* TOTAL - Separador e Valor */}
-                <div className="w-px h-4 bg-white/20 mx-2 hidden sm:block"></div>
-                <div className="flex items-center gap-2 text-[11px] whitespace-nowrap border border-white/10 px-3 py-0.5 rounded-full bg-white/5">
-                    <span className="text-[9px] font-bold text-brand uppercase tracking-wider">TOTAL</span>
-                    <span className="text-white font-mono font-bold">{grandTotal}</span>
-                </div>
-            </div>
-        )}
-
-        {insight && (
-            <div className="p-4 bg-brand/5 border-t border-white/10 text-xs text-blue-200 italic flex gap-2 relative z-10">
-                <Sparkles size={14} className="text-brand shrink-0 mt-0.5" />
-                {insight}
-            </div>
-        )}
 
         {isEditing && (
             <div className="absolute inset-0 bg-[#020617] z-50 p-0 rounded-sm flex flex-col animate-in fade-in zoom-in-95 border border-brand/30 overflow-hidden font-sans">
