@@ -3,7 +3,6 @@ import { Database, FileText, Loader2, Download, Search, BarChart2, Table as Tabl
 import { DriveFile, MIME_TYPES } from '../types';
 import { useGlobalContext } from '../context/GlobalContext';
 import { loadAnnotations } from '../services/storageService';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useDriveFiles } from '../hooks/useDriveFiles';
 
 interface Props {
@@ -108,16 +107,8 @@ export const OperationalArchive: React.FC<Props> = ({ accessToken, onToggleMenu 
                         </div>
 
                         {activeTab === 'chart' && (
-                            <div className="h-[400px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={Object.entries(results.tags).map(([tag, data]: any) => ({ name: tag, count: data.count }))}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                                        <XAxis dataKey="name" stroke="#888" />
-                                        <YAxis stroke="#888" />
-                                        <Tooltip contentStyle={{ backgroundColor: '#1e1e1e', borderColor: '#333' }} />
-                                        <Bar dataKey="count" fill="#4ade80" radius={[4, 4, 0, 0]} />
-                                    </BarChart>
-                                </ResponsiveContainer>
+                            <div className="h-[400px] w-full flex items-center justify-center border border-dashed border-border rounded-lg">
+                                <span className="text-text-sec text-sm">Gráfico Autoral em Desenvolvimento</span>
                             </div>
                         )}
 

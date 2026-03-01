@@ -1,8 +1,4 @@
 import React, { useMemo } from 'react';
-import { 
-  BarChart, Bar, LineChart, Line, AreaChart, Area, PieChart, Pie, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, ComposedChart, ReferenceLine, Label
-} from 'recharts';
 import { Sparkles } from 'lucide-react';
 
 // --- PALETAS TEMÁTICAS VIBRANTES ---
@@ -55,33 +51,11 @@ export const VisualChart: React.FC<VisualChartProps> = ({
   // MODO DISTRIBUIÇÃO: Ativado se houver apenas 1 série de dados (ex: "valor")
   const isSingleSeries = dataKeys.length === 1;
 
-  // Resolve color for a series index/key OR item name
-  const getSeriesColor = (key: string, index: number) => {
-      if (customColors[key]) return customColors[key];
-      return paletteColors[index % paletteColors.length];
-  };
-  
   // Resolve color for a specific ITEM (row) based on its name or index
   const getItemColor = (item: any, index: number) => {
       if (customColors[item.nome]) return customColors[item.nome];
       return paletteColors[index % paletteColors.length];
   };
-
-  const averageValue = useMemo(() => {
-      if (!data || data.length === 0) return 0;
-      let sum = 0;
-      let count = 0;
-      data.forEach((item: any) => {
-          dataKeys.forEach(k => {
-              const val = parseFloat(item[k]);
-              if (!isNaN(val)) {
-                  sum += val;
-                  count++;
-              }
-          });
-      });
-      return count > 0 ? sum / count : 0;
-  }, [data, dataKeys]);
 
   const grandTotal = useMemo(() => {
       let total = 0;
@@ -94,155 +68,56 @@ export const VisualChart: React.FC<VisualChartProps> = ({
       return total;
   }, [data, dataKeys]);
 
-  const renderDefs = () => (
-      <defs>
-          {dataKeys.map((key, index) => {
-              const color = getSeriesColor(key, index);
-              return (
-                <linearGradient key={`grad-${key}`} id={`grad-${key}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={color} stopOpacity={0.9}/>
-                    <stop offset="50%" stopColor={color} stopOpacity={0.4}/>
-                    <stop offset="100%" stopColor={color} stopOpacity={0.05}/>
-                </linearGradient>
-              );
-          })}
-      </defs>
-  );
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const item = payload[0].payload;
-      return (
-        <div className="bg-[#020617]/95 border border-[#334155] p-2 rounded shadow-xl text-xs font-mono">
-          <p className="font-bold text-white mb-1">{label}</p>
-          {item.desc && <p className="text-[10px] text-brand mb-1 italic max-w-[150px] whitespace-normal">{item.desc}</p>}
-          {payload.map((p: any, idx: number) => (
-            <div key={idx} className="flex gap-2 items-center" style={{ color: p.color || '#fff' }}>
-              <span>{p.name}:</span>
-              <span className="font-bold">{p.value}</span>
-            </div>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
-
   const renderChart = () => {
-    const commonProps = { data, margin: { top: 20, right: 30, left: 10, bottom: 5 } };
-    const grid = showGrid ? <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} /> : null;
-    const fontStyle = { fontFamily: 'monospace', fontSize: 10 };
-    const whiteColor = '#ffffff';
-    
-    const useCustomLegend = isSingleSeries || type === 'pie';
-    const legend = !useCustomLegend && showLegend ? <Legend wrapperStyle={{ paddingTop: '15px' }} /> : null;
+    if (!data || data.length === 0) return <div className="text-text-sec flex items-center justify-center h-full">Sem dados</div>;
 
-    const tooltip = <Tooltip content={<CustomTooltip />} />;
-
-    const standardLine = (showAverage && averageValue > 0) ? (
-        <ReferenceLine y={averageValue} stroke="#DC143C" strokeDasharray="4 4" strokeWidth={1} isFront={true}>
-            <Label value={`MÉD: ${averageValue.toFixed(1)}`} position="right" fill="#DC143C" style={{ fontSize: 10, fontWeight: 'bold' }} />
-        </ReferenceLine>
-    ) : null;
-
-    if (type === 'pie') {
+    // Simple SVG Bar Chart Implementation for 'bar' type
+    if (type === 'bar' && isSingleSeries) {
+        const valKey = dataKeys[0];
+        const maxVal = Math.max(...data.map(d => parseFloat(d[valKey]) || 0));
+        
         return (
-            <PieChart>
-                {renderDefs()}
-                <Pie 
-                    data={data} 
-                    cx="50%" cy="50%" 
-                    innerRadius={60} outerRadius={80} 
-                    paddingAngle={5} 
-                    dataKey={dataKeys[0]} 
-                    nameKey="nome"
-                    stroke="none"
-                    label={({ nome }) => `${nome}`}
-                >
-                    {data.map((entry: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill={getItemColor(entry, index)} />
-                    ))}
-                </Pie>
-                {tooltip} {legend}
-            </PieChart>
-        );
-    }
-
-    if (type === 'radar') {
-        return (
-            <RadarChart cx="50%" cy="50%" outerRadius="75%" data={data}>
-                {renderDefs()}
-                <PolarGrid stroke="#334155" /> 
-                <PolarAngleAxis dataKey="nome" stroke={whiteColor} tick={{ fill: whiteColor, ...fontStyle }} />
-                <PolarRadiusAxis angle={30} stroke="#475569" />
-                {dataKeys.map((key, i) => (
-                    <Radar 
-                        key={key} name={key} dataKey={key} 
-                        stroke={getSeriesColor(key, i)} 
-                        fill={getSeriesColor(key, i)} 
-                        fillOpacity={0.3} 
-                    />
-                ))}
-                {tooltip} {legend}
-            </RadarChart>
-        );
-    }
-
-    const axes = (
-        <>
-            <XAxis dataKey="nome" stroke={whiteColor} tick={{ fill: whiteColor, ...fontStyle }} tickLine={false} axisLine={{ stroke: '#334155' }}>
-                {xAxisLabel && <Label value={xAxisLabel} offset={0} position="insideBottom" fill={whiteColor} style={fontStyle} fontSize={12} />}
-            </XAxis>
-            <YAxis stroke={whiteColor} tick={{ fill: whiteColor, ...fontStyle }} tickLine={false} axisLine={{ stroke: '#334155' }}>
-                {yAxisLabel && <Label value={yAxisLabel} angle={-90} position="insideLeft" style={{ textAnchor: 'middle', ...fontStyle }} fill={whiteColor} fontSize={12} />}
-            </YAxis>
-            {yAxisRightLabel && <YAxis yAxisId="right" orientation="right" stroke={whiteColor} tick={{ fill: whiteColor, ...fontStyle }} tickLine={false} axisLine={false}><Label value={yAxisRightLabel} angle={90} position="insideRight" style={{ textAnchor: 'middle', ...fontStyle }} fill={whiteColor} fontSize={12} /></YAxis>}
-            {tooltip} {legend} {grid} {standardLine}
-        </>
-    );
-
-    if (type === 'composed') {
-        return (
-            <ComposedChart {...commonProps}>
-                {renderDefs()}
-                {axes}
-                {dataKeys.map((key, i) => {
-                    const color = getSeriesColor(key, i);
-                    if (i === 0) return <Bar key={key} dataKey={key} fill={`url(#grad-${key})`} stroke={color} stackId={isStacked ? 'a' : undefined} radius={[2, 2, 0, 0]} />;
-                    return <Line key={key} type="monotone" dataKey={key} stroke={color} strokeWidth={3} dot={{r:4, fill:'#000', stroke:color, strokeWidth:2}} />;
+            <div className="w-full h-full flex items-end justify-around gap-2 pb-6 pt-4">
+                {data.map((item, idx) => {
+                    const val = parseFloat(item[valKey]) || 0;
+                    const heightPct = maxVal > 0 ? (val / maxVal) * 100 : 0;
+                    const color = getItemColor(item, idx);
+                    
+                    return (
+                        <div key={idx} className="flex flex-col items-center justify-end h-full w-full group relative">
+                            {/* Tooltip */}
+                            <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-[#020617] border border-[#334155] p-2 rounded text-xs font-mono z-50 pointer-events-none whitespace-nowrap shadow-xl">
+                                <span className="font-bold text-white">{item.nome}</span>: <span style={{color}}>{val}</span>
+                            </div>
+                            
+                            {/* Bar */}
+                            <div 
+                                className="w-full max-w-[40px] rounded-t-sm transition-all duration-500 ease-out"
+                                style={{ 
+                                    height: `${heightPct}%`, 
+                                    backgroundColor: color,
+                                    backgroundImage: `linear-gradient(to bottom, ${color}ee, ${color}33)`
+                                }}
+                            />
+                            
+                            {/* Label */}
+                            <span className="text-[10px] text-text-sec mt-2 truncate w-full text-center font-mono" title={item.nome}>
+                                {item.nome}
+                            </span>
+                        </div>
+                    );
                 })}
-            </ComposedChart>
+            </div>
         );
     }
-
-    const ChartComp = type === 'line' ? LineChart : type === 'area' ? AreaChart : BarChart;
-    const SeriesComp: any = type === 'line' ? Line : type === 'area' ? Area : Bar;
 
     return (
-        <ChartComp {...commonProps}>
-            {renderDefs()}
-            {axes}
-            {dataKeys.map((key, i) => {
-                const color = getSeriesColor(key, i);
-                return (
-                    <SeriesComp 
-                        key={key} 
-                        dataKey={key} 
-                        stroke={color} 
-                        fill={type !== 'line' ? `url(#grad-${key})` : undefined}
-                        stackId={isStacked ? 'a' : undefined}
-                        radius={type === 'bar' ? [2,2,0,0] : undefined}
-                        strokeWidth={type === 'line' ? 3 : undefined}
-                        fillOpacity={type === 'area' ? 1 : undefined}
-                        type="monotone"
-                    >
-                         {type === 'bar' && isSingleSeries && data.map((entry: any, index: number) => (
-                             <Cell key={`cell-${index}`} fill={getItemColor(entry, index)} stroke={getItemColor(entry, index)} />
-                         ))}
-                    </SeriesComp>
-                );
-            })}
-        </ChartComp>
+        <div className="w-full h-full flex items-center justify-center border border-dashed border-border rounded-lg bg-surface/50">
+            <div className="text-center">
+                <p className="text-text-sec text-sm mb-2">Gráfico Autoral em Desenvolvimento</p>
+                <p className="text-xs text-text-sec/50 font-mono">Tipo: {type}</p>
+            </div>
+        </div>
     );
   };
 
@@ -256,9 +131,7 @@ export const VisualChart: React.FC<VisualChartProps> = ({
       </div>
 
       <div className="w-full h-[350px] text-xs relative z-10 px-4 min-h-[350px]">
-         <ResponsiveContainer width="100%" height="100%">
-            {renderChart()}
-         </ResponsiveContainer>
+         {renderChart()}
       </div>
 
       {(isSingleSeries || type === 'pie') && showLegend && (

@@ -53,7 +53,7 @@ export const AVAILABLE_RESOURCES: ResourceGroup[] = [
     description: 'Suporte a fórmulas KaTeX, diagramas Mermaid e Gráficos.',
     required: false,
     estimatedSize: 4.8 * 1024 * 1024,
-    keywords: ['katex', 'mermaid', 'recharts', 'qrcode'],
+    keywords: ['katex', 'mermaid', 'qrcode'],
     urls: [
       'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css',
       'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/fonts/KaTeX_Main-Regular.woff2',
