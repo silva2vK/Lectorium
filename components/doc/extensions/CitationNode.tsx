@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
-import { Icon } from '../../../src/components/shared/Icon';
+import { Icon } from '../../shared/Icon';
 
 export const CitationNode = (props: any) => {
   const { node } = props;

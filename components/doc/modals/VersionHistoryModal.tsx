@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Icon } from '../../../src/components/shared/Icon';
+import { Icon } from '../../shared/Icon';
 import { DocVersion, getDocVersions, saveDocVersion } from '../../../services/storageService';
 import { auth } from '../../../firebase';
 

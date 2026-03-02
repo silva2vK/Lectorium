@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Icon } from '../src/components/shared/Icon';
+import { Icon } from './shared/Icon';
 import { updateDriveFile, downloadDriveFile, uploadFileToDrive } from '../services/driveService';
 import { MindMapNode, MindMapEdge, MindMapViewport, MindMapData } from '../types';
 import { AiChatPanel } from './shared/AiChatPanel';

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Icon } from '../../src/components/shared/Icon';
+import { Icon } from './Icon';
 import { BaseModal } from './BaseModal';
 
 interface Props {

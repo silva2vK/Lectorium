@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Icon } from '../../src/components/shared/Icon';
+import { Icon } from '../shared/Icon';
 import { Annotation } from '../../types';
 import { usePdfStore } from '../../stores/usePdfStore';
 

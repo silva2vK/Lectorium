@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Icon } from '../../src/components/shared/Icon';
+import { Icon } from '../shared/Icon';
 import { BaseModal } from '../shared/BaseModal';
 import { useGlobalContext } from '../../context/GlobalContext';
 import { loadOcrData, loadAnnotations, saveOfflineFile, addToSyncQueue } from '../../services/storageService';

@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { Icon } from '../../src/components/shared/Icon';
+import { Icon } from '../shared/Icon';
 import { Annotation } from '../../types';
 import { usePdfContext } from '../../context/PdfContext';
 import { usePdfStore } from '../../stores/usePdfStore';

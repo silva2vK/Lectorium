@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Editor, BubbleMenu } from '@tiptap/react';
 import { getAiClient } from '../../services/aiService';
-import { Icon } from '../../src/components/shared/Icon';
+import { Icon } from '../shared/Icon';
 
 interface Props {
   editor: Editor;

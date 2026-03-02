@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Editor } from '@tiptap/react';
-import { Icon } from '../../src/components/shared/Icon';
+import { Icon } from '../shared/Icon';
 
 interface Props {
   editor: Editor | null;

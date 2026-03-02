@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Icon } from '../../../src/components/shared/Icon';
+import { Icon } from '../../shared/Icon';
 import { Annotation } from '../../../types';
 
 interface Props {

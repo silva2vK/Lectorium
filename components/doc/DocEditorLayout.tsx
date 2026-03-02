@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Icon } from '../../src/components/shared/Icon';
+import { Icon } from '../shared/Icon';
 import { EditorContent } from '@tiptap/react';
 import { useDocEditorContext } from '../../context/DocEditorContext';
 

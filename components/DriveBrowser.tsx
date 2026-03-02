@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useCallback, useRef } from 'react';
-import { Icon } from '../src/components/shared/Icon';
+import { Icon } from './shared/Icon';
 import { DriveFile, MIME_TYPES } from '../types';
 import { downloadDriveFile, uploadFileToDrive } from '../services/driveService';
 import { saveOfflineFile, toggleFilePin } from '../services/storageService';

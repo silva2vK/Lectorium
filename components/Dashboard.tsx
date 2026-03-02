@@ -3,7 +3,7 @@ import { DriveFile } from '../types';
 import { getRecentFiles, getStorageEstimate, clearAppStorage, StorageBreakdown, runJanitor, getWallpaper } from '../services/storageService';
 import { useSync } from '../hooks/useSync';
 import { SyncStatusModal } from './SyncStatusModal';
-import { Icon } from '../src/components/shared/Icon';
+import { Icon } from './shared/Icon';
 import { GlobalHelpModal } from './GlobalHelpModal';
 import { useGlobalContext } from '../context/GlobalContext';
 import { createVirtualDirectoryHandle } from '../services/localFileService';
@@ -516,17 +516,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       {storageData?.details && (
                           <div className="grid grid-cols-3 gap-2 mt-4 text-[12px]">
                               <div className="bg-white/5 p-2 rounded-xl flex flex-col items-center gap-1 border border-white/5">
-                                  <HardDrive size={16} className="text-white"/>
+                                  <Icon name="HardDrive" size={16} className="text-white"/>
                                   <span className="block text-white font-bold text-sm">{formatBytes(storageData.details.offlineFiles)}</span>
                                   <span className="text-white text-center leading-tight">Arquivos Offline</span>
                               </div>
                               <div className="bg-white/5 p-2 rounded-xl flex flex-col items-center gap-1 border border-white/5">
-                                  <Server size={16} className="text-white"/>
+                                  <Icon name="Server" size={16} className="text-white"/>
                                   <span className="block text-white font-bold text-sm">{formatBytes(storageData.details.cache)}</span>
                                   <span className="text-white text-center leading-tight">Cache App</span>
                               </div>
                               <div className="bg-white/5 p-2 rounded-xl flex flex-col items-center gap-1 border border-white/5">
-                                  <File size={16} className="text-white"/>
+                                  <Icon name="File" size={16} className="text-white"/>
                                   <span className="block text-white font-bold text-sm">{formatBytes(storageData.details.system)}</span>
                                   <span className="text-white text-center leading-tight">Sistema</span>
                               </div>

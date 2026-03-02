@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NodeViewProps } from '@tiptap/react';
 import mermaid from 'mermaid';
-import { Icon } from '../../../src/components/shared/Icon';
+import { Icon } from '../../shared/Icon';
 import { LazyNodeView } from './LazyNodeView';
 
 mermaid.initialize({

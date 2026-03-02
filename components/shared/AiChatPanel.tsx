@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Icon } from '../../src/components/shared/Icon';
+import { Icon } from './Icon';
 import { ChatMessage, SemanticLensData } from '../../types';
 import { chatWithDocumentStream } from '../../services/chatService';
 import { findRelevantChunks, extractPageRangeFromQuery } from '../../utils/textUtils';

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BaseModal } from '../../shared/BaseModal';
-import { Icon } from '../../../src/components/shared/Icon';
+import { Icon } from '../../shared/Icon';
 import { listDriveFolders, uploadFileToDrive } from '../../../services/driveService';
 import { DriveFile, MIME_TYPES } from '../../../types';
 

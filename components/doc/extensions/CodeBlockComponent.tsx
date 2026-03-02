@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
-import { Icon } from '../../../src/components/shared/Icon';
+import { Icon } from '../../shared/Icon';
 
 const EXTENSION_MAP: Record<string, string> = {
   javascript: 'js',

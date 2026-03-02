@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Icon } from '../../src/components/shared/Icon';
+import { Icon } from '../shared/Icon';
 import { BaseModal } from '../shared/BaseModal';
 
 export type LegalTab = 'terms' | 'privacy';

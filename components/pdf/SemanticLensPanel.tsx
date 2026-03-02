@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Icon } from '../../src/components/shared/Icon';
+import { Icon } from '../shared/Icon';
 import { usePdfContext } from '../../context/PdfContext';
 import { SemanticRangeModal } from './modals/SemanticRangeModal';
 

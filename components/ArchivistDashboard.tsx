@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Icon } from '../src/components/shared/Icon';
+import { Icon } from './shared/Icon';
 import { extractNewspaperContent } from '../services/visionService';
 
 export const ArchivistDashboard: React.FC = () => {

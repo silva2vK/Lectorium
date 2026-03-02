@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Icon } from '../src/components/shared/Icon';
+import { Icon } from './shared/Icon';
 import { AiChatPanel } from './shared/AiChatPanel';
 import { Editor } from '@tiptap/react';
 

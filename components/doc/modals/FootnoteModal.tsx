@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { BaseModal } from '../../shared/BaseModal';
-import { Icon } from '../../../src/components/shared/Icon';
+import { Icon } from '../../shared/Icon';
 
 interface Props {
   isOpen: boolean;

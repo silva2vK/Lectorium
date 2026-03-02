@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { PAPER_SIZES } from '../constants';
 import { BaseModal } from '../../shared/BaseModal';
-import { Icon } from '../../../src/components/shared/Icon';
+import { Icon } from '../../shared/Icon';
 
 export interface PageNumberConfig {
   enabled: boolean;

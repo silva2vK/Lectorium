@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
-import { Icon } from '../src/components/shared/Icon';
+import { Icon } from './shared/Icon';
 import { PDFDocumentProxy } from 'pdfjs-dist';
 
 // Hooks & Context

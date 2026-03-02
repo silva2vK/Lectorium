@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Icon } from '../../src/components/shared/Icon';
+import { Icon } from '../shared/Icon';
 
 interface ConfidenceWordProps {
   word: any;

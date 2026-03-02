@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Icon } from '../src/components/shared/Icon';
+import { Icon } from './shared/Icon';
 import { BaseModal } from './shared/BaseModal';
 
 interface Props {
@@ -219,7 +219,7 @@ export const VersionDebugModal: React.FC<Props> = ({ isOpen, onClose }) => {
     >
       <div className="space-y-4">
         <div className="bg-blue-500/10 border border-blue-500/30 p-3 rounded-xl flex items-start gap-3">
-           <RefreshCw className={`text-blue-500 shrink-0 mt-0.5 ${isAnalyzing ? 'animate-spin' : ''}`} size={18} />
+           <Icon name="RefreshCw" className={`text-blue-500 shrink-0 mt-0.5 ${isAnalyzing ? 'animate-spin' : ''}`} size={18} />
            <div className="text-xs text-blue-200/80">
               <strong className="block text-blue-400 mb-1">Verificação em Tempo Real (Network Trace)</strong>
               O sistema realiza um rastreamento ativo (HEAD request) para identificar redirecionamentos de CDN.
@@ -231,15 +231,15 @@ export const VersionDebugModal: React.FC<Props> = ({ isOpen, onClose }) => {
         <div className="border border-[#333] rounded-xl overflow-hidden">
             <div className="grid grid-cols-12 bg-[#1a1a1a] p-3 text-xs font-bold text-text-sec uppercase tracking-wider border-b border-[#333]">
                 <div className="col-span-3">Biblioteca</div>
-                <div className="col-span-2 flex items-center gap-1"><Server size={12}/> Build (NPM)</div>
+                <div className="col-span-2 flex items-center gap-1"><Icon name="Server" size={12}/> Build (NPM)</div>
                 <div className="col-span-2 text-gray-500">Solicitado (HTML)</div>
-                <div className="col-span-3 flex items-center gap-1 text-white"><Globe size={12}/> Real (CDN)</div>
+                <div className="col-span-3 flex items-center gap-1 text-white"><Icon name="Globe" size={12}/> Real (CDN)</div>
                 <div className="col-span-2 text-right">Status</div>
             </div>
             
             {isAnalyzing ? (
                 <div className="p-8 flex justify-center items-center gap-3 text-text-sec">
-                    <Loader2 className="animate-spin" /> Resolvendo redirecionamentos do CDN...
+                    <Icon name="Loader2" className="animate-spin" /> Resolvendo redirecionamentos do CDN...
                 </div>
             ) : (
                 <div className="divide-y divide-[#333] bg-[#1e1e1e]">

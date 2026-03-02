@@ -1,10 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { NodeViewWrapper } from '@tiptap/react';
-import { 
-  Settings2, Activity, X, Table, Plus, Trash2, Sparkles, Layout, Palette, Grid3X3, Layers, Wand2, HelpCircle,
-  AlignLeft, ActivitySquare, Eraser, Baseline, FileText
-} from 'lucide-react';
+import { Icon } from '../../shared/Icon';
 import { generateChartData, analyzeChartData } from '../../../services/aiService';
 import { VisualChart, PALETTES } from '../../shared/VisualChart';
 
@@ -427,7 +423,7 @@ export const ChartNodeView = (props: any) => {
 
         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-20">
             <button onClick={() => setIsEditing(true)} className="p-2 bg-brand/10 text-brand border border-brand/50 rounded-sm shadow-lg hover:bg-brand/20" title="Editar Gráfico">
-                <Settings2 size={18}/>
+                <Icon name="Settings2" size={18}/>
             </button>
         </div>
 
@@ -435,10 +431,10 @@ export const ChartNodeView = (props: any) => {
             <div className="absolute inset-0 bg-[#020617] z-50 p-0 rounded-sm flex flex-col animate-in fade-in zoom-in-95 border border-brand/30 overflow-hidden font-sans">
                 {/* Header Tabs */}
                 <div className="flex border-b border-white/10 bg-[#0f172a]">
-                    <button onClick={() => setEditTab('data')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${editTab === 'data' ? 'text-brand border-b-2 border-brand' : 'text-gray-500'}`}><Table size={14} className="inline mr-1"/> Dados</button>
-                    <button onClick={() => setEditTab('style')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${editTab === 'style' ? 'text-brand border-b-2 border-brand' : 'text-gray-500'}`}><Palette size={14} className="inline mr-1"/> Estilo</button>
-                    <button onClick={() => setEditTab('ai')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${editTab === 'ai' ? 'text-brand border-b-2 border-brand' : 'text-gray-500'}`}><Sparkles size={14} className="inline mr-1"/> IA</button>
-                    <button onClick={() => setIsEditing(false)} className="w-10 flex items-center justify-center text-gray-500 hover:text-white"><X size={16}/></button>
+                    <button onClick={() => setEditTab('data')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${editTab === 'data' ? 'text-brand border-b-2 border-brand' : 'text-gray-500'}`}><Icon name="Table" size={14} className="inline mr-1"/> Dados</button>
+                    <button onClick={() => setEditTab('style')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${editTab === 'style' ? 'text-brand border-b-2 border-brand' : 'text-gray-500'}`}><Icon name="Palette" size={14} className="inline mr-1"/> Estilo</button>
+                    <button onClick={() => setEditTab('ai')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${editTab === 'ai' ? 'text-brand border-b-2 border-brand' : 'text-gray-500'}`}><Icon name="Sparkles" size={14} className="inline mr-1"/> IA</button>
+                    <button onClick={() => setIsEditing(false)} className="w-10 flex items-center justify-center text-gray-500 hover:text-white"><Icon name="X" size={16}/></button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
@@ -447,10 +443,10 @@ export const ChartNodeView = (props: any) => {
                             {/* Toolbar de Tabela */}
                             <div className="flex justify-between items-center mb-2">
                                 <div className="flex items-center gap-2 p-2 bg-blue-900/10 border border-blue-500/20 rounded text-xs text-blue-300">
-                                    <HelpCircle size={14}/> <span>Use <strong className="text-white">Ctrl+V</strong> para colar do Excel.</span>
+                                    <Icon name="HelpCircle" size={14}/> <span>Use <strong className="text-white">Ctrl+V</strong> para colar do Excel.</span>
                                 </div>
                                 <button onClick={clearTable} className="text-red-400 hover:text-red-300 hover:bg-red-900/20 p-2 rounded flex items-center gap-2 text-xs transition-colors">
-                                    <Eraser size={14} /> Limpar
+                                    <Icon name="Eraser" size={14} /> Limpar
                                 </button>
                             </div>
                             
@@ -460,13 +456,13 @@ export const ChartNodeView = (props: any) => {
                                     <thead className="bg-[#1e293b] text-gray-300">
                                         <tr>
                                             <th className="p-3 border-b border-r border-[#333] w-1/4">Rótulo</th>
-                                            <th className="p-3 border-b border-r border-[#333] w-1/3 flex items-center gap-1 text-text-sec"><FileText size={10}/> Detalhes (Opcional)</th>
+                                            <th className="p-3 border-b border-r border-[#333] w-1/3 flex items-center gap-1 text-text-sec"><Icon name="FileText" size={10}/> Detalhes (Opcional)</th>
                                             {seriesKeys.map((key, i) => (
                                                 <th key={key} className="p-2 border-b border-[#333]">
                                                     <div className="flex flex-col gap-1">
                                                         <div className="flex justify-between items-center">
                                                             <span className="truncate font-bold text-white">{key}</span>
-                                                            <button onClick={() => removeSeries(key)} className="text-gray-500 hover:text-red-400"><X size={12}/></button>
+                                                            <button onClick={() => removeSeries(key)} className="text-gray-500 hover:text-red-400"><Icon name="X" size={12}/></button>
                                                         </div>
                                                         {/* Cor da Série (Visível apenas se NÃO for série única) */}
                                                         {!isSingleSeries && (
@@ -487,7 +483,7 @@ export const ChartNodeView = (props: any) => {
                                                 </th>
                                             ))}
                                             <th className="p-2 border-b border-[#333] w-8 text-center bg-[#1a2333] hover:bg-[#253045] cursor-pointer transition-colors" onClick={addSeries} title="Adicionar Série">
-                                                <Plus size={14} className="text-brand mx-auto"/>
+                                                <Icon name="Plus" size={14} className="text-brand mx-auto"/>
                                             </th>
                                         </tr>
                                     </thead>
@@ -536,7 +532,7 @@ export const ChartNodeView = (props: any) => {
                                                 ))}
                                                 <td className="p-2 text-center">
                                                     <button onClick={() => removeRow(i)} className="text-gray-600 hover:text-red-400 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <Trash2 size={12}/>
+                                                        <Icon name="Trash2" size={12}/>
                                                     </button>
                                                 </td>
                                             </tr>
@@ -546,7 +542,7 @@ export const ChartNodeView = (props: any) => {
                                         <tr>
                                             <td colSpan={seriesKeys.length + 3} className="p-2">
                                                 <button onClick={addRow} className="w-full py-2 bg-[#1e293b] hover:bg-[#283548] text-gray-400 hover:text-white rounded border border-dashed border-[#444] text-xs flex items-center justify-center gap-2 transition-all">
-                                                    <Plus size={12} /> Adicionar Item
+                                                    <Icon name="Plus" size={12} /> Adicionar Item
                                                 </button>
                                             </td>
                                         </tr>
@@ -598,7 +594,7 @@ export const ChartNodeView = (props: any) => {
 
                             <div className="space-y-2 pt-2 border-t border-[#333]">
                                 <label className="text-xs text-gray-500 font-bold uppercase flex items-center gap-2">
-                                    <AlignLeft size={14}/> Rótulos dos Eixos
+                                    <Icon name="AlignLeft" size={14}/> Rótulos dos Eixos
                                 </label>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1">
@@ -613,11 +609,11 @@ export const ChartNodeView = (props: any) => {
                             </div>
 
                             <div className="flex gap-4 pt-2 border-t border-[#333] flex-wrap">
-                                <label className="flex items-center gap-2 text-sm text-white cursor-pointer"><input type="checkbox" checked={showGrid} onChange={e => updateAttributes({ showGrid: e.target.checked })} className="accent-brand" /> <Grid3X3 size={14}/> Grid</label>
-                                <label className="flex items-center gap-2 text-sm text-white cursor-pointer"><input type="checkbox" checked={showLegend} onChange={e => updateAttributes({ showLegend: e.target.checked })} className="accent-brand" /> <Layout size={14}/> Legenda</label>
-                                <label className="flex items-center gap-2 text-sm text-white cursor-pointer"><input type="checkbox" checked={showAverage} onChange={e => updateAttributes({ showAverage: e.target.checked })} className="accent-brand" /> <ActivitySquare size={14}/> Média</label>
+                                <label className="flex items-center gap-2 text-sm text-white cursor-pointer"><input type="checkbox" checked={showGrid} onChange={e => updateAttributes({ showGrid: e.target.checked })} className="accent-brand" /> <Icon name="Grid3X3" size={14}/> Grid</label>
+                                <label className="flex items-center gap-2 text-sm text-white cursor-pointer"><input type="checkbox" checked={showLegend} onChange={e => updateAttributes({ showLegend: e.target.checked })} className="accent-brand" /> <Icon name="Layout" size={14}/> Legenda</label>
+                                <label className="flex items-center gap-2 text-sm text-white cursor-pointer"><input type="checkbox" checked={showAverage} onChange={e => updateAttributes({ showAverage: e.target.checked })} className="accent-brand" /> <Icon name="ActivitySquare" size={14}/> Média</label>
                                 {['bar', 'area', 'composed'].includes(type) && (
-                                    <label className="flex items-center gap-2 text-sm text-white cursor-pointer"><input type="checkbox" checked={isStacked} onChange={e => updateAttributes({ isStacked: e.target.checked })} className="accent-brand" /> <Layers size={14}/> Empilhado</label>
+                                    <label className="flex items-center gap-2 text-sm text-white cursor-pointer"><input type="checkbox" checked={isStacked} onChange={e => updateAttributes({ isStacked: e.target.checked })} className="accent-brand" /> <Icon name="Layers" size={14}/> Empilhado</label>
                                 )}
                             </div>
                         </div>
@@ -626,7 +622,7 @@ export const ChartNodeView = (props: any) => {
                     {editTab === 'ai' && (
                         <div className="space-y-4 h-full flex flex-col">
                             <div className="bg-purple-900/10 border border-purple-500/30 p-4 rounded-sm">
-                                <h4 className="text-sm font-bold text-purple-300 mb-2 flex items-center gap-2"><Wand2 size={16}/> Inteligência de Dados</h4>
+                                <h4 className="text-sm font-bold text-purple-300 mb-2 flex items-center gap-2"><Icon name="Wand2" size={16}/> Inteligência de Dados</h4>
                                 <p className="text-xs text-purple-200/70">Descreva os dados que precisa. A IA gerará a estrutura e os valores.</p>
                             </div>
                             <textarea 
@@ -666,7 +662,7 @@ export const ChartNodeView = (props: any) => {
                                 disabled={isAiLoading || !aiPrompt.trim()}
                                 className="w-full bg-purple-600 text-white py-3 rounded-sm font-bold hover:brightness-110 disabled:opacity-50 flex justify-center gap-2 items-center shadow-lg"
                             >
-                                {isAiLoading ? <Activity className="animate-spin"/> : <Sparkles/>} Gerar com IA
+                                {isAiLoading ? <Icon name="Activity" className="animate-spin"/> : <Icon name="Sparkles" />} Gerar com IA
                             </button>
                         </div>
                     )}

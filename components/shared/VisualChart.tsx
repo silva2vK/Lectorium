@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Icon } from '../../src/components/shared/Icon';
+import { Icon } from './Icon';
 
 // --- PALETAS TEMÁTICAS VIBRANTES ---
 export const PALETTES: Record<string, { label: string, colors: string[] }> = {

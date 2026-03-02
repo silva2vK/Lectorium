@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Icon } from '../src/components/shared/Icon';
+import { Icon } from './shared/Icon';
 
 const themes = [
   { id: 'forest', name: 'Verde (Padrão)', cn: '森', color: '#4ade80' },

@@ -1,6 +1,6 @@
 
 import React, { useEffect } from 'react';
-import { Icon } from '../../src/components/shared/Icon';
+import { Icon } from './Icon';
 
 interface BaseModalProps {
   isOpen: boolean;
