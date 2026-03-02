@@ -10,6 +10,7 @@ import { DocCanvas } from './doc/layout/DocCanvas';
 import { DocModals } from './doc/layout/DocModals';
 import { CommentData } from './doc/CommentsSidebar';
 import { Icon } from '../shared/Icon';
+import { Loader2, Cloud, Sparkles, Users, Share2, MessageSquare, Menu, Lock, Globe, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Reference, EditorStats, MIME_TYPES } from '../types';
 import { auth } from '../firebase';
 import { generateDocxBlob } from '../services/docxService';
