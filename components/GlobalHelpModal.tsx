@@ -124,10 +124,10 @@ const SECTIONS = [
             </div>
             <div className="p-4 grid grid-cols-2 gap-3">
               <div className="flex items-center gap-3 bg-[#252525] p-2 rounded-lg border border-[#333]">
-                <Flame size={20} className="text-orange-500" /> <span className="text-sm text-white">Firefox</span>
+                <Icon name="Flame" size={20} className="text-orange-500" /> <span className="text-sm text-white">Firefox</span>
               </div>
               <div className="flex items-center gap-3 bg-[#252525] p-2 rounded-lg border border-[#333]">
-                <Compass size={20} className="text-blue-300" /> <span className="text-sm text-white">Safari</span>
+                <Icon name="Compass" size={20} className="text-blue-300" /> <span className="text-sm text-white">Safari</span>
               </div>
             </div>
             <div className="px-4 pb-3">
@@ -226,7 +226,7 @@ const SECTIONS = [
         {/* FIREFOX SECTION */}
         <div className="bg-[#1a1a1a] border border-orange-500/30 rounded-xl overflow-hidden">
             <div className="bg-orange-500/10 p-3 flex items-center gap-2 border-b border-orange-500/20">
-                <Flame size={18} className="text-orange-500" />
+                <Icon name="Flame" size={18} className="text-orange-500" />
                 <span className="text-white font-bold text-sm">Protocolo Firefox (Android)</span>
             </div>
             
