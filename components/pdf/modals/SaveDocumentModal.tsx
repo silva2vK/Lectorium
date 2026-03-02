@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Icon } from '../../shared/Icon';
+import { X, Download, Copy, AlertTriangle, CloudOff, CloudUpload, Unlock } from 'lucide-react';
 
 interface SaveDocumentModalProps {
   isOpen: boolean;

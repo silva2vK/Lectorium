@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
-import { Icon } from './shared/Icon';
+import { Loader2, ShieldCheck, ScanLine, Save, Lock, Unlock, Zap } from 'lucide-react';
 import { PDFDocumentProxy } from 'pdfjs-dist';
 
 // Hooks & Context

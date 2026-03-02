@@ -1,5 +1,5 @@
 import React from 'react';
-import { Icon } from './shared/Icon';
+import { RefreshCw, AlertCircle, X } from 'lucide-react';
 
 interface ReauthToastProps {
   onReauth: () => void;

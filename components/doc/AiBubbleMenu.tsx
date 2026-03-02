@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Editor, BubbleMenu } from '@tiptap/react';
 import { getAiClient } from '../../services/aiService';
-import { Icon } from '../shared/Icon';
+import { Sparkles, Loader2, RefreshCw, Scissors, Wand2, Bold, Italic, Link, ChevronRight } from 'lucide-react';
 
 interface Props {
   editor: Editor;

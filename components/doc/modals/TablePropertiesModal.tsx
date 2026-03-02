@@ -1,7 +1,11 @@
 
 import React, { useState } from 'react';
 import { Editor } from '@tiptap/react';
-import { Icon, IconName } from '../../shared/Icon';
+import { 
+  Table, ArrowDown, ArrowUp, ArrowLeft, ArrowRight, 
+  Trash2, Merge, Split, Palette, Check, GripHorizontal, 
+  Layout, Grid3X3
+} from 'lucide-react';
 import { BaseModal } from '../../shared/BaseModal';
 
 interface Props {
@@ -32,7 +36,7 @@ export const TablePropertiesModal: React.FC<Props> = ({ isOpen, onClose, editor 
     }
   };
 
-  const ActionButton = ({ onClick, iconName, label, danger }: { onClick: () => void, iconName: IconName, label: string, danger?: boolean }) => (
+  const ActionButton = ({ onClick, icon: Icon, label, danger }: any) => (
     <button 
       onClick={onClick}
       className={`flex items-center gap-3 w-full p-3 rounded-xl transition-colors border ${
@@ -41,7 +45,7 @@ export const TablePropertiesModal: React.FC<Props> = ({ isOpen, onClose, editor 
           : 'bg-[#2c2c2c] border-transparent hover:bg-[#363636] text-gray-200'
       }`}
     >
-      <Icon name={iconName} size={18} />
+      <Icon size={18} />
       <span className="text-sm font-medium">{label}</span>
     </button>
   );
@@ -51,7 +55,7 @@ export const TablePropertiesModal: React.FC<Props> = ({ isOpen, onClose, editor 
       isOpen={isOpen}
       onClose={onClose}
       title="Propriedades da Tabela"
-      icon={<Icon name="Table" size={20} />}
+      icon={<Table size={20} />}
       maxWidth="max-w-md"
     >
       <div className="flex border-b border-[#444746] mb-4">
@@ -66,20 +70,20 @@ export const TablePropertiesModal: React.FC<Props> = ({ isOpen, onClose, editor 
             <div className="grid grid-cols-2 gap-3">
                <div className="space-y-2">
                   <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Linhas</span>
-                  <ActionButton onClick={() => editor.chain().focus().addRowBefore().run()} iconName="ArrowUp" label="Adicionar Acima" />
-                  <ActionButton onClick={() => editor.chain().focus().addRowAfter().run()} iconName="ArrowDown" label="Adicionar Abaixo" />
-                  <ActionButton onClick={() => editor.chain().focus().deleteRow().run()} iconName="Trash2" label="Excluir Linha" danger />
+                  <ActionButton onClick={() => editor.chain().focus().addRowBefore().run()} icon={ArrowUp} label="Adicionar Acima" />
+                  <ActionButton onClick={() => editor.chain().focus().addRowAfter().run()} icon={ArrowDown} label="Adicionar Abaixo" />
+                  <ActionButton onClick={() => editor.chain().focus().deleteRow().run()} icon={Trash2} label="Excluir Linha" danger />
                </div>
                <div className="space-y-2">
                   <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Colunas</span>
-                  <ActionButton onClick={() => editor.chain().focus().addColumnBefore().run()} iconName="ArrowLeft" label="Adicionar à Esq." />
-                  <ActionButton onClick={() => editor.chain().focus().addColumnAfter().run()} iconName="ArrowRight" label="Adicionar à Dir." />
-                  <ActionButton onClick={() => editor.chain().focus().deleteColumn().run()} iconName="Trash2" label="Excluir Coluna" danger />
+                  <ActionButton onClick={() => editor.chain().focus().addColumnBefore().run()} icon={ArrowLeft} label="Adicionar à Esq." />
+                  <ActionButton onClick={() => editor.chain().focus().addColumnAfter().run()} icon={ArrowRight} label="Adicionar à Dir." />
+                  <ActionButton onClick={() => editor.chain().focus().deleteColumn().run()} icon={Trash2} label="Excluir Coluna" danger />
                </div>
             </div>
             
             <div className="pt-2 border-t border-[#444746]">
-               <ActionButton onClick={() => { editor.chain().focus().deleteTable().run(); onClose(); }} iconName="Trash2" label="Excluir Tabela Inteira" danger />
+               <ActionButton onClick={() => { editor.chain().focus().deleteTable().run(); onClose(); }} icon={Trash2} label="Excluir Tabela Inteira" danger />
             </div>
           </div>
         )}
@@ -87,22 +91,22 @@ export const TablePropertiesModal: React.FC<Props> = ({ isOpen, onClose, editor 
         {activeTab === 'cells' && (
           <div className="space-y-3">
              <div className="grid grid-cols-2 gap-3">
-                <ActionButton onClick={() => editor.chain().focus().mergeCells().run()} iconName="Merge" label="Mesclar Células" />
-                <ActionButton onClick={() => editor.chain().focus().splitCell().run()} iconName="Split" label="Dividir Célula" />
+                <ActionButton onClick={() => editor.chain().focus().mergeCells().run()} icon={Merge} label="Mesclar Células" />
+                <ActionButton onClick={() => editor.chain().focus().splitCell().run()} icon={Split} label="Dividir Célula" />
              </div>
              
              <div className="h-px bg-[#444746] my-2"></div>
              
              <div className="space-y-2">
                 <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">Distribuição</span>
-                <ActionButton onClick={() => editor.chain().focus().fixTables().run()} iconName="GripHorizontal" label="Normalizar Colunas" />
+                <ActionButton onClick={() => editor.chain().focus().fixTables().run()} icon={GripHorizontal} label="Normalizar Colunas" />
              </div>
 
              <div className="h-px bg-[#444746] my-2"></div>
 
              <div className="grid grid-cols-2 gap-3">
-                <ActionButton onClick={() => editor.chain().focus().toggleHeaderRow().run()} iconName="Layout" label="Cabeçalho Linha" />
-                <ActionButton onClick={() => editor.chain().focus().toggleHeaderColumn().run()} iconName="Grid3X3" label="Cabeçalho Coluna" />
+                <ActionButton onClick={() => editor.chain().focus().toggleHeaderRow().run()} icon={Layout} label="Cabeçalho Linha" />
+                <ActionButton onClick={() => editor.chain().focus().toggleHeaderColumn().run()} icon={Grid3X3} label="Cabeçalho Coluna" />
              </div>
           </div>
         )}
@@ -111,7 +115,7 @@ export const TablePropertiesModal: React.FC<Props> = ({ isOpen, onClose, editor 
           <div className="space-y-4">
              <div>
                 <label className="text-sm text-gray-300 block mb-3 flex items-center gap-2">
-                   <Icon name="Palette" size={16} className="text-brand"/> Cor de Fundo da Célula
+                   <Palette size={16} className="text-brand"/> Cor de Fundo da Célula
                 </label>
                 <div className="grid grid-cols-5 gap-2">
                    {CELL_COLORS.map(color => (
@@ -143,7 +147,7 @@ export const TablePropertiesModal: React.FC<Props> = ({ isOpen, onClose, editor 
 
       <div className="flex justify-end pt-4 mt-4 border-t border-[#444746]">
          <button onClick={onClose} className="px-6 py-2 bg-brand text-[#0b141a] font-bold rounded-full hover:brightness-110 flex items-center gap-2">
-            <Icon name="Check" size={16} /> Concluído
+            <Check size={16} /> Concluído
          </button>
       </div>
     </BaseModal>

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
-import { Icon } from '../../shared/Icon';
+import { Quote } from 'lucide-react';
 
 export const CitationNode = (props: any) => {
   const { node } = props;

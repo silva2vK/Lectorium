@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Icon } from '../../shared/Icon';
+import { X, Hash, Info } from 'lucide-react';
 import { Annotation } from '../../../types';
 
 interface Props {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Editor, BubbleMenu } from '@tiptap/react';
-import { Icon } from '../shared/Icon';
+import { AlignLeft, AlignCenter, AlignRight, Trash2, Settings2, Image as ImageIcon, Crop } from 'lucide-react';
 
 interface Props {
   editor: Editor;

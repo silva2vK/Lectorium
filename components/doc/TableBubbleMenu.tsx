@@ -1,6 +1,10 @@
 
 import React, { useState } from 'react';
-import { Icon } from '../shared/Icon';
+import { Editor, BubbleMenu } from '@tiptap/react';
+import { 
+  ArrowLeft, ArrowRight, ArrowUp, ArrowDown, 
+  Trash2, Merge, Split, Palette, Rows, Columns, GripHorizontal, Settings2
+} from 'lucide-react';
 
 interface Props {
   editor: Editor;
@@ -83,7 +87,7 @@ export const TableBubbleMenu: React.FC<Props> = ({ editor, onOpenProperties }) =
                className="px-3 py-2 text-text-sec hover:text-text hover:bg-white/5 border-l border-white/5"
                title="Propriedades Avançadas"
              >
-                <Icon name="Settings2" size={14} />
+                <Settings2 size={14} />
              </button>
          )}
       </div>
@@ -139,7 +143,7 @@ export const TableBubbleMenu: React.FC<Props> = ({ editor, onOpenProperties }) =
 
                 {/* Colors */}
                 <div className="flex gap-1 items-center bg-white/5 rounded px-2 py-1">
-                    <Icon name="Palette" size={14} className="text-text-sec mr-1"/>
+                    <Palette size={14} className="text-text-sec mr-1"/>
                     {CELL_COLORS.map(color => (
                         <button
                             key={color}

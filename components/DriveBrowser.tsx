@@ -1,6 +1,8 @@
 
 import React, { useState, useMemo, useCallback, useRef } from 'react';
-import { Icon } from './shared/Icon';
+import { 
+  ArrowLeft, Loader2, RefreshCw, Menu, Cloud, UploadCloud, HardDrive, Sparkles, Lock, LogIn, X, Search, CloudOff, AlertTriangle, Plus
+} from 'lucide-react';
 import { DriveFile, MIME_TYPES } from '../types';
 import { downloadDriveFile, uploadFileToDrive } from '../services/driveService';
 import { saveOfflineFile, toggleFilePin } from '../services/storageService';

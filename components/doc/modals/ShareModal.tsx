@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Icon } from '../../shared/Icon';
+import { Users, ExternalLink, Check, Copy, Lock, Info } from 'lucide-react';
 import { BaseModal } from '../../shared/BaseModal';
 
 interface Props {

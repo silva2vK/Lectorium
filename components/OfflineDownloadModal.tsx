@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Icon, IconName } from './shared/Icon';
+import { X, Download, Database, Check, Server, Calculator, FileText, Trash2, HardDrive } from 'lucide-react';
 import { AVAILABLE_RESOURCES, ResourceCategory, formatSize } from '../services/offlineService';
 
 interface Props {
@@ -13,10 +13,10 @@ interface Props {
   progress?: number;
 }
 
-const ICONS: Record<string, IconName> = {
-  'core': 'Server',
-  'pdf_office': 'FileText',
-  'math_science': 'Calculator'
+const ICONS: Record<string, React.ElementType> = {
+  'core': Server,
+  'pdf_office': FileText,
+  'math_science': Calculator
 };
 
 export const OfflineDownloadModal: React.FC<Props> = ({ 
@@ -58,17 +58,17 @@ export const OfflineDownloadModal: React.FC<Props> = ({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
       <div className="bg-surface border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl relative">
-        <button onClick={onClose} className="absolute top-4 right-4 text-text-sec hover:text-text"><Icon name="X" size={20}/></button>
+        <button onClick={onClose} className="absolute top-4 right-4 text-text-sec hover:text-text"><X size={20}/></button>
         
         <div className="flex items-center gap-3 mb-4 text-brand">
           <div className="bg-brand/10 p-2 rounded-lg">
-            <Icon name="Download" size={24} />
+            <Download size={24} />
           </div>
           <div>
             <h3 className="text-xl font-bold text-text">Recursos Offline</h3>
             {currentSize && (
               <p className="text-xs text-brand font-bold flex items-center gap-1 mt-0.5">
-                <Icon name="HardDrive" size={10} /> Ocupado em Disco: {currentSize}
+                <HardDrive size={10} /> Ocupado em Disco: {currentSize}
               </p>
             )}
           </div>
@@ -93,7 +93,7 @@ export const OfflineDownloadModal: React.FC<Props> = ({
           <>
             <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
               {AVAILABLE_RESOURCES.map((group) => {
-                const iconName = ICONS[group.id] || 'Database';
+                const Icon = ICONS[group.id] || Database;
                 const isSelected = selected.has(group.id) || group.required;
                 
                 return (
@@ -109,7 +109,7 @@ export const OfflineDownloadModal: React.FC<Props> = ({
                     `}
                   >
                     <div className={`p-2 rounded-lg shrink-0 transition-colors ${isSelected ? 'bg-brand text-bg' : 'bg-[#333] text-gray-500'}`}>
-                      {isSelected ? <Icon name="Check" size={16} /> : <Icon name={iconName} size={16} />}
+                      {isSelected ? <Check size={16} /> : <Icon size={16} />}
                     </div>
                     
                     <div className="flex-1">
@@ -138,7 +138,7 @@ export const OfflineDownloadModal: React.FC<Props> = ({
                 onClick={handleConfirm}
                 className="w-full py-3 bg-brand text-bg rounded-xl font-bold text-sm hover:brightness-110 transition-all flex items-center justify-center gap-2"
               >
-                <Icon name="Download" size={18} />
+                <Download size={18} />
                 {currentSize ? 'Atualizar Recursos' : 'Baixar Seleção'}
               </button>
               
@@ -147,7 +147,7 @@ export const OfflineDownloadModal: React.FC<Props> = ({
                   onClick={() => { if(confirm('Isso apagará o cache da aplicação. Continuar?')) onClear(); }}
                   className="w-full py-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl font-bold text-xs hover:bg-red-500/20 transition-all flex items-center justify-center gap-2"
                 >
-                  <Icon name="Trash2" size={14} />
+                  <Trash2 size={14} />
                   Limpar Cache
                 </button>
               )}

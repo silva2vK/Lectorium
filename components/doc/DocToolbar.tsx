@@ -1,6 +1,17 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Icon } from '../shared/Icon';
+import { Editor } from '@tiptap/react';
+import { 
+  Bold, Italic, Strikethrough, 
+  Quote, 
+  AlignLeft, AlignCenter, AlignRight, AlignJustify,
+  Image as ImageIcon, Table,
+  Superscript, Subscript, Baseline, Highlighter, ArrowUpFromLine,
+  Type, MessageSquareQuote,
+  Check, ArrowDownToLine,
+  Minus, Terminal, Indent as IndentIcon,
+  ChevronLeft, ChevronRight
+} from 'lucide-react';
 
 interface Props {
   editor: Editor | null;
@@ -183,7 +194,7 @@ export const DocToolbar: React.FC<Props> = ({
             isActive={activeMenu === 'spacing'}
             title="Espaçamento e Paginação"
          >
-            <Icon name="ArrowUpFromLine" size={16} />
+            <ArrowUpFromLine size={16} />
          </Button>
 
          {activeMenu === 'spacing' && (
@@ -198,7 +209,7 @@ export const DocToolbar: React.FC<Props> = ({
                         className="w-full text-left px-2 py-1.5 hover:bg-white/10 rounded flex items-center justify-between text-sm text-[#e3e3e3]"
                       >
                          <span>{val}</span>
-                         {currentLineHeight === val && <Icon name="Check" size={14} className="text-brand"/>}
+                         {currentLineHeight === val && <Check size={14} className="text-brand"/>}
                       </button>
                   ))}
                </div>
@@ -206,7 +217,7 @@ export const DocToolbar: React.FC<Props> = ({
                {/* Indentation (Recuo) */}
                <div className="p-2 border-b border-[#444746]">
                   <div className="text-[10px] font-bold text-text-sec uppercase tracking-wider px-2 mb-1 flex items-center gap-2">
-                      <Icon name="Indent" size={12}/> Recuo Especial
+                      <IndentIcon size={12}/> Recuo Especial
                   </div>
                   
                   <div className="flex flex-col gap-2 px-1">
@@ -217,7 +228,7 @@ export const DocToolbar: React.FC<Props> = ({
                         title="Aplica recuo de 1.25cm na primeira linha (Padrão ABNT)"
                       >
                          <span>Padrão (1.25 cm)</span>
-                         {currentTextIndent === '1.25cm' && <Icon name="Check" size={14} className="text-brand"/>}
+                         {currentTextIndent === '1.25cm' && <Check size={14} className="text-brand"/>}
                       </button>
 
                       <div className="flex items-center gap-2 pl-2">
@@ -243,7 +254,7 @@ export const DocToolbar: React.FC<Props> = ({
                             onClick={() => setFirstLineIndent('0px')}
                             className="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-2 py-1 rounded w-full text-left flex items-center gap-1"
                           >
-                              <Icon name="Minus" size={10} /> Remover recuo
+                              <Minus size={10} /> Remover recuo
                           </button>
                       )}
                   </div>
@@ -256,14 +267,14 @@ export const DocToolbar: React.FC<Props> = ({
                     onClick={() => setParagraphSpacing('before')}
                     className="w-full text-left px-2 py-1.5 hover:bg-white/10 rounded flex items-center gap-2 text-sm text-[#e3e3e3]"
                   >
-                     {hasSpaceBefore ? <Icon name="ArrowDownToLine" size={14} className="text-brand"/> : <Icon name="ArrowUpFromLine" size={14}/>}
+                     {hasSpaceBefore ? <ArrowDownToLine size={14} className="text-brand"/> : <ArrowUpFromLine size={14}/>}
                      <span>{hasSpaceBefore ? 'Remover espaço antes' : 'Adicionar espaço antes'}</span>
                   </button>
                   <button 
                     onClick={() => setParagraphSpacing('after')}
                     className="w-full text-left px-2 py-1.5 hover:bg-white/10 rounded flex items-center gap-2 text-sm text-[#e3e3e3]"
                   >
-                     {hasSpaceAfter ? <Icon name="ArrowUpFromLine" size={14} className="text-brand"/> : <Icon name="ArrowDownToLine" size={14}/>}
+                     {hasSpaceAfter ? <ArrowUpFromLine size={14} className="text-brand"/> : <ArrowDownToLine size={14}/>}
                      <span>{hasSpaceAfter ? 'Remover espaço depois' : 'Adicionar espaço depois'}</span>
                   </button>
                </div>
@@ -274,17 +285,17 @@ export const DocToolbar: React.FC<Props> = ({
                   
                   <button onClick={() => toggleAttribute('keepWithNext')} className="w-full text-left px-2 py-1.5 hover:bg-white/10 rounded flex items-center justify-between text-sm text-[#e3e3e3]">
                      <span>Manter com o próximo</span>
-                     {paragraphAttrs.keepWithNext && <Icon name="Check" size={14} className="text-brand"/>}
+                     {paragraphAttrs.keepWithNext && <Check size={14} className="text-brand"/>}
                   </button>
                   
                   <button onClick={() => toggleAttribute('keepLinesTogether')} className="w-full text-left px-2 py-1.5 hover:bg-white/10 rounded flex items-center justify-between text-sm text-[#e3e3e3]">
                      <span>Manter linhas juntas</span>
-                     {paragraphAttrs.keepLinesTogether && <Icon name="Check" size={14} className="text-brand"/>}
+                     {paragraphAttrs.keepLinesTogether && <Check size={14} className="text-brand"/>}
                   </button>
 
                   <button onClick={() => toggleAttribute('pageBreakBefore')} className="w-full text-left px-2 py-1.5 hover:bg-white/10 rounded flex items-center justify-between text-sm text-[#e3e3e3]">
                      <span>Quebra de pág. antes</span>
-                     {paragraphAttrs.pageBreakBefore && <Icon name="Check" size={14} className="text-brand"/>}
+                     {paragraphAttrs.pageBreakBefore && <Check size={14} className="text-brand"/>}
                   </button>
                </div>
             </div>
@@ -300,19 +311,19 @@ export const DocToolbar: React.FC<Props> = ({
           isActive={activeMenu === 'format' || editor.isActive('code') || editor.isActive('subscript') || editor.isActive('superscript')}
           title="Mais Formatação"
         >
-          <Icon name="Type" size={16} />
+          <Type size={16} />
         </Button>
 
         {activeMenu === 'format' && (
           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-surface border border-border rounded-xl shadow-xl flex items-center p-1 gap-1 animate-in slide-in-from-bottom-2 fade-in whitespace-nowrap z-50">
-            <Button onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} title="Negrito"><Icon name="Bold" size={16} /></Button>
-            <Button onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')} title="Itálico"><Icon name="Italic" size={16} /></Button>
-            <Button onClick={() => editor.chain().focus().toggleStrike().run()} isActive={editor.isActive('strike')} title="Tachado"><Icon name="Strikethrough" size={16} /></Button>
+            <Button onClick={() => editor.chain().focus().toggleBold().run()} isActive={editor.isActive('bold')} title="Negrito"><Bold size={16} /></Button>
+            <Button onClick={() => editor.chain().focus().toggleItalic().run()} isActive={editor.isActive('italic')} title="Itálico"><Italic size={16} /></Button>
+            <Button onClick={() => editor.chain().focus().toggleStrike().run()} isActive={editor.isActive('strike')} title="Tachado"><Strikethrough size={16} /></Button>
             <div className="w-px h-4 bg-border mx-1"></div>
-            <Button onClick={() => editor.chain().focus().toggleSubscript().run()} isActive={editor.isActive('subscript')} title="Subscrito"><Icon name="Subscript" size={16} /></Button>
-            <Button onClick={() => editor.chain().focus().toggleSuperscript().run()} isActive={editor.isActive('superscript')} title="Sobrescrito"><Icon name="Superscript" size={16} /></Button>
+            <Button onClick={() => editor.chain().focus().toggleSubscript().run()} isActive={editor.isActive('subscript')} title="Subscrito"><Subscript size={16} /></Button>
+            <Button onClick={() => editor.chain().focus().toggleSuperscript().run()} isActive={editor.isActive('superscript')} title="Sobrescrito"><Superscript size={16} /></Button>
             <div className="w-px h-4 bg-border mx-1"></div>
-            <Button onClick={() => editor.chain().focus().toggleCode().run()} isActive={editor.isActive('code')} title="Código Inline"><Icon name="Terminal" size={16} /></Button>
+            <Button onClick={() => editor.chain().focus().toggleCode().run()} isActive={editor.isActive('code')} title="Código Inline"><Terminal size={16} /></Button>
           </div>
         )}
       </div>
@@ -329,7 +340,7 @@ export const DocToolbar: React.FC<Props> = ({
                 value={editor.getAttributes('textStyle').color || '#000000'}
                 title="Cor do Texto"
              />
-             <Icon name="Baseline" size={16} className="text-text-sec group-hover:text-text" style={{ color: editor.getAttributes('textStyle').color }} />
+             <Baseline size={16} className="text-text-sec group-hover:text-text" style={{ color: editor.getAttributes('textStyle').color }} />
          </div>
          <div className="relative group flex items-center justify-center p-2 hover:bg-white/10 rounded-lg cursor-pointer">
              <input 
@@ -338,7 +349,7 @@ export const DocToolbar: React.FC<Props> = ({
                 onInput={(e) => editor.chain().focus().toggleHighlight({ color: (e.target as HTMLInputElement).value }).run()}
                 title="Cor de Destaque"
              />
-             <Icon name="Highlighter" size={16} className="text-text-sec group-hover:text-text" />
+             <Highlighter size={16} className="text-text-sec group-hover:text-text" />
          </div>
       </div>
 
@@ -351,19 +362,19 @@ export const DocToolbar: React.FC<Props> = ({
           isActive={activeMenu === 'align'}
           title="Alinhamento"
         >
-          {editor.isActive({ textAlign: 'center' }) ? <Icon name="AlignCenter" size={16}/> :
-           editor.isActive({ textAlign: 'right' }) ? <Icon name="AlignRight" size={16}/> :
-           editor.isActive({ textAlign: 'justify' }) ? <Icon name="AlignJustify" size={16}/> :
-           <Icon name="AlignLeft" size={16}/>}
+          {editor.isActive({ textAlign: 'center' }) ? <AlignCenter size={16}/> :
+           editor.isActive({ textAlign: 'right' }) ? <AlignRight size={16}/> :
+           editor.isActive({ textAlign: 'justify' }) ? <AlignJustify size={16}/> :
+           <AlignLeft size={16}/>}
         </Button>
 
         {activeMenu === 'align' && (
           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-surface border border-border rounded-xl shadow-xl flex items-center p-1 gap-1 animate-in slide-in-from-bottom-2 fade-in z-50">
             {/* Direct buttons for easier clicking */}
-            <button onClick={() => { editor.chain().focus().setTextAlign('left').run(); setActiveMenu(null); }} className={`p-2 rounded hover:bg-white/10 ${editor.isActive({ textAlign: 'left' }) ? 'text-brand' : 'text-gray-300'}`} title="Esquerda"><Icon name="AlignLeft" size={16} /></button>
-            <button onClick={() => { editor.chain().focus().setTextAlign('center').run(); setActiveMenu(null); }} className={`p-2 rounded hover:bg-white/10 ${editor.isActive({ textAlign: 'center' }) ? 'text-brand' : 'text-gray-300'}`} title="Centro"><Icon name="AlignCenter" size={16} /></button>
-            <button onClick={() => { editor.chain().focus().setTextAlign('right').run(); setActiveMenu(null); }} className={`p-2 rounded hover:bg-white/10 ${editor.isActive({ textAlign: 'right' }) ? 'text-brand' : 'text-gray-300'}`} title="Direita"><Icon name="AlignRight" size={16} /></button>
-            <button onClick={() => { editor.chain().focus().setTextAlign('justify').run(); setActiveMenu(null); }} className={`p-2 rounded hover:bg-white/10 ${editor.isActive({ textAlign: 'justify' }) ? 'text-brand' : 'text-gray-300'}`} title="Justificado"><Icon name="AlignJustify" size={16} /></button>
+            <button onClick={() => { editor.chain().focus().setTextAlign('left').run(); setActiveMenu(null); }} className={`p-2 rounded hover:bg-white/10 ${editor.isActive({ textAlign: 'left' }) ? 'text-brand' : 'text-gray-300'}`} title="Esquerda"><AlignLeft size={16} /></button>
+            <button onClick={() => { editor.chain().focus().setTextAlign('center').run(); setActiveMenu(null); }} className={`p-2 rounded hover:bg-white/10 ${editor.isActive({ textAlign: 'center' }) ? 'text-brand' : 'text-gray-300'}`} title="Centro"><AlignCenter size={16} /></button>
+            <button onClick={() => { editor.chain().focus().setTextAlign('right').run(); setActiveMenu(null); }} className={`p-2 rounded hover:bg-white/10 ${editor.isActive({ textAlign: 'right' }) ? 'text-brand' : 'text-gray-300'}`} title="Direita"><AlignRight size={16} /></button>
+            <button onClick={() => { editor.chain().focus().setTextAlign('justify').run(); setActiveMenu(null); }} className={`p-2 rounded hover:bg-white/10 ${editor.isActive({ textAlign: 'justify' }) ? 'text-brand' : 'text-gray-300'}`} title="Justificado"><AlignJustify size={16} /></button>
           </div>
         )}
       </div>
@@ -371,15 +382,15 @@ export const DocToolbar: React.FC<Props> = ({
       <div className="w-px h-6 bg-border shrink-0 mx-1"></div>
 
       {/* Block Elements */}
-      <Button onClick={() => editor.chain().focus().toggleBlockquote().run()} isActive={editor.isActive('blockquote')} title="Citação (ABNT)"><Icon name="Quote" size={16} /></Button>
-      <Button onClick={onAddFootnote} title="Nota de Rodapé"><Icon name="MessageSquareQuote" size={16} /></Button>
+      <Button onClick={() => editor.chain().focus().toggleBlockquote().run()} isActive={editor.isActive('blockquote')} title="Citação (ABNT)"><Quote size={16} /></Button>
+      <Button onClick={onAddFootnote} title="Nota de Rodapé"><MessageSquareQuote size={16} /></Button>
 
       <div className="w-px h-6 bg-border shrink-0 mx-1"></div>
 
       {/* Insertables */}
       <div className="flex items-center gap-0.5 bg-brand/5 p-1 rounded-lg shrink-0 border border-brand/20">
-        <Button onClick={onInsertImage} title="Imagem"><Icon name="Image" size={16} className="text-brand" /></Button>
-        <Button onClick={addTable} title="Tabela"><Icon name="Table" size={16} className="text-brand" /></Button>
+        <Button onClick={onInsertImage} title="Imagem"><ImageIcon size={16} className="text-brand" /></Button>
+        <Button onClick={addTable} title="Tabela"><Table size={16} className="text-brand" /></Button>
         
         {/* Page Counter & Jumper */}
         <div className="flex items-center gap-2 px-2 bg-brand/10 rounded-lg ml-1 h-[32px] border border-brand/30">

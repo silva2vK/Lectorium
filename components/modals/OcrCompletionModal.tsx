@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Icon } from '../shared/Icon';
+import { Save, Copy, X, Loader2, CheckCircle, FileText, AlertCircle, AlertTriangle, Hourglass, BrainCircuit, ExternalLink, Sparkles } from 'lucide-react';
 import { BaseModal } from '../shared/BaseModal';
 import { useGlobalContext } from '../../context/GlobalContext';
 import { loadOcrData, loadAnnotations, saveOfflineFile, addToSyncQueue } from '../../services/storageService';

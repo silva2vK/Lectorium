@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Icon } from '../shared/Icon';
+import { Download, CloudUpload, X, Check, Save } from 'lucide-react';
 import { BaseModal } from '../shared/BaseModal';
 
 interface Props {

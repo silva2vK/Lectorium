@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Icon } from '../../shared/Icon';
+import { CheckCircle, Cloud, RefreshCw, WifiOff, ArrowRight } from 'lucide-react';
 import { BaseModal } from '../../shared/BaseModal';
 
 export type SuccessMode = 'upload' | 'overwrite' | 'offline';

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Editor, BubbleMenu } from '@tiptap/react';
-import { Icon } from '../shared/Icon';
+import { MessageSquareQuote, Check } from 'lucide-react';
 
 interface Props {
   editor: Editor;

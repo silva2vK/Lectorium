@@ -1,5 +1,5 @@
 import React from 'react';
-import { Icon } from './shared/Icon';
+import { X, RefreshCw, Trash2, UploadCloud, FileType, Clock, AlertTriangle } from 'lucide-react';
 import { SyncQueueItem } from '../types';
 
 interface Props {

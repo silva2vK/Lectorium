@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Icon } from './shared/Icon';
+import { ShieldCheck, Cookie, Check, Info, Lock } from 'lucide-react';
 
 interface Props {
   onAccept?: () => void;

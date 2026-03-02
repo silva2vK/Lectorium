@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Icon } from '../../shared/Icon';
+import { X, Search, Keyboard, Command } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;

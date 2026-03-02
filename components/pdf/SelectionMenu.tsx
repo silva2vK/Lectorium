@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Icon } from '../shared/Icon';
+import { Highlighter, Sparkles, Book, Copy, X, Eraser } from 'lucide-react';
 
 export interface SelectionState {
   page: number;

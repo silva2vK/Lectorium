@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Icon } from '../../shared/Icon';
+import { X, Clock, RotateCcw, Loader2, Save } from 'lucide-react';
 import { DocVersion, getDocVersions, saveDocVersion } from '../../../services/storageService';
 import { auth } from '../../../firebase';
 

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Icon } from '../shared/Icon';
+import { MessageSquareText, X, Trash2, Quote } from 'lucide-react';
 import { Annotation } from '../../types';
 import { usePdfStore } from '../../stores/usePdfStore';
 

@@ -1,6 +1,10 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Icon } from './shared/Icon';
+import { 
+  Plus, Minus, Menu, Save, Loader2, X, Sparkles, Target, 
+  Trash2, Palette, Link as LinkIcon, Square, Circle, 
+  Type, Image as ImageIcon, PlusCircle, MinusCircle, Upload, Edit2, Download, CloudUpload
+} from 'lucide-react';
 import { updateDriveFile, downloadDriveFile, uploadFileToDrive } from '../services/driveService';
 import { MindMapNode, MindMapEdge, MindMapViewport, MindMapData } from '../types';
 import { AiChatPanel } from './shared/AiChatPanel';

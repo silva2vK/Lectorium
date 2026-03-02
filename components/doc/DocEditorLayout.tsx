@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Icon } from '../shared/Icon';
-import { Loader2, Cloud, Sparkles, Users, Share2, Menu, ChevronLeft, ChevronRight, Lock, Globe, FileText, MessageSquare } from 'lucide-react';
+import { Loader2, ArrowLeft, FileText, Cloud, Sparkles, Users, Share2 } from 'lucide-react';
 import { EditorContent } from '@tiptap/react';
 import { useDocEditorContext } from '../../context/DocEditorContext';
 

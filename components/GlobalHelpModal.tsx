@@ -1,7 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
-import { Icon } from './shared/Icon';
-import { Cloud, AlertTriangle, CheckSquare, Globe, Shield, Zap, Layers, CheckCircle2, AlertCircle, Monitor, Wifi, HardDrive, Database, Save, CloudOff, History, RefreshCw, FileText, Layout, MessageSquare, Search, Wand2, BrainCircuit, Calculator, Quote, Table, Image, FilePlus, FolderPlus, Trash2, Download, ExternalLink, Lock, Key, Users, Info, Menu, Workflow, Pin, Clock, Server, File, FolderOpen, LifeBuoy, Upload, Signal, SignalHigh, Home, Folder, FolderInput, BarChart2, Square, Unlock, Terminal, Cpu, LogOut, User, Palette, ChevronDown, ChevronRight, DownloadCloud, LayoutGrid, LogIn, Wrench, Scale, Minimize, Contrast, UploadCloud, FileType, Copy, Scissors, Bold, Italic, Link, MessageSquarePlus, Share2, ArrowDown, ArrowUp, Replace, ReplaceAll, MessageSquareQuote, AlignLeft, AlignCenter, AlignRight, Settings2, Crop, RotateCw, Type, RefreshCcw, Hash, ChevronLeft, PenTool, ClipboardPaste, EyeOff, Activity, Edit2, HelpCircle, Book, Columns, LayoutTemplate, PanelTop, PanelBottom, Keyboard, Command, Settings, ArrowUpFromLine, Code, Sigma, RotateCcw, Gavel, Hourglass, MessageSquareText, PanelLeft, Droplets, Binary, Pen, Highlighter, ScrollText, SplitSquareHorizontal, MousePointer2, StickyNote, Eraser, MoveHorizontal, Minus, ZoomIn, Paintbrush, Languages, ListRestart, FileDiff, XCircle, FileWarning, WifiOff, Send, Bot, Podcast, Pipette, Chrome, Safari, Firefox, Apple, Smartphone, X, Battery, BookOpen, ArrowRight, ArrowLeft, ShieldCheck, Touchpad, MousePointerClick } from 'lucide-react';
+import { 
+  X, BookOpen, FileText, Workflow, Cloud, 
+  WifiOff, CheckSquare, MousePointerClick, 
+  Touchpad, AlertTriangle, ShieldCheck,
+  CheckCircle2, Pen, Highlighter, ArrowRight,
+  Globe, Chrome, Compass, Flame, Shield, Zap, 
+  Layers, Disc, Smartphone, ArrowLeft, Wrench, RefreshCw, AlertCircle,
+  Cpu, Terminal, Battery
+} from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -108,7 +115,7 @@ const SECTIONS = [
                 <Smartphone size={20} className="text-purple-400" /> <span className="text-sm text-white">Samsung Internet</span>
               </div>
               <div className="flex items-center gap-3 bg-[#252525] p-2 rounded-lg border border-[#333]">
-                <Icon name="Disc" size={20} className="text-red-500" /> <span className="text-sm text-white">Opera</span>
+                <Disc size={20} className="text-red-500" /> <span className="text-sm text-white">Opera</span>
               </div>
               <div className="flex items-center gap-3 bg-[#252525] p-2 rounded-lg border border-[#333]">
                 <Smartphone size={20} className="text-yellow-400" /> <span className="text-sm text-white">Soul Browser</span>
@@ -124,10 +131,10 @@ const SECTIONS = [
             </div>
             <div className="p-4 grid grid-cols-2 gap-3">
               <div className="flex items-center gap-3 bg-[#252525] p-2 rounded-lg border border-[#333]">
-                <Icon name="Flame" size={20} className="text-orange-500" /> <span className="text-sm text-white">Firefox</span>
+                <Flame size={20} className="text-orange-500" /> <span className="text-sm text-white">Firefox</span>
               </div>
               <div className="flex items-center gap-3 bg-[#252525] p-2 rounded-lg border border-[#333]">
-                <Icon name="Compass" size={20} className="text-blue-300" /> <span className="text-sm text-white">Safari</span>
+                <Compass size={20} className="text-blue-300" /> <span className="text-sm text-white">Safari</span>
               </div>
             </div>
             <div className="px-4 pb-3">
@@ -226,7 +233,7 @@ const SECTIONS = [
         {/* FIREFOX SECTION */}
         <div className="bg-[#1a1a1a] border border-orange-500/30 rounded-xl overflow-hidden">
             <div className="bg-orange-500/10 p-3 flex items-center gap-2 border-b border-orange-500/20">
-                <Icon name="Flame" size={18} className="text-orange-500" />
+                <Flame size={18} className="text-orange-500" />
                 <span className="text-white font-bold text-sm">Protocolo Firefox (Android)</span>
             </div>
             

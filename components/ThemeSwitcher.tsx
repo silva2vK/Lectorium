@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Icon } from './shared/Icon';
+import { Check, Palette } from 'lucide-react';
 
 const themes = [
   { id: 'forest', name: 'Verde (Padrão)', cn: '森', color: '#4ade80' },

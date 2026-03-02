@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Icon } from '../shared/Icon';
+import { Edit2, Check, X } from 'lucide-react';
 import { BaseModal } from '../shared/BaseModal';
 
 interface Props {

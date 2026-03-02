@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Icon } from '../../shared/Icon';
+import { X, Copy, Check } from 'lucide-react';
 
 interface DefinitionModalProps {
   isOpen: boolean;

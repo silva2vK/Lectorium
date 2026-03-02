@@ -1,6 +1,6 @@
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { Icon } from './shared/Icon';
+import { AlertTriangle, Home, RefreshCw } from 'lucide-react';
 
 interface ErrorBoundaryProps {
   children?: ReactNode;

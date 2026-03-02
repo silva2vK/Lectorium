@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Icon } from '../shared/Icon';
+import { Sparkles, X, BrainCircuit, AlignLeft, ArrowRight } from 'lucide-react';
 import { BaseModal } from '../shared/BaseModal';
 
 interface Props {
