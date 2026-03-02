@@ -162,9 +162,21 @@ export const usePdfAnnotations = (
   }, [uid, fileId, isCheckingIntegrity, conflictDetected, mergeAndSet]);
 
   const updateAnnotation = useCallback(async (updatedAnn: Annotation) => {
-    if (isCheckingIntegrity || conflictDetected || updatedAnn.isBurned || !updatedAnn.id) return;
+    if (isCheckingIntegrity || conflictDetected || !updatedAnn.id) return;
     
-    localAnnsRef.current = localAnnsRef.current.map(a => a.id === updatedAnn.id ? updatedAnn : a);
+    let foundInLocal = false;
+    localAnnsRef.current = localAnnsRef.current.map(a => {
+      if (a.id === updatedAnn.id) {
+        foundInLocal = true;
+        return updatedAnn;
+      }
+      return a;
+    });
+
+    if (!foundInLocal) {
+      localAnnsRef.current = [...localAnnsRef.current, updatedAnn];
+    }
+
     importedAnnsRef.current = importedAnnsRef.current.map(a => a.id === updatedAnn.id ? updatedAnn : a);
     
     mergeAndSet();

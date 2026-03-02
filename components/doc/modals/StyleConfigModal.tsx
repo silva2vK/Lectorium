@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Type, AlignLeft, ArrowUpFromLine, Code, Copy, Check } from 'lucide-react';
+import { Icon } from '../../shared/Icon';
 import { BaseModal } from '../../shared/BaseModal';
 
 export interface StyleConfig {

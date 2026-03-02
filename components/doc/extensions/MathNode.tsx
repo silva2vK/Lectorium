@@ -2,11 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
 import katex from 'katex';
-import { 
-  Calculator, X, Check, HelpCircle, Sigma, 
-  Superscript, Divide, FunctionSquare, Braces,
-  Sparkles, Loader2, Play
-} from 'lucide-react';
+import { Icon } from '../../shared/Icon';
 import { GoogleGenAI } from "@google/genai";
 
 // --- SNIPPETS & TOOLS CONFIG ---
@@ -157,7 +153,7 @@ export default (props: any) => {
       >
         {!isEditing && (
             <div className="absolute -top-3 right-0 opacity-0 group-hover:opacity-100 transition-all bg-surface text-brand text-[10px] font-bold px-2 py-0.5 rounded-full border border-brand shadow-sm flex items-center gap-1 z-10 whitespace-nowrap">
-                <Calculator size={8} /> Editar
+                <Icon name="Calculator" size={8} /> Editar
             </div>
         )}
         
@@ -175,7 +171,7 @@ export default (props: any) => {
                  <div className="flex justify-between items-center px-6 py-4 border-b border-[#444746] bg-[#252525]">
                      <div className="flex items-center gap-3">
                         <div className="bg-brand/10 p-2 rounded-lg text-brand">
-                            <FunctionSquare size={20} />
+                            <Icon name="FunctionSquare" size={20} />
                         </div>
                         <div>
                             <h3 className="text-white font-bold text-base">Editor de Equações</h3>
@@ -183,7 +179,7 @@ export default (props: any) => {
                         </div>
                      </div>
                      <button onClick={handleSave} className="text-text-sec hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors">
-                        <X size={20} />
+                        <Icon name="X" size={20} />
                      </button>
                  </div>
 
@@ -235,7 +231,7 @@ export default (props: any) => {
                                 disabled={isAiLoading || !latex}
                                 className="absolute bottom-4 right-4 bg-brand/10 hover:bg-brand/20 text-brand border border-brand/30 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 backdrop-blur-sm transition-all"
                              >
-                                {isAiLoading ? <Loader2 size={12} className="animate-spin"/> : <Sparkles size={12} />}
+                                {isAiLoading ? <Icon name="Loader2" size={12} className="animate-spin"/> : <Icon name="Sparkles" size={12} />}
                                 {isAiLoading ? 'Analisando...' : 'Explicar Fórmula'}
                              </button>
                          </div>
@@ -245,7 +241,7 @@ export default (props: any) => {
                      <div className="flex-1 bg-[#1e1e1e] flex flex-col relative">
                          <div className="p-2 border-b border-[#444746] bg-[#252525] flex justify-between items-center">
                              <span className="text-xs font-bold text-text-sec uppercase tracking-wider flex items-center gap-2">
-                                <Play size={10} className="fill-current"/> Visualização em Tempo Real
+                                <Icon name="Play" size={10} className="fill-current"/> Visualização em Tempo Real
                              </span>
                              {errorMsg && <span className="text-xs text-red-400 font-bold bg-red-400/10 px-2 py-0.5 rounded">Erro de Sintaxe</span>}
                          </div>
@@ -263,7 +259,7 @@ export default (props: any) => {
                          {aiExplanation && (
                              <div className="p-4 bg-brand/5 border-t border-brand/20 animate-in slide-in-from-bottom-2">
                                  <h5 className="text-xs font-bold text-brand mb-1 flex items-center gap-1">
-                                     <Sparkles size={10} /> Insight do Gemini
+                                     <Icon name="Sparkles" size={10} /> Insight do Gemini
                                  </h5>
                                  <p className="text-xs text-gray-300 leading-relaxed">{aiExplanation}</p>
                              </div>
@@ -280,14 +276,14 @@ export default (props: any) => {
                  {/* Footer */}
                  <div className="flex justify-between items-center p-4 bg-[#252525] border-t border-[#444746]">
                     <div className="flex items-center gap-2 text-text-sec">
-                        <HelpCircle size={14} />
+                        <Icon name="HelpCircle" size={14} />
                         <span className="text-xs">Para fechar sem salvar, clique 3x fora do modal.</span>
                     </div>
                     <button 
                         onClick={handleSave} 
                         className="bg-brand text-[#0b141a] px-8 py-2.5 rounded-full font-bold hover:brightness-110 flex items-center gap-2 transition-all shadow-lg hover:shadow-brand/20"
                     >
-                        <Check size={18} /> Inserir Equação
+                        <Icon name="Check" size={18} /> Inserir Equação
                     </button>
                  </div>
              </div>

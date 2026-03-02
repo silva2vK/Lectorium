@@ -8,10 +8,11 @@ import { useDriveFiles } from '../hooks/useDriveFiles';
 
 interface Props {
   accessToken: string;
+  uid: string;
   onToggleMenu: () => void;
 }
 
-export const OperationalArchive: React.FC<Props> = ({ accessToken, onToggleMenu }) => {
+export const OperationalArchive: React.FC<Props> = ({ accessToken, uid, onToggleMenu }) => {
   const [selectedFiles, setSelectedFiles] = useState<DriveFile[]>([]);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -23,23 +24,47 @@ export const OperationalArchive: React.FC<Props> = ({ accessToken, onToggleMenu 
     if (selectedFiles.length === 0) return;
     setIsProcessing(true);
     try {
-      // TODO: Implement Web Worker processing
       addNotification('Processamento iniciado...', 'info');
       
-      // Mock processing for now
-      setTimeout(() => {
-        setResults({
-          tags: {
-            '#metodologia': { count: 12, files: [selectedFiles[0]?.name] },
-            '#conclusao': { count: 5, files: [selectedFiles[0]?.name] }
-          },
-          matrix: [
-            { file: selectedFiles[0]?.name, '#metodologia': true, '#conclusao': false }
-          ]
-        });
-        setIsProcessing(false);
-        addNotification('Processamento concluído!', 'success');
-      }, 2000);
+      const tagsCount: Record<string, { count: number, files: Set<string> }> = {};
+      const matrixMap: Record<string, Record<string, any>> = {};
+
+      for (const file of selectedFiles) {
+        const fileAnns = await loadAnnotations(uid, file.id);
+        matrixMap[file.name] = { file: file.name };
+
+        for (const ann of fileAnns) {
+          if (ann.tags && ann.tags.length > 0) {
+            for (const tag of ann.tags) {
+              if (!tagsCount[tag]) {
+                tagsCount[tag] = { count: 0, files: new Set() };
+              }
+              tagsCount[tag].count += 1;
+              tagsCount[tag].files.add(file.name);
+              
+              matrixMap[file.name][tag] = true;
+            }
+          }
+        }
+      }
+
+      const formattedTags: Record<string, { count: number, files: string[] }> = {};
+      for (const [tag, data] of Object.entries(tagsCount)) {
+        formattedTags[tag] = {
+          count: data.count,
+          files: Array.from(data.files)
+        };
+      }
+
+      const matrix = Object.values(matrixMap);
+
+      setResults({
+        tags: formattedTags,
+        matrix: matrix
+      });
+
+      setIsProcessing(false);
+      addNotification('Processamento concluído!', 'success');
 
     } catch (e) {
       console.error(e);
