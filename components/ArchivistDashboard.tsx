@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Search, FileSearch, History, CloudUpload, Loader2, BookOpen, Layers } from 'lucide-react';
+import { Icon } from '../src/components/shared/Icon';
 import { extractNewspaperContent } from '../services/visionService';
 
 export const ArchivistDashboard: React.FC = () => {

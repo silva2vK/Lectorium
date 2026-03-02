@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { NodeViewWrapper, NodeViewProps } from '@tiptap/react';
-import { RotateCw } from 'lucide-react';
+import { Icon } from '../../../src/components/shared/Icon';
 
 export const ImageNodeView: React.FC<NodeViewProps> = (props) => {
   const { node, updateAttributes, selected } = props;

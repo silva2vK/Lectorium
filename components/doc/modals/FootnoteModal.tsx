@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { BaseModal } from '../../shared/BaseModal';
-import { MessageSquareQuote, Check } from 'lucide-react';
+import { Icon } from '../../../src/components/shared/Icon';
 
 interface Props {
   isOpen: boolean;

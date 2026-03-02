@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-// Added missing 'Check' icon to the lucide-react imports
-import { Folder, ArrowRight, Loader2, Home, CheckCircle, ChevronLeft, FolderPlus, Plus, X, Check } from 'lucide-react';
 import { BaseModal } from '../../shared/BaseModal';
+import { Icon } from '../../../src/components/shared/Icon';
 import { listDriveFolders, uploadFileToDrive } from '../../../services/driveService';
 import { DriveFile, MIME_TYPES } from '../../../types';
 

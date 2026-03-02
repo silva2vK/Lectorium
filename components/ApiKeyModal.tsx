@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Key, Check, ShieldCheck, Trash2, ExternalLink, Plus } from 'lucide-react';
+import { Icon } from '../src/components/shared/Icon';
 import { BaseModal } from './shared/BaseModal';
 import { getStoredApiKeys, saveApiKeys, removeApiKey } from '../utils/apiKeyUtils';
 

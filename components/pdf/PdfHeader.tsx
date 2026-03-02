@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ArrowLeft, Save, Minimize, Maximize, PanelLeft } from 'lucide-react';
+import { Icon } from '../../src/components/shared/Icon';
 
 interface PdfHeaderProps {
   isVisible: boolean;

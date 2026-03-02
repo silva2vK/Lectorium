@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Database, FileText, Loader2, Download, Search, BarChart2, Table as TableIcon, Plus, X, CheckSquare, Square } from 'lucide-react';
+import { Icon } from '../src/components/shared/Icon';
 import { DriveFile, MIME_TYPES } from '../types';
 import { useGlobalContext } from '../context/GlobalContext';
 import { loadAnnotations } from '../services/storageService';

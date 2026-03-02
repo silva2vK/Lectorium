@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, MessageSquare, Sparkles } from 'lucide-react';
+import { Icon } from '../src/components/shared/Icon';
 import { AiChatPanel } from './shared/AiChatPanel';
 import { Editor } from '@tiptap/react';
 

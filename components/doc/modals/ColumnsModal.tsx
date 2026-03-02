@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Columns, X, Check, LayoutTemplate, Square, Columns as ColumnsIcon, Layout } from 'lucide-react';
+import { Icon } from '../../../src/components/shared/Icon';
 import { BaseModal } from '../../shared/BaseModal';
 
 interface Props {

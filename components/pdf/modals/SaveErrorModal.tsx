@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Lock, Download, LogIn, AlertCircle, RefreshCw, X, HardDrive, Terminal } from 'lucide-react';
+import { Icon } from '../../../src/components/shared/Icon';
 import { BaseModal } from '../../shared/BaseModal';
 import { SaveErrorType } from '../../../hooks/usePdfSaver';
 

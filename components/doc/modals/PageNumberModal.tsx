@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Hash, AlignLeft, AlignCenter, AlignRight, CheckCircle, Info, ArrowRight } from 'lucide-react';
+import { Icon } from '../../../src/components/shared/Icon';
 import { PageNumberConfig } from './PageSetupModal';
 
 interface Props {

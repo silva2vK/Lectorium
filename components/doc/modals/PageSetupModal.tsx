@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { PAPER_SIZES } from '../constants';
 import { BaseModal } from '../../shared/BaseModal';
-import { Settings } from 'lucide-react';
+import { Icon } from '../../../src/components/shared/Icon';
 
 export interface PageNumberConfig {
   enabled: boolean;

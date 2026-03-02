@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
-import { Copy, Terminal, Check, ChevronDown, FileText, Download, ClipboardPaste } from 'lucide-react';
+import { Icon } from '../../../src/components/shared/Icon';
 
 const EXTENSION_MAP: Record<string, string> = {
   javascript: 'js',

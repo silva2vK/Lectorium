@@ -1,6 +1,6 @@
 import React from 'react';
 import { Editor, BubbleMenu } from '@tiptap/react';
-import { Check, X, PenTool } from 'lucide-react';
+import { Icon } from '../../src/components/shared/Icon';
 
 interface Props {
   editor: Editor;

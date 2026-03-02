@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
-import { EyeOff, Activity } from 'lucide-react';
+import { Icon } from '../../../src/components/shared/Icon';
 
 interface LazyNodeViewProps {
   children: React.ReactNode;

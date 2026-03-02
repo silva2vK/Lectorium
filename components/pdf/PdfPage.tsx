@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { CheckCircle2, ScanLine } from 'lucide-react';
+import { Icon } from '../../src/components/shared/Icon';
 import { NoteMarker } from './NoteMarker';
 import { usePdfContext } from '../../context/PdfContext';
 import { usePdfStore } from '../../stores/usePdfStore'; 

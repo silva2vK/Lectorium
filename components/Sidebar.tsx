@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Home, FolderOpen, LogOut, User as UserIcon, X, Palette, ChevronDown, ChevronRight, Workflow, DownloadCloud, CheckCircle, Loader2, LayoutGrid, Cloud, CloudOff, LogIn, Wrench, Key, Scale, Monitor, Smartphone, Upload, Trash2, RefreshCw, FileText, Maximize, Minimize, Zap, Database, Cpu, Image as ImageIcon, Contrast, Users } from 'lucide-react';
+import { Icon } from '../src/components/shared/Icon';
 import { User } from 'firebase/auth';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { DriveFile } from '../types';

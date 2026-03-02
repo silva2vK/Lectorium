@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { X, Sigma, Check, Keyboard } from 'lucide-react';
+import { Icon } from '../../../src/components/shared/Icon';
 
 interface Props {
   isOpen: boolean;

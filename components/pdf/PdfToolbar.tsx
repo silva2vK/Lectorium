@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { MousePointer2, StickyNote, Pen, Eraser, ChevronLeft, ChevronRight, MoveHorizontal, Minus, Plus, Search, ZoomIn, Paintbrush, SplitSquareHorizontal } from 'lucide-react';
+import { Icon } from '../../src/components/shared/Icon';
 import { usePdfContext } from '../../context/PdfContext';
 import { usePdfStore } from '../../stores/usePdfStore';
 

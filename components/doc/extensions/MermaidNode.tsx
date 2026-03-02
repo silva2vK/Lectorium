@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NodeViewProps } from '@tiptap/react';
 import mermaid from 'mermaid';
-import { Workflow, Edit2, X, Check, HelpCircle } from 'lucide-react';
+import { Icon } from '../../../src/components/shared/Icon';
 import { LazyNodeView } from './LazyNodeView';
 
 mermaid.initialize({

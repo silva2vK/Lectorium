@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Icon } from '../../src/components/shared/Icon';
 
 interface SlideNavigationControlsProps {
   isVisible: boolean;

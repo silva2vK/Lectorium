@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Sparkles, Loader2, Copy, Check, Layers, Languages, ListRestart, Activity, X, Zap, Wand2, Globe } from 'lucide-react';
+import { Icon } from '../../src/components/shared/Icon';
 import { usePdfContext } from '../../context/PdfContext';
 import { SemanticRangeModal } from './modals/SemanticRangeModal';
 

@@ -16,7 +16,7 @@ import { OperationalArchive } from './components/OperationalArchive';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CookieConsent } from './components/CookieConsent';
 import { DriveFile, MIME_TYPES } from './types';
-import { Loader2, Wifi, Sparkles, X, CheckCircle, AlertTriangle, ScanLine, Maximize, Monitor } from 'lucide-react';
+import { Icon } from './src/components/shared/Icon';
 import ReauthToast from './components/ReauthToast';
 import { LegalModal, LegalTab } from './components/modals/LegalModal';
 import { generateMindMapAi } from './services/aiService';

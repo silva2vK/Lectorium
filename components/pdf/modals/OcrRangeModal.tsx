@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScanLine, Check, AlertTriangle, Layers, Info } from 'lucide-react';
+import { Icon } from '../../../src/components/shared/Icon';
 import { BaseModal } from '../../shared/BaseModal';
 import { useGlobalContext } from '../../../context/GlobalContext';
 import { usePdfContext } from '../../../context/PdfContext';

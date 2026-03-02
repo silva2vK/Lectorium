@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { X, Lock, FileText, Copy, Sparkles, AlertCircle, Palette, Droplets, Binary, Pen, Highlighter, ScanLine, MessageSquare, ScrollText, BookOpen, SplitSquareHorizontal, LayoutTemplate, Hash } from 'lucide-react';
+import { Icon } from '../../src/components/shared/Icon';
 import { Annotation } from '../../types';
 import { usePdfContext } from '../../context/PdfContext';
 import { usePdfStore } from '../../stores/usePdfStore';

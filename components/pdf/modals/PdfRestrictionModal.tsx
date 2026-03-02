@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Lock, ExternalLink, ArrowLeft } from 'lucide-react';
+import { Icon } from '../../../src/components/shared/Icon';
 import { BaseModal } from '../../shared/BaseModal';
 
 interface Props {

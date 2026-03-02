@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Editor } from '@tiptap/react';
-import { X, Image as ImageIcon, RotateCw, AlignCenter, AlignLeft, Type, Crop, RefreshCcw, Check } from 'lucide-react';
+import { Icon } from '../../src/components/shared/Icon';
 
 interface Props {
   editor: Editor | null;

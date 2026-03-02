@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { Icon } from '../src/components/shared/Icon';
 import { DriveFile } from '../types';
 import { downloadDriveFile } from '../services/driveService';
 import { universalConvertToPdf } from '../services/mediaAdapterService';

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Editor } from '@tiptap/react';
-import { X, MessageSquarePlus, Check, Trash2, User } from 'lucide-react';
+import { Icon } from '../../src/components/shared/Icon';
 
 export interface CommentData {
   id: string;

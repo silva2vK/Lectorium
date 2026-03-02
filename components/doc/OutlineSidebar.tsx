@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Editor } from '@tiptap/react';
-import { Hash, ChevronRight } from 'lucide-react';
+import { Icon } from '../../src/components/shared/Icon';
 
 interface Props {
   editor: Editor | null;

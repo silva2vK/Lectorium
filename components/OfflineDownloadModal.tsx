@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, Download, Database, Check, Server, Calculator, FileText, Trash2, HardDrive } from 'lucide-react';
+import { Icon } from '../src/components/shared/Icon';
 import { AVAILABLE_RESOURCES, ResourceCategory, formatSize } from '../services/offlineService';
 
 interface Props {

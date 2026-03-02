@@ -1,14 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { 
-  X, BookOpen, FileText, Workflow, Cloud, 
-  WifiOff, CheckSquare, MousePointerClick, 
-  Touchpad, AlertTriangle, ShieldCheck,
-  CheckCircle2, Pen, Highlighter, ArrowRight,
-  Globe, Chrome, Compass, Flame, Shield, Zap, 
-  Layers, Disc, Smartphone, ArrowLeft, Wrench, RefreshCw, AlertCircle,
-  Cpu, Terminal, Battery
-} from 'lucide-react';
+import { Icon } from '../src/components/shared/Icon';
 
 interface Props {
   isOpen: boolean;

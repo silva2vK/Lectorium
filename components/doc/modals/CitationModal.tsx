@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { X, Book, Globe, FileText, Plus, Trash2, Check } from 'lucide-react';
+import { Icon } from '../../../src/components/shared/Icon';
 import { Reference, ReferenceType } from '../../../types';
 
 interface Props {

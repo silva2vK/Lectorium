@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { X, Wrench, AlertTriangle, CheckCircle, Copy, Server, Globe, Loader2, RefreshCw } from 'lucide-react';
+import { Icon } from '../src/components/shared/Icon';
 import { BaseModal } from './shared/BaseModal';
 
 interface Props {

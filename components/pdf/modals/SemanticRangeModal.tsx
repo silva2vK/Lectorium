@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Layers, Check, AlertTriangle, Info, BrainCircuit, Languages } from 'lucide-react';
+import { Icon } from '../../../src/components/shared/Icon';
 import { BaseModal } from '../../shared/BaseModal';
 import { useGlobalContext } from '../../../context/GlobalContext';
 import { usePdfContext } from '../../../context/PdfContext';

@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, Sparkles, Loader2, User, Bot, Trash2, MessageSquare, FileSearch, Copy, Check, BrainCircuit, Database, BookOpen, Podcast } from 'lucide-react';
+import { Icon } from '../../src/components/shared/Icon';
 import { ChatMessage, SemanticLensData } from '../../types';
 import { chatWithDocumentStream } from '../../services/chatService';
 import { findRelevantChunks, extractPageRangeFromQuery } from '../../utils/textUtils';

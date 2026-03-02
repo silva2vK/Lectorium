@@ -9,7 +9,7 @@ import { DocToolbar } from './doc/DocToolbar';
 import { DocCanvas } from './doc/layout/DocCanvas';
 import { DocModals } from './doc/layout/DocModals';
 import { CommentData } from './doc/CommentsSidebar';
-import { Loader2, ArrowLeft, FileText, Cloud, Sparkles, Users, Share2, Lock } from 'lucide-react';
+import { Icon } from '../../src/components/shared/Icon';
 import { Reference, EditorStats, MIME_TYPES } from '../types';
 import { auth } from '../firebase';
 import { generateDocxBlob } from '../services/docxService';

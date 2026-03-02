@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Folder, FolderInput, ArrowRight, Loader2, Home, CheckCircle } from 'lucide-react';
+import { Icon } from '../src/components/shared/Icon';
 import { BaseModal } from './shared/BaseModal';
 import { listDriveFolders, moveDriveFile } from '../services/driveService';
 import { DriveFile } from '../types';
