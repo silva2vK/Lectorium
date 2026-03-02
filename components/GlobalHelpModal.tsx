@@ -108,7 +108,7 @@ const SECTIONS = [
                 <Smartphone size={20} className="text-purple-400" /> <span className="text-sm text-white">Samsung Internet</span>
               </div>
               <div className="flex items-center gap-3 bg-[#252525] p-2 rounded-lg border border-[#333]">
-                <Disc size={20} className="text-red-500" /> <span className="text-sm text-white">Opera</span>
+                <Icon name="Disc" size={20} className="text-red-500" /> <span className="text-sm text-white">Opera</span>
               </div>
               <div className="flex items-center gap-3 bg-[#252525] p-2 rounded-lg border border-[#333]">
                 <Smartphone size={20} className="text-yellow-400" /> <span className="text-sm text-white">Soul Browser</span>
