@@ -16,7 +16,7 @@ import { OperationalArchive } from './components/OperationalArchive';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CookieConsent } from './components/CookieConsent';
 import { DriveFile, MIME_TYPES } from './types';
-import { Icon } from './src/components/shared/Icon';
+import { Loader2, Wifi, Sparkles, X, CheckCircle, AlertTriangle, ScanLine, Maximize, Monitor } from 'lucide-react';
 import ReauthToast from './components/ReauthToast';
 import { LegalModal, LegalTab } from './components/modals/LegalModal';
 import { generateMindMapAi } from './services/aiService';
@@ -493,7 +493,7 @@ const AppContent = () => {
     if (activeTab === 'dashboard') return <Dashboard userName={user?.displayName} onOpenFile={handleOpenFile} onUploadLocal={(e) => { const f = e.target.files?.[0]; if (f) handleCreateFileFromBlob(f, f.name, f.type); }} onCreateMindMap={() => handleCreateMindMap()} onCreateDocument={() => handleCreateDocument()} onCreateFileFromBlob={handleCreateFileFromBlob} onChangeView={(view) => setActiveTab(view)} onToggleMenu={() => setIsSidebarOpen(true)} storageMode={storageMode} onToggleStorageMode={setStorageMode} onLogin={handleLogin} onOpenLocalFolder={handleOpenLocalFolder} savedLocalDirHandle={savedLocalDirHandle} onReconnectLocalFolder={handleReconnectLocalFolder} syncStrategy={syncStrategy} onToggleSyncStrategy={handleToggleSyncStrategy} />;
     
     if (activeTab === 'operational-archive') {
-        return <OperationalArchive accessToken={accessToken || ''} onToggleMenu={() => setIsSidebarOpen(true)} />;
+        return <OperationalArchive accessToken={accessToken || ''} uid={user?.uid || 'guest'} onToggleMenu={() => setIsSidebarOpen(true)} />;
     }
 
     if (activeTab === 'browser' || activeTab === 'mindmaps' || activeTab === 'offline' || activeTab === 'local-fs' || activeTab === 'shared') {
