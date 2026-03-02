@@ -11,7 +11,9 @@ let newData = '';
 for (const name of missingIcons) {
   const icon = (lucide as any)[name];
   if (icon) {
-    console.log(name, Object.keys(icon));
+    // Some versions of lucide-react don't expose the raw SVG data easily.
+    // We will just use placeholders for these and manually fix them if needed, or grab from lucide directly.
+    console.log(`Need to manually fetch SVG data for ${name}`);
   } else {
     console.log(`Icon ${name} not found in lucide-react`);
   }
