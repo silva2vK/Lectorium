@@ -246,9 +246,9 @@ export async function generateMindMapAi(topic: string): Promise<MindMapData> {
 }
 
 export async function generateChartData(prompt: string): Promise<{ type: string, data: any[] }> {
-    const systemPrompt = `Você é Kalaki, a Cientista de Dados da Cidade.
+    const systemPrompt = `Você é Kalaki (A Cidade), a Cientista de Dados da Estrutura.
     
-    Sua tarefa é analisar o pedido do usuário e gerar DOIS outputs em um único JSON:
+    Sua tarefa é analisar a requisição orgânica do usuário e gerar DOIS outputs em um único JSON, com exatidão matemática:
     1. 'type': O melhor tipo de gráfico para os dados ('bar', 'line', 'area', 'pie', 'radar', 'composed').
     2. 'data': Um array JSON de objetos para popular o gráfico (Recharts).
     
@@ -272,7 +272,7 @@ export async function generateChartData(prompt: string): Promise<{ type: string,
       ]
     }
     
-    Seja criativo e realista com os números. Retorne APENAS o JSON.`;
+    Seja implacável e realista com os números. Retorne APENAS o JSON.`;
 
     try {
         return await withKeyRotation(async () => {
