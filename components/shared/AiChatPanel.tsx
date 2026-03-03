@@ -253,7 +253,7 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
                       <Sparkles size={48} className="text-brand animate-pulse relative z-10" />
                   </div>
                   <div className="space-y-1">
-                      <p className="text-sm font-bold text-white">A Estrutura aguarda sua requisição orgânica.</p>
+                      <p className="text-sm font-bold text-white">O Domo Cognitivo está ativo. Como posso auxiliar na sua pesquisa hoje?</p>
                       <p className="text-xs text-text-sec">Lendo: {documentName}</p>
                       {Object.keys(lensData).length > 0 && (
                           <div className="mt-2 px-2 py-1 bg-purple-500/10 border border-purple-500/20 rounded-lg text-[10px] text-purple-300 font-bold backdrop-blur-sm">
