@@ -74,12 +74,7 @@
     "zustand": "5.0.9"
   },
   "overrides": {
-    "@tiptap/core": "2.11.5",
-    "@tiptap/pm": "2.11.5",
-    "@tiptap/extension-horizontal-rule": "2.11.5",
-    "lodash-es": "4.17.21",
-    "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "lodash-es": "4.17.21"
   },
   "devDependencies": {
     "@types/katex": "0.16.7",
