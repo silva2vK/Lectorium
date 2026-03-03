@@ -8,6 +8,8 @@ import { generateDocumentBriefing } from '../../services/aiService';
 import { semanticSearch } from '../../services/ragService';
 import { useOptionalPdfContext } from '../../context/PdfContext';
 
+import { CustomMarkdown } from './CustomMarkdown';
+
 interface Props {
   contextText: string;
   documentName: string;
@@ -33,7 +35,9 @@ const MessageItem: React.FC<{ m: ChatMessage }> = ({ m }) => {
               {m.role === 'user' ? <User size={16} /> : <Bot size={16} />}
           </div>
           <div className={`max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed shadow-lg ${m.role === 'user' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-surface/90 border border-border/50 text-text rounded-tl-none backdrop-blur-md'}`}>
-              <div className="whitespace-pre-wrap select-text selection:bg-brand/30 selection:text-white">{m.text}</div>
+              <div className="select-text selection:bg-brand/30 selection:text-white">
+                {m.role === 'model' ? <CustomMarkdown content={m.text || ''} /> : <div className="whitespace-pre-wrap">{m.text}</div>}
+              </div>
               
               {m.role === 'model' && m.text && (
                   <div className="mt-2 pt-2 border-t border-white/5 flex justify-end">
@@ -253,7 +257,7 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
                       <Sparkles size={48} className="text-brand animate-pulse relative z-10" />
                   </div>
                   <div className="space-y-1">
-                      <p className="text-sm font-bold text-white">A Estrutura aguarda sua requisição orgânica.</p>
+                      <p className="text-sm font-bold text-white">O Domo Cognitivo está ativo. Como posso auxiliar na sua pesquisa hoje?</p>
                       <p className="text-xs text-text-sec">Lendo: {documentName}</p>
                       {Object.keys(lensData).length > 0 && (
                           <div className="mt-2 px-2 py-1 bg-purple-500/10 border border-purple-500/20 rounded-lg text-[10px] text-purple-300 font-bold backdrop-blur-sm">
