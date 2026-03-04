@@ -4,7 +4,8 @@ import { saveOcrData, touchOfflineFile } from './storageService';
 import { performFullPageOcr } from './visionService';
 import { createSmartCanvas, smartCanvasToBlob } from '../utils/canvasUtils';
 
-GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs`;
+// Configuração do Worker - Importa configuração centralizada
+import '../utils/pdfjsConfig';
 
 export interface BackgroundOcrOptions {
   fileId: string;

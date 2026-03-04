@@ -5,8 +5,8 @@ import { downloadDriveFile } from '../services/driveService';
 import { getOfflineFile } from '../services/storageService';
 import { blobRegistry } from '../services/blobRegistry';
 
-// Configuração do Worker - CRÍTICO: Versão deve bater com importmap
-GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs`;
+// Configuração do Worker - Agora gerenciado pelo Vite no componente principal
+// GlobalWorkerOptions.workerSrc será definido no PdfViewer.tsx
 
 // Conversão de DPI (72 -> 96 com ajuste visual)
 const CSS_UNITS = (96.0 / 72.0) * 1.74;

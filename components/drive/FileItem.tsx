@@ -5,10 +5,8 @@ import { DriveFile, MIME_TYPES } from '../../types';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import JSZip from 'jszip';
 
-// Configuração do Worker do PDF.js
-if (!GlobalWorkerOptions.workerSrc) {
-   GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs`;
-}
+// Configuração do Worker - Importa configuração centralizada
+import '../../utils/pdfjsConfig';
 
 // --- Thumbnail Generator Helper ---
 async function generateLocalThumbnail(file: DriveFile): Promise<string | null> {

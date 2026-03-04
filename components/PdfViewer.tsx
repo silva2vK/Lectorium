@@ -3,6 +3,9 @@ import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react'
 import { Icon } from './shared/Icon';
 import { PDFDocumentProxy } from 'pdfjs-dist';
 
+// Configuração do Worker PDF.js - Importa configuração centralizada
+import '../utils/pdfjsConfig';
+
 // Hooks & Context
 import { usePdfDocument } from '../hooks/usePdfDocument';
 import { usePdfAnnotations } from '../hooks/usePdfAnnotations';
