@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { Check, Lock, Info } from 'lucide-react';
 import { Icon } from './shared/Icon';
 
 interface Props {
