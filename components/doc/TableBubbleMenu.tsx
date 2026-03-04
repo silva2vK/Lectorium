@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
 import { Icon } from '../shared/Icon';
+import { BubbleMenu, Editor } from '@tiptap/react';
+import { ArrowLeft, ArrowRight, Trash2, ArrowUp, ArrowDown, Merge, Split, Rows, Columns, GripHorizontal } from 'lucide-react';
 
 interface Props {
   editor: Editor;
