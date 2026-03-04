@@ -41,10 +41,16 @@ export default defineConfig(({ mode }) => {
         '@tiptap/react',
         '@tiptap/extension-bubble-menu'
       ],
+      // Exclusão cirúrgica: impede o Vite de corromper o worker do PDF.js processando-o como CJS
+      exclude: ['pdfjs-dist'],
       // Força a compatibilidade CommonJS/ESM para o Lucide (resolve erro de construtor)
       needsInterop: ['lucide-react'],
       esbuildOptions: {
         target: 'esnext',
+        // Liberação de escopo global para o PDF.js v4+ (Top-level Await)
+        supported: {
+          'top-level-await': true
+        }
       },
     },
     build: {
@@ -56,6 +62,10 @@ export default defineConfig(({ mode }) => {
         output: {
           // Roteamento dinâmico de Chunks: preserva a integridade de instâncias co-dependentes
           manualChunks(id) {
+            // Isolamento estrutural do motor de renderização de PDFs
+            if (id.includes('pdfjs-dist')) {
+              return 'pdf-engine';
+            }
             if (id.includes('@tiptap') || id.includes('lucide-react')) {
               return 'vendor-ui';
             }

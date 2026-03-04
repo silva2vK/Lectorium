@@ -1,23 +1,38 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// No topo do arquivo PdfViewer.tsx, substitua a linha do workerSrc por esta:
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 interface PdfViewerProps {
-  fileData: ArrayBuffer;
+  fileBlob: Blob; // Sincronizado com o objeto vindo do App.tsx/Storage
   onTextExtracted?: (text: string) => void;
 }
 
-export function PdfViewer({ fileData, onTextExtracted }: PdfViewerProps) {
+export function PdfViewer({ fileBlob, onTextExtracted }: PdfViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [pageNum, setPageNum] = useState(1);
   const [rendering, setRendering] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // Efeito de Carregamento e Conversão de Binários
   useEffect(() => {
     const loadPdf = async () => {
+      if (!fileBlob) return;
+      
       try {
-        const loadingTask = pdfjsLib.getDocument({ data: fileData });
+        setError(null);
+        // Conversão de Blob para ArrayBuffer exigida pelo motor PDF.js
+        const arrayBuffer = await fileBlob.arrayBuffer();
+        
+        const loadingTask = pdfjsLib.getDocument({ 
+          data: arrayBuffer,
+          // Otimização para React 19: evita clones desnecessários na memória heap
+          useSystemFonts: true 
+        });
+
         const pdf = await loadingTask.promise;
         setPdfDoc(pdf);
         setPageNum(1);
@@ -33,24 +48,27 @@ export function PdfViewer({ fileData, onTextExtracted }: PdfViewerProps) {
           }
           onTextExtracted(fullText);
         }
-      } catch (error) {
-        console.error("Error loading PDF:", error);
+      } catch (err) {
+        console.error("Falha sistêmica no carregamento do PDF:", err);
+        setError("Não foi possível processar o binário do PDF.");
       }
     };
+    
     loadPdf();
-  }, [fileData, onTextExtracted]);
+  }, [fileBlob, onTextExtracted]);
 
+  // Motor de Renderização Geométrica (Canvas)
   useEffect(() => {
     const renderPage = async () => {
-      if (!pdfDoc || !canvasRef.current || rendering) return;
-      setRendering(true);
+      if (!pdfDoc || !canvasRef.current) return;
       
       try {
+        setRendering(true);
         const page = await pdfDoc.getPage(pageNum);
         const viewport = page.getViewport({ scale: 1.5 });
-        
         const canvas = canvasRef.current;
         const context = canvas.getContext('2d');
+        
         if (!context) return;
         
         canvas.height = viewport.height;
@@ -62,8 +80,8 @@ export function PdfViewer({ fileData, onTextExtracted }: PdfViewerProps) {
         };
         
         await page.render(renderContext).promise;
-      } catch (error) {
-        console.error("Error rendering page:", error);
+      } catch (err) {
+        console.error("Erro na rasterização da página:", err);
       } finally {
         setRendering(false);
       }
@@ -72,27 +90,46 @@ export function PdfViewer({ fileData, onTextExtracted }: PdfViewerProps) {
     renderPage();
   }, [pdfDoc, pageNum]);
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-full text-red-400 font-mono">
+        [ERRO_SISTÊMICO]: {error}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center bg-zinc-900 p-4 rounded-xl overflow-hidden h-full">
       <div className="flex justify-between w-full mb-4 text-zinc-400 font-mono text-sm">
         <button 
           onClick={() => setPageNum(p => Math.max(1, p - 1))}
           disabled={pageNum <= 1 || rendering}
-          className="hover:text-zinc-100 disabled:opacity-50"
+          className="hover:text-zinc-100 disabled:opacity-50 transition-colors"
         >
           &lt; Anterior
         </button>
-        <span>Página {pageNum} / {pdfDoc?.numPages || '-'}</span>
+        <span className="text-zinc-500">
+          Página <span className="text-brand">{pageNum}</span> / {pdfDoc?.numPages || '-'}
+        </span>
         <button 
           onClick={() => setPageNum(p => Math.min(pdfDoc?.numPages || 1, p + 1))}
           disabled={pageNum >= (pdfDoc?.numPages || 1) || rendering}
-          className="hover:text-zinc-100 disabled:opacity-50"
+          className="hover:text-zinc-100 disabled:opacity-50 transition-colors"
         >
           Próxima &gt;
         </button>
       </div>
-      <div className="flex-1 overflow-auto w-full flex justify-center bg-zinc-800/50 rounded-lg p-4 border border-zinc-700/50">
-        <canvas ref={canvasRef} className="max-w-full h-auto shadow-2xl" />
+      
+      <div className="flex-1 overflow-auto w-full flex justify-center custom-scrollbar">
+        {!pdfDoc && !error && (
+          <div className="flex items-center text-zinc-600 animate-pulse font-mono">
+            Aguardando transmissão de dados...
+          </div>
+        )}
+        <canvas 
+          ref={canvasRef} 
+          className={`shadow-2xl rounded-sm transition-opacity duration-300 ${rendering ? 'opacity-50' : 'opacity-100'}`}
+        />
       </div>
     </div>
   );
