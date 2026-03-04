@@ -76,11 +76,15 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@jridgewell/sourcemap-codec": "^1.5.5",
+    "@rollup/plugin-inject": "^5.0.5",
+    "@types/babel__core": "^7.20.5",
     "@types/katex": "0.16.7",
+    "@types/node": "^25.3.3",
     "@types/qrcode": "1.5.5",
-    "@types/react": "19.0.0",
-    "@types/react-dom": "19.0.0",
-    "@types/uuid": "9.0.8",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/uuid": "^9.0.8",
     "@vitejs/plugin-react": "^5.1.4",
     "autoprefixer": "10.4.18",
     "postcss": "8.4.35",
