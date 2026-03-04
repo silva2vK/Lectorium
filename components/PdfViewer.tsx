@@ -32,6 +32,8 @@ import { SaveSuccessModal } from './pdf/modals/SaveSuccessModal';
 // Services
 import { fetchDefinition } from '../services/dictionaryService';
 import { isFileOffline } from '../services/storageService';
+import { ShieldCheck, ScanLine, Save, Loader2 } from 'lucide-react';
+
 
 interface Props {
   accessToken?: string | null;

@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import { Icon } from './shared/Icon';
 import { extractNewspaperContent } from '../services/visionService';
+import { CloudUpload, Loader2, History, Layers, BookOpen } from 'lucide-react';
+
 
 export const ArchivistDashboard: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);

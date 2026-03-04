@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import { Icon } from '../../shared/Icon';
 import { Reference, ReferenceType } from '../../../types';
+import { X, Book, FileText, Globe, Trash2, Plus, Check } from 'lucide-react';
+
 
 interface Props {
   isOpen: boolean;

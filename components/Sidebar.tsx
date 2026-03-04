@@ -1,11 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  LayoutGrid, X, Workflow, FileText, Home, FolderOpen, Users, Database, 
-  Contrast, CheckCircle, Palette, ChevronDown, ChevronRight, Image as ImageIcon, 
-  Upload, Trash2, Loader2, DownloadCloud, Key, Scale, Minimize, Maximize, 
-  LogOut, LogIn 
-} from 'lucide-react';
+import { LayoutGrid, X, Workflow, FileText, Home, FolderOpen, Users, Database, Contrast, CheckCircle, Palette, ChevronDown, ChevronRight, Image as ImageIcon, Upload, Trash2, Loader2, DownloadCloud, Key, Scale, Minimize, Maximize, LogOut, LogIn, ImageIcon } from 'lucide-react';
 import { Icon } from './shared/Icon';
 import { User } from 'firebase/auth';
 import { ThemeSwitcher } from './ThemeSwitcher';

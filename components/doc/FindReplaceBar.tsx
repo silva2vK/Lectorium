@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Editor } from '@tiptap/react';
 import { Icon } from '../shared/Icon';
+import { Search, X, ArrowUp, ArrowDown, Replace, ReplaceAll } from 'lucide-react';
+
 
 interface Props {
   editor: Editor | null;

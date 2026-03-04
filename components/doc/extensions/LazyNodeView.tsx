@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
 import { Icon } from '../../shared/Icon';
+import { Activity } from 'lucide-react';
+
 
 interface LazyNodeViewProps {
   children: React.ReactNode;

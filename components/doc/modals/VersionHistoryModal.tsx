@@ -3,6 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { Icon } from '../../shared/Icon';
 import { DocVersion, getDocVersions, saveDocVersion } from '../../../services/storageService';
 import { auth } from '../../../firebase';
+import { Clock, X, Loader2, RotateCcw, Save } from 'lucide-react';
+
 
 interface Props {
   isOpen: boolean;

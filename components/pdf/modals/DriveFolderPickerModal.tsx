@@ -3,6 +3,8 @@ import { BaseModal } from '../../shared/BaseModal';
 import { Icon } from '../../shared/Icon';
 import { listDriveFolders, uploadFileToDrive } from '../../../services/driveService';
 import { DriveFile, MIME_TYPES } from '../../../types';
+import { Folder, CheckCircle, ChevronLeft, Home, FolderPlus, Loader2, Check, X, ArrowRight } from 'lucide-react';
+
 
 interface Props {
   isOpen: boolean;

@@ -11,6 +11,8 @@ import { FileItem } from './drive/FileItem';
 import { useDriveFiles } from '../hooks/useDriveFiles';
 import { AiChatPanel } from './shared/AiChatPanel';
 import { useGlobalContext } from '../context/GlobalContext';
+import { Menu, ArrowLeft, Search, X, HardDrive, Cloud, Sparkles, UploadCloud, Plus, RefreshCw, AlertTriangle, LogIn, Loader2 } from 'lucide-react';
+
 
 interface Props {
   accessToken: string;

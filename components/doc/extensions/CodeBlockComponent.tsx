@@ -2,6 +2,8 @@
 import React from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import { Icon } from '../../shared/Icon';
+import { Terminal, ChevronDown, FileText, ClipboardPaste, Download, Check, Copy } from 'lucide-react';
+
 
 const EXTENSION_MAP: Record<string, string> = {
   javascript: 'js',

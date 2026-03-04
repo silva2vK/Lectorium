@@ -3,6 +3,8 @@ import React from 'react';
 import { Icon } from './shared/Icon';
 import { AiChatPanel } from './shared/AiChatPanel';
 import { Editor } from '@tiptap/react';
+import { Sparkles, X } from 'lucide-react';
+
 
 interface Props {
   editor: Editor | null;

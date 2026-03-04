@@ -1,22 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Editor } from '@tiptap/react';
-import { 
-  FileText, Printer, 
-  Undo, Redo, Scissors, Copy, Clipboard, Trash2, Search,
-  Ruler, Maximize, ZoomIn, Check,
-  Image as ImageIcon, Table, Workflow,
-  Superscript, Subscript, Baseline, Highlighter, ArrowUpFromLine,
-  Type, Minus, Sigma, QrCode, Link, PenTool,
-  Bold, Italic, Underline, Strikethrough, Code, Eraser, 
-  AlignLeft, AlignCenter, AlignRight, AlignJustify, 
-  List, ListOrdered, CheckSquare, 
-  ChevronRight, FilePlus, FolderOpen, Share2, Mail, Download, Edit2, FolderInput, WifiOff, Info, Globe, Settings,
-  ArrowLeft, Indent, Outdent, MoveVertical, Languages, SpellCheck,
-  PanelTop, PanelBottom, Hash, MessageSquareQuote, LayoutTemplate, Keyboard, MessageSquarePlus, SplitSquareHorizontal, Book,
-  Calculator, Terminal, Columns, FileCode, History, BarChart3, ListTree, Package, Save, FunctionSquare,
-  Settings2
-} from 'lucide-react';
+import { FileText, Printer, Undo, Redo, Scissors, Copy, Clipboard, Trash2, Search, Ruler, Maximize, ZoomIn, Check, Image as ImageIcon, Table, Workflow, Superscript, Subscript, Baseline, Highlighter, ArrowUpFromLine, Type, Minus, Sigma, QrCode, Link, PenTool, Bold, Italic, Underline, Strikethrough, Code, Eraser, AlignLeft, AlignCenter, AlignRight, AlignJustify, List, ListOrdered, CheckSquare, ChevronRight, FilePlus, FolderOpen, Share2, Mail, Download, Edit2, FolderInput, WifiOff, Info, Globe, Settings, ArrowLeft, Indent, Outdent, MoveVertical, Languages, SpellCheck, PanelTop, PanelBottom, Hash, MessageSquareQuote, LayoutTemplate, Keyboard, MessageSquarePlus, SplitSquareHorizontal, Book, Calculator, Terminal, Columns, FileCode, History, BarChart3, ListTree, Package, Save, FunctionSquare, Settings2, Icon } from 'lucide-react';
 import { HelpModal } from './modals/HelpModal';
 import { SymbolModal } from './modals/SymbolModal';
 import { VersionHistoryModal } from './modals/VersionHistoryModal';

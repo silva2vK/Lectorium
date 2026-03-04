@@ -5,6 +5,8 @@ import { DriveFile } from '../types';
 import { downloadDriveFile } from '../services/driveService';
 import { universalConvertToPdf } from '../services/mediaAdapterService';
 import { PdfViewer } from './PdfViewer';
+import { AlertTriangle, Loader2 } from 'lucide-react';
+
 
 interface Props {
   file: DriveFile;

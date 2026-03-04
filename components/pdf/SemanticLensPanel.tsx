@@ -3,6 +3,8 @@ import React, { useState, useMemo } from 'react';
 import { Icon } from '../shared/Icon';
 import { usePdfContext } from '../../context/PdfContext';
 import { SemanticRangeModal } from './modals/SemanticRangeModal';
+import { Loader2, Sparkles, Zap, Layers, ListRestart, Languages, Globe, Activity, Wand2, Check, Copy, X } from 'lucide-react';
+
 
 interface Props {
   pageNumber: number;

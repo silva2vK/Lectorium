@@ -1,6 +1,8 @@
 
 import React from 'react';
 import { Icon } from '../shared/Icon';
+import { X } from 'lucide-react';
+
 
 export interface SelectionState {
   page: number;

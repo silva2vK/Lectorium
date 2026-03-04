@@ -2,6 +2,8 @@
 import React from 'react';
 import { Icon } from '../shared/Icon';
 import { BaseModal } from '../shared/BaseModal';
+import { Save, Download, CloudUpload, Check } from 'lucide-react';
+
 
 interface Props {
   isOpen: boolean;

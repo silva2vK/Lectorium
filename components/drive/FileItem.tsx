@@ -1,9 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  FolderOpen, MoreVertical, Pin, PinOff, Edit2, FolderInput, Share2, Trash2, 
-  FilePlus, CheckCircle, Workflow, BookOpen, FileText, Package, Image as ImageIcon, ChevronRight 
-} from 'lucide-react';
+import { FolderOpen, MoreVertical, Pin, PinOff, Edit2, FolderInput, Share2, Trash2, FilePlus, CheckCircle, Workflow, BookOpen, FileText, Package, Image as ImageIcon, ChevronRight, ImageIcon } from 'lucide-react';
 import { DriveFile, MIME_TYPES } from '../../types';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import JSZip from 'jszip';

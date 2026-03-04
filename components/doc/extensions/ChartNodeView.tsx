@@ -3,6 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Icon } from '../../shared/Icon';
 import { generateChartData, analyzeChartData } from '../../../services/aiService';
 import { VisualChart, PALETTES } from '../../shared/VisualChart';
+import { PieChart, Radar } from 'lucide-react';
+
 
 const DEFAULT_DATA = [
   { nome: 'Grupo A', valor: 85, desc: 'Meta Atingida' },

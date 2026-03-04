@@ -4,6 +4,8 @@ import { Icon } from '../../shared/Icon';
 import { BaseModal } from '../../shared/BaseModal';
 import { useGlobalContext } from '../../../context/GlobalContext';
 import { usePdfContext } from '../../../context/PdfContext';
+import { Languages, BrainCircuit, Check, AlertTriangle } from 'lucide-react';
+
 
 interface Props {
   isOpen: boolean;

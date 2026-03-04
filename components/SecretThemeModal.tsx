@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from './shared/Icon';
 import { BaseModal } from './shared/BaseModal';
+import { Terminal, X, AlertTriangle, CheckCircle, Cpu, Upload, Save } from 'lucide-react';
+
 
 interface Props {
   isOpen: boolean;

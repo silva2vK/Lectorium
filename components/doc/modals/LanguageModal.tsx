@@ -1,6 +1,8 @@
 
 import React from 'react';
 import { Icon } from '../../shared/Icon';
+import { X, Globe, Check } from 'lucide-react';
+
 
 interface Props {
   isOpen: boolean;

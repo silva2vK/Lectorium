@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../shared/Icon';
 import { Annotation } from '../../types';
 import { usePdfStore } from '../../stores/usePdfStore';
+import { X, MessageSquareText, Quote, Trash2 } from 'lucide-react';
+
 
 interface NoteMarkerProps {
   ann: Annotation;

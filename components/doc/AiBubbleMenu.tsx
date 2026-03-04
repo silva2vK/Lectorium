@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { Editor, BubbleMenu } from '@tiptap/react';
 import { getAiClient } from '../../services/aiService';
 import { Icon } from '../shared/Icon';
+import { Loader2, RefreshCw, Scissors, Wand2, Bold, Italic, Link, Sparkles, ChevronRight } from 'lucide-react';
+
 
 interface Props {
   editor: Editor;

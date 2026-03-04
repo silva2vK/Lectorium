@@ -11,6 +11,8 @@ import { PdfInkLayer } from './layers/PdfInkLayer';
 import { PdfTextLayer } from './layers/PdfTextLayer';
 import { usePdfInput } from '../../hooks/usePdfInput';
 import { ConfidenceWord } from './ConfidenceWord';
+import { CheckCircle2, ScanLine } from 'lucide-react';
+
 
 interface PdfPageProps {
   pageNumber: number;

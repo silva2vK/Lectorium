@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import { Icon } from '../shared/Icon';
 import { BaseModal } from '../shared/BaseModal';
+import { Sparkles, BrainCircuit, AlignLeft } from 'lucide-react';
+
 
 interface Props {
   isOpen: boolean;

@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from './Icon';
 import { BaseModal } from './BaseModal';
+import { Palette, Check, Pipette } from 'lucide-react';
+
 
 interface Props {
   isOpen: boolean;

@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
 import { Icon } from './Icon';
+import { Sparkles } from 'lucide-react';
+
 
 // --- PALETAS TEMÁTICAS VIBRANTES ---
 export const PALETTES: Record<string, { label: string, colors: string[] }> = {

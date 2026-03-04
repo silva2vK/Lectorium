@@ -3,6 +3,8 @@ import React from 'react';
 import { Icon } from '../../shared/Icon';
 import { BaseModal } from '../../shared/BaseModal';
 import { SaveErrorType } from '../../../hooks/usePdfSaver';
+import { Lock, AlertCircle, Terminal, LogIn, RefreshCw, HardDrive } from 'lucide-react';
+
 
 interface Props {
   isOpen: boolean;

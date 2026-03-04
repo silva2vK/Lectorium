@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '../../shared/Icon';
 import { PageNumberConfig } from './PageSetupModal';
+import { Hash, X, CheckCircle, Info, AlignLeft, AlignCenter, AlignRight, ArrowRight } from 'lucide-react';
+
 
 interface Props {
   isOpen: boolean;

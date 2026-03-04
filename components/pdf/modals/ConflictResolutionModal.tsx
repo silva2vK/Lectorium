@@ -2,6 +2,8 @@
 import React from 'react';
 import { Icon } from '../../shared/Icon';
 import { BaseModal } from '../../shared/BaseModal';
+import { AlertTriangle, FileWarning, FileDiff, RefreshCw, Database } from 'lucide-react';
+
 
 interface Props {
   isOpen: boolean;

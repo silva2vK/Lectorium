@@ -1,6 +1,8 @@
 
 import React from 'react';
 import { Icon } from '../shared/Icon';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
+
 
 interface VirtualSplitProps {
   pageCanvas: string; // Data URL

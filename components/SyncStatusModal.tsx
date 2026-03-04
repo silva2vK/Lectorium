@@ -1,6 +1,8 @@
 import React from 'react';
 import { Icon } from './shared/Icon';
 import { SyncQueueItem } from '../types';
+import { UploadCloud, X, RefreshCw, FileType, Clock, Trash2, AlertTriangle } from 'lucide-react';
+
 
 interface Props {
   isOpen: boolean;

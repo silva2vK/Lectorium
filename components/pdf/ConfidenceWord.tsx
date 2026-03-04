@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
 import { Icon } from '../shared/Icon';
+import { Check, X } from 'lucide-react';
+
 
 interface ConfidenceWordProps {
   word: any;

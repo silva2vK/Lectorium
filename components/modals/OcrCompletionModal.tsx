@@ -8,6 +8,8 @@ import { burnAnnotationsToPdf } from '../../services/pdfModifierService';
 import { updateDriveFile, uploadFileToDrive } from '../../services/driveService';
 import { getValidDriveToken } from '../../services/authService';
 import { auth } from '../../firebase';
+import { BrainCircuit, AlertTriangle, CheckCircle, Sparkles, Hourglass, FileText, Loader2, ExternalLink, Save, Copy } from 'lucide-react';
+
 
 export const OcrCompletionModal = () => {
   const { ocrCompletion, clearOcrCompletion, addNotification } = useGlobalContext();

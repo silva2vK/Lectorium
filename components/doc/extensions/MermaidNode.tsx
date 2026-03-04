@@ -4,6 +4,8 @@ import { NodeViewProps } from '@tiptap/react';
 import mermaid from 'mermaid';
 import { Icon } from '../../shared/Icon';
 import { LazyNodeView } from './LazyNodeView';
+import { Edit2, Workflow, X, HelpCircle, Check } from 'lucide-react';
+
 
 mermaid.initialize({
   startOnLoad: false,

@@ -4,6 +4,8 @@ import { Icon } from './shared/Icon';
 import { BaseModal } from './shared/BaseModal';
 import { listDriveFolders, moveDriveFile } from '../services/driveService';
 import { DriveFile } from '../types';
+import { FolderInput, Loader2, CheckCircle, ArrowRight, Home, Folder } from 'lucide-react';
+
 
 interface Props {
   isOpen: boolean;

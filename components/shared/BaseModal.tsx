@@ -1,6 +1,8 @@
 
 import React, { useEffect } from 'react';
 import { Icon } from './Icon';
+import { X } from 'lucide-react';
+
 
 interface BaseModalProps {
   isOpen: boolean;

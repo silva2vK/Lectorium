@@ -6,6 +6,8 @@ import { unpackLectoriumFile, LectoriumPackage } from '../services/lectService';
 import { downloadDriveFile } from '../services/driveService';
 import { DocEditor } from './DocEditor';
 import { PdfViewer } from './PdfViewer';
+import { Loader2, AlertTriangle } from 'lucide-react';
+
 
 interface Props {
   file: DriveFile;

@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { Icon } from './shared/Icon';
 import { BaseModal } from './shared/BaseModal';
 import { getStoredApiKeys, saveApiKeys, removeApiKey } from '../utils/apiKeyUtils';
+import { Key, ShieldCheck, Plus, ExternalLink, Check, Trash2 } from 'lucide-react';
+
 
 interface Props {
   isOpen: boolean;

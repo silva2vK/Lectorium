@@ -8,6 +8,8 @@ import { AiChatPanel } from '../shared/AiChatPanel';
 import { SemanticLensPanel } from './SemanticLensPanel';
 import { ColorPickerModal } from '../shared/ColorPickerModal';
 import { TagModal } from './modals/TagModal';
+import { AlertCircle, X, FileText, Lock, Hash, Copy, ScrollText, Palette, Droplets, BookOpen, SplitSquareHorizontal, LayoutTemplate, Binary, ScanLine, Pen, Highlighter } from 'lucide-react';
+
 
 export type SidebarTab = 'annotations' | 'settings' | 'fichamento' | 'ai' | 'chat' | 'lens';
 

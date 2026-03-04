@@ -3,6 +3,8 @@ import { Icon } from '../../shared/Icon';
 import { BaseModal } from '../../shared/BaseModal';
 import { useGlobalContext } from '../../../context/GlobalContext';
 import { usePdfContext } from '../../../context/PdfContext';
+import { Layers, Check, AlertTriangle } from 'lucide-react';
+
 
 interface Props {
   isOpen: boolean;

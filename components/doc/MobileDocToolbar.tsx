@@ -1,12 +1,7 @@
 
 import React, { useState } from 'react';
 import { Editor } from '@tiptap/react';
-import { 
-  Type, ArrowUpFromLine, Baseline, Highlighter, 
-  AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  Check, ChevronUp, ChevronDown,
-  X, Indent as IndentIcon, Minus
-} from 'lucide-react';
+import { Type, ArrowUpFromLine, Baseline, Highlighter, AlignLeft, AlignCenter, AlignRight, AlignJustify, Check, ChevronUp, ChevronDown, X, Indent as IndentIcon, Minus, Icon } from 'lucide-react';
 
 interface Props {
   editor: Editor | null;

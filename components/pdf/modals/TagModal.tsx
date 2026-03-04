@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '../../shared/Icon';
 import { Annotation } from '../../../types';
+import { Hash, X, Info } from 'lucide-react';
+
 
 interface Props {
   isOpen: boolean;
