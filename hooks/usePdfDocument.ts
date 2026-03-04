@@ -75,6 +75,18 @@ export const usePdfDocument = ({ fileId, fileBlob, accessToken, onAuthError, pas
           throw new Error("Fonte do arquivo não disponível");
         }
 
+        // Validação Crítica: Verifica se o blob é válido
+        if (blob.size === 0) {
+          throw new Error("Arquivo armazenado está vazio (corrupto). Limpe o cache e tente novamente.");
+        }
+
+        // Validação: Verifica magic bytes do PDF (%PDF)
+        const header = await blob.slice(0, 4).text();
+        if (!header.startsWith('%PDF')) {
+          console.warn("[PDF] Magic bytes inválidos - pode estar corrompido:", header);
+          throw new Error("Arquivo não é um PDF válido (corrupto). Limpe o cache e tente novamente.");
+        }
+
         if (mounted && !originalBlob) setOriginalBlob(blob);
 
         // 2. Carregar PDF.js (Agora com suporte a Senha)
@@ -93,8 +105,14 @@ export const usePdfDocument = ({ fileId, fileBlob, accessToken, onAuthError, pas
         const pdf = await loadingTask.promise;
 
         if (mounted) {
+          // Validação Final: Verifica se o PDF tem páginas
+          if (pdf.numPages === 0) {
+            throw new Error("PDF não contém páginas. O arquivo pode estar corrompido.");
+          }
+
           setPdfDoc(pdf);
           setNumPages(pdf.numPages);
+          console.debug(`[PDF] Carregado com sucesso: ${pdf.numPages} páginas`);
           
           // Setup Page 1 (Critical Path & Auto-Fit)
           try {
@@ -127,6 +145,9 @@ export const usePdfDocument = ({ fileId, fileBlob, accessToken, onAuthError, pas
              setError('PASSWORD_REQUIRED');
           } else if (err.message === "Unauthorized" || err.message.includes("401")) {
             if (onAuthError) onAuthError();
+          } else if (err.message.includes("corrupto") || err.message.includes("vazio")) {
+             // Erro de corrupção: sugere clear cache
+             setError(err.message + " [CACHE_CORRUPTED]");
           } else {
             setError(err.message || "Falha ao abrir arquivo");
           }

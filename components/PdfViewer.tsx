@@ -533,6 +533,8 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
 export const PdfViewer: React.FC<Props> = (props) => {
   const [password, setPassword] = useState<string | undefined>(undefined);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   const { 
     pdfDoc, 
@@ -578,6 +580,10 @@ export const PdfViewer: React.FC<Props> = (props) => {
   useEffect(() => {
       if (error === 'PASSWORD_REQUIRED') {
           setShowPasswordModal(true);
+      } else if (error && error !== 'PASSWORD_REQUIRED' && error.length > 0) {
+          // Mostrar modal de erro para outros tipos de erro
+          setErrorMessage(error);
+          setShowErrorModal(true);
       }
   }, [error]);
 
@@ -589,6 +595,14 @@ export const PdfViewer: React.FC<Props> = (props) => {
   const handlePasswordClose = () => {
       setShowPasswordModal(false);
       props.onBack();
+  };
+
+  const handleErrorClose = () => {
+      setShowErrorModal(false);
+      // Se for erro de corrupção, voltar para a lista anterior
+      if (errorMessage.includes("[CACHE_CORRUPTED]")) {
+          props.onBack();
+      }
   };
 
   if (loading && !pdfDoc) {
@@ -644,6 +658,34 @@ export const PdfViewer: React.FC<Props> = (props) => {
             fileName={props.fileName}
             isRetry={!!password}
         />
+
+        {/* Modal de Erro - Arquivo Corrompido ou Inválido */}
+        {showErrorModal && (
+            <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in">
+                <div className="bg-surface p-8 rounded-2xl border border-red-500/30 shadow-2xl flex flex-col items-center gap-4 max-w-md">
+                    <div className="text-red-500 text-5xl mb-2">⚠️</div>
+                    <h3 className="font-bold text-lg text-white text-center">
+                        {errorMessage.includes("[CACHE_CORRUPTED]") 
+                            ? "Arquivo Corrompido" 
+                            : "Erro ao Abrir PDF"}
+                    </h3>
+                    <p className="text-sm text-text-sec text-center leading-relaxed">
+                        {errorMessage.replace('[CACHE_CORRUPTED]', '').trim()}
+                    </p>
+                    {errorMessage.includes("[CACHE_CORRUPTED]") && (
+                        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-xs text-yellow-200 w-full">
+                            <strong>Solução:</strong> Tente fazer download novamente ou clearing do cache do navegador.
+                        </div>
+                    )}
+                    <button
+                        onClick={handleErrorClose}
+                        className="mt-4 px-6 py-2 bg-brand hover:bg-brand/80 text-white rounded-lg font-medium transition-colors"
+                    >
+                        {errorMessage.includes("[CACHE_CORRUPTED]") ? "Voltar" : "Fechar"}
+                    </button>
+                </div>
+            </div>
+        )}
     </>
   );
 };

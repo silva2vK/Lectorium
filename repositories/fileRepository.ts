@@ -17,6 +17,26 @@ export async function saveOfflineFile(file: DriveFile, blob: Blob | null, pinned
   const db = await getDb();
   const hasOpfs = await checkOpfs();
   
+  // Validação: Não armazena blobs vazios ou inválidos
+  if (blob && blob.size === 0) {
+    console.warn("[FileRepository] Tentativa de armazenar blob vazio descartada:", file.id);
+    blob = null;
+  }
+  
+  // Validação: Verifica magic bytes para PDFs
+  if (blob && file.name?.toLowerCase().endsWith('.pdf')) {
+    try {
+      const header = await blob.slice(0, 4).text();
+      if (!header.startsWith('%PDF')) {
+        console.warn("[FileRepository] PDF inválido descartado (magic bytes):", file.id);
+        blob = null;
+      }
+    } catch (e) {
+      console.warn("[FileRepository] Erro ao validar PDF:", e);
+      blob = null;
+    }
+  }
+  
   // Separa o blob dos metadados
   const { blob: _, ...metadata } = file;
   
@@ -36,6 +56,7 @@ export async function saveOfflineFile(file: DriveFile, blob: Blob | null, pinned
   }
 
   await db.put("offlineFiles", record);
+  console.debug(`[FileRepository] Arquivo salvo offline: ${file.id} (${blob?.size || 0} bytes, OPFS=${hasOpfs})`);
 }
 
 export async function touchOfflineFile(fileId: string): Promise<void> {
@@ -58,12 +79,30 @@ export async function getOfflineFile(fileId: string): Promise<Blob | undefined> 
 
     // Estratégia Híbrida: Tenta OPFS primeiro, fallback para IDB Blob
     if (await checkOpfs()) {
-        const opfsBlob = await opfs.load(fileId);
-        if (opfsBlob) return opfsBlob;
+        try {
+            const opfsBlob = await opfs.load(fileId);
+            if (opfsBlob && opfsBlob.size > 0) {
+                console.debug(`[FileRepository] Blob carregado do OPFS: ${fileId} (${opfsBlob.size} bytes)`);
+                return opfsBlob;
+            } else if (opfsBlob) {
+                console.warn(`[FileRepository] OPFS blob vazio ou corrompido: ${fileId}`);
+                // Limpa arquivo corrompido do OPFS
+                await opfs.delete(fileId).catch(() => {});
+            }
+        } catch (e) {
+            console.warn(`[FileRepository] Erro ao carregar de OPFS: ${fileId}`, e);
+        }
     }
     
     // Fallback legado ou se OPFS falhou/não existe
-    return record.blob;
+    if (record.blob && record.blob.size > 0) {
+        console.debug(`[FileRepository] Blob carregado do IndexedDB: ${fileId} (${record.blob.size} bytes)`);
+        return record.blob;
+    } else if (record.blob) {
+        console.warn(`[FileRepository] IndexedDB blob vazio ou corrompido: ${fileId}`);
+    }
+    
+    console.warn(`[FileRepository] Nenhuma fonte válida encontrada para: ${fileId} (OPFS error ou IDB empty)`);
   }
   return undefined;
 }
