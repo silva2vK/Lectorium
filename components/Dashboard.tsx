@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { BrainCircuit, FileText, File as FileIcon, Pin, Clock, Menu, Zap, Cloud, AlertCircle, CheckCircle, Database, Workflow, FolderOpen, Upload, FilePlus, LifeBuoy, ArrowRight, X, HardDrive, Server, FileIcon } from 'lucide-react';
+import { BrainCircuit, FileText, File as FileIcon, Pin, Clock, Menu, Zap, Cloud, AlertCircle, CheckCircle, Database, Workflow, FolderOpen, Upload, FilePlus, LifeBuoy, ArrowRight, X, HardDrive, Server } from 'lucide-react';
 import { DriveFile } from '../types';
 import { getRecentFiles, getStorageEstimate, clearAppStorage, StorageBreakdown, runJanitor, getWallpaper } from '../services/storageService';
 import { useSync } from '../hooks/useSync';
