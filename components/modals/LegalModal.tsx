@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { Shield, AlertTriangle, Scale, FileText, Gavel, CheckCircle } from 'lucide-react';
 import { Icon } from '../shared/Icon';
 import { BaseModal } from '../shared/BaseModal';
 
