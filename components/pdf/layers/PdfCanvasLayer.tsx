@@ -84,41 +84,16 @@ export const PdfCanvasLayer: React.FC<PdfCanvasLayerProps> = React.memo(({
             let bitmap: ImageBitmap | null = null;
             let currentTask: any = null;
 
-            if (typeof OffscreenCanvas !== 'undefined') {
-                try {
-                    const offscreen = new OffscreenCanvas(targetWidth, targetHeight);
-                    const offCtx = offscreen.getContext('2d', { alpha: false }) as OffscreenCanvasRenderingContext2D;
-                    if (offCtx) {
-                        offCtx.fillStyle = pageColor || '#ffffff';
-                        offCtx.fillRect(0, 0, targetWidth, targetHeight);
-                        offCtx.scale(activeDpr, activeDpr);
-                        
-                        currentTask = pageProxy.render({ canvasContext: offCtx as any, viewport });
-                        renderTaskRef.current = currentTask;
-                        await currentTask.promise;
-                        
-                        bitmap = await createImageBitmap(offscreen);
-                        renderSuccess = true;
-                    }
-                } catch (e: any) {
-                    if (e?.name === 'RenderingCancelledException') {
-                        return; // Cancelado
-                    }
-                    console.warn("[PDF Render] OffscreenCanvas falhou, revertendo para DOM Canvas", e);
-                }
-            }
+            // Fallback para DOM Canvas direto
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.scale(activeDpr, activeDpr);
 
-            if (!renderSuccess) {
-                // Fallback para DOM Canvas direto
-                ctx.setTransform(1, 0, 0, 1, 0, 0);
-                ctx.scale(activeDpr, activeDpr);
-
-                currentTask = pageProxy.render({ canvasContext: ctx, viewport });
-                renderTaskRef.current = currentTask;
-                await currentTask.promise;
-                
-                bitmap = await createImageBitmap(canvas);
-            }
+            currentTask = pageProxy.render({ canvasContext: ctx, viewport });
+            renderTaskRef.current = currentTask;
+            await currentTask.promise;
+            
+            bitmap = await createImageBitmap(canvas);
+            renderSuccess = true;
 
             if (renderTaskRef.current !== currentTask || !active) return;
 

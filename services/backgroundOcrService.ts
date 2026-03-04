@@ -101,32 +101,17 @@ export async function runBackgroundOcr({
             const renderScale = 1024 / baseViewport.width;
             const viewport = page.getViewport({ scale: renderScale });
             
-            let canvas: HTMLCanvasElement | OffscreenCanvas;
-            let ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
-            let renderSuccess = false;
+            let canvas: HTMLCanvasElement;
+            let ctx: CanvasRenderingContext2D;
 
-            // Tentativa 1: OffscreenCanvas (Hardware Acceleration)
-            if (typeof OffscreenCanvas !== 'undefined') {
-                try {
-                    canvas = new OffscreenCanvas(viewport.width, viewport.height);
-                    ctx = canvas.getContext('2d', { alpha: false }) as OffscreenCanvasRenderingContext2D;
-                    await page.render({ canvasContext: ctx as any, viewport }).promise;
-                    renderSuccess = true;
-                } catch (e) {
-                    console.warn("[OCR] OffscreenCanvas falhou, revertendo para DOM Canvas", e);
-                }
-            }
+            // DOM Canvas (Fallback Seguro)
+            canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            ctx = canvas.getContext('2d', { alpha: false }) as CanvasRenderingContext2D;
+            await page.render({ canvasContext: ctx as any, viewport }).promise;
 
-            // Tentativa 2: DOM Canvas (Fallback Seguro)
-            if (!renderSuccess) {
-                canvas = document.createElement('canvas');
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
-                ctx = canvas.getContext('2d', { alpha: false }) as CanvasRenderingContext2D;
-                await page.render({ canvasContext: ctx as any, viewport }).promise;
-            }
-
-            const blobImg = await smartCanvasToBlob(canvas!, 'image/jpeg', 0.6);
+            const blobImg = await smartCanvasToBlob(canvas, 'image/jpeg', 0.6);
             const base64 = await new Promise<string>((r) => {
                 const reader = new FileReader();
                 reader.onloadend = () => r((reader.result as string).split(',')[1]);

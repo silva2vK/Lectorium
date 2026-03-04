@@ -12,7 +12,7 @@ export type SupportedMediaType = 'tiff' | 'heic' | 'webp' | 'dicom' | 'text' | '
 /**
  * Converte imagens baseadas em Canvas para PNG buffer
  */
-async function canvasToPngBuffer(canvas: HTMLCanvasElement | OffscreenCanvas): Promise<ArrayBuffer> {
+async function canvasToPngBuffer(canvas: HTMLCanvasElement): Promise<ArrayBuffer> {
   const blob = await smartCanvasToBlob(canvas, 'image/png', 1.0);
   return blob.arrayBuffer();
 }
@@ -41,12 +41,12 @@ async function processImage(data: Uint8Array, mimeType: string): Promise<Uint8Ar
     const width = bitmap.width;
     const height = bitmap.height;
 
-    // Transferir para OffscreenCanvas para conversão em Blob
-    // Usamos OffscreenCanvas para garantir que não toque no DOM
-    const canvas = new OffscreenCanvas(width, height);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext('2d', { alpha: false }); // JPEG não tem alpha, otimização
 
-    if (!ctx) throw new Error("Contexto OffscreenCanvas indisponível");
+    if (!ctx) throw new Error("Contexto Canvas indisponível");
 
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, width, height);
@@ -55,7 +55,12 @@ async function processImage(data: Uint8Array, mimeType: string): Promise<Uint8Ar
     bitmap.close(); // Libera memória de textura imediatamente
 
     // Exportação otimizada
-    const resultBlob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 });
+    const resultBlob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((b) => {
+            if (b) resolve(b);
+            else reject(new Error("Falha na conversão para Blob"));
+        }, 'image/jpeg', 0.85);
+    });
     
     return new Uint8Array(await resultBlob.arrayBuffer());
 

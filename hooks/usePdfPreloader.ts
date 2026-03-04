@@ -48,29 +48,14 @@ export const usePdfPreloader = ({ pdfDoc, currentPage, scale, fileId }: UsePdfPr
                 const width = Math.floor(viewport.width * PRELOAD_DPR);
                 const height = Math.floor(viewport.height * PRELOAD_DPR);
 
-                let canvas: HTMLCanvasElement | OffscreenCanvas | null = null;
+                let canvas: HTMLCanvasElement | null = null;
                 let ctx: any = null;
-                let isOffscreen = false;
 
-                // Tentativa 1: OffscreenCanvas
-                if (typeof OffscreenCanvas !== 'undefined') {
-                    try {
-                        canvas = new OffscreenCanvas(width, height);
-                        ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: false });
-                        isOffscreen = true;
-                    } catch (e) {
-                        console.warn("[Preloader] OffscreenCanvas falhou, usando DOM Canvas", e);
-                    }
-                }
-
-                // Tentativa 2: DOM Canvas (Fallback)
-                if (!isOffscreen || !ctx) {
-                    canvas = document.createElement('canvas');
-                    canvas.width = width;
-                    canvas.height = height;
-                    ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: false });
-                    isOffscreen = false;
-                }
+                // DOM Canvas (Fallback)
+                canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: false });
 
                 if (ctx && canvas) {
                     ctx.fillStyle = '#ffffff';
@@ -80,11 +65,7 @@ export const usePdfPreloader = ({ pdfDoc, currentPage, scale, fileId }: UsePdfPr
                     await page.render({ canvasContext: ctx, viewport }).promise;
                     
                     let bitmap: ImageBitmap;
-                    if (isOffscreen && 'transferToImageBitmap' in canvas) {
-                        bitmap = (canvas as OffscreenCanvas).transferToImageBitmap();
-                    } else {
-                        bitmap = await createImageBitmap(canvas as HTMLCanvasElement);
-                    }
+                    bitmap = await createImageBitmap(canvas);
                     
                     bitmapCache.set(cacheKey, bitmap);
                     console.debug(`[Preloader] Página ${pageNum} pronta na memória (DPR ${PRELOAD_DPR}).`);
