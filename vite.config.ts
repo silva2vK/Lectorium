@@ -1,4 +1,3 @@
-
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
@@ -15,7 +14,8 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       nodePolyfills({
-        include: ['fs', 'path'],
+        // Cobertura total para utilitários de sistema operacional emulados no browser
+        include: ['fs', 'path', 'process', 'buffer', 'util', 'stream'],
         globals: {
           Buffer: true,
           global: true,
@@ -26,10 +26,23 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './'),
+        // Resolução explícita para evitar falhas do Recharts no React 19
+        'react-is': path.resolve(__dirname, './node_modules/react-is'),
       },
     },
     optimizeDeps: {
-      include: ['pdfjs-dist', 'react', 'react-dom'],
+      // Injeção de dependências críticas na fase de pré-bundle
+      include: [
+        'pdfjs-dist', 
+        'react', 
+        'react-dom', 
+        'mermaid', 
+        'lucide-react', 
+        '@tiptap/react',
+        '@tiptap/extension-bubble-menu'
+      ],
+      // Força a compatibilidade CommonJS/ESM para o Lucide (resolve erro de construtor)
+      needsInterop: ['lucide-react'],
       esbuildOptions: {
         target: 'esnext',
       },
@@ -41,10 +54,24 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         external: ['unrar-js'],
         output: {
-          manualChunks: {
-            'vendor-react': ['react', 'react-dom'],
-            'ai-sdk': ['@google/genai'],
-          },
+          // Roteamento dinâmico de Chunks: preserva a integridade de instâncias co-dependentes
+          manualChunks(id) {
+            if (id.includes('@tiptap') || id.includes('lucide-react')) {
+              return 'vendor-ui';
+            }
+            if (id.includes('firebase')) {
+              return 'vendor-firebase';
+            }
+            if (id.includes('mermaid') || id.includes('pdf-lib') || id.includes('jszip') || id.includes('docx')) {
+              return 'vendor-utils';
+            }
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'vendor-react';
+            }
+            if (id.includes('@google/genai')) {
+              return 'ai-sdk';
+            }
+          }
         },
       },
     },
@@ -53,6 +80,8 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       'process.env.API_KEY': JSON.stringify(process.env.API_KEY || env.API_KEY),
+      // Mapeamento global para neutralizar "process is not defined" no escopo global
+      'global': 'window',
     }
   };
 });
