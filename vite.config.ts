@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       nodePolyfills({
-        // Cobertura para utilitários de sistema operacional emulados no browser
+        // Cobertura total para utilitários de sistema operacional emulados no browser
         include: ['fs', 'path', 'process', 'buffer', 'util', 'stream'],
         globals: {
           Buffer: true,
@@ -26,12 +26,14 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './'),
-        // Resolução para evitar falhas do Recharts no React 19
+        // Resolução explícita para evitar falhas do Recharts no React 19
         'react-is': path.resolve(__dirname, './node_modules/react-is'),
       },
     },
     optimizeDeps: {
+      // Injeção de dependências críticas na fase de pré-bundle
       include: [
+        'pdfjs-dist', 
         'react', 
         'react-dom', 
         'mermaid', 
@@ -39,13 +41,15 @@ export default defineConfig(({ mode }) => {
         '@tiptap/react',
         '@tiptap/extension-bubble-menu'
       ],
-      // Exclusão mandatória: impede corrupção do worker v5 pelo Vite
+      // Exclusão cirúrgica: impede o Vite de corromper o worker do PDF.js processando-o como CJS
       exclude: ['pdfjs-dist'],
+      // Força a compatibilidade CommonJS/ESM para o Lucide (resolve erro de construtor)
       needsInterop: ['lucide-react'],
       esbuildOptions: {
         target: 'esnext',
+        // Liberação de escopo global para o PDF.js v4+ (Top-level Await)
         supported: {
-          'top-level-await': true // Exigido pelo motor moderno do PDF.js
+          'top-level-await': true
         }
       },
     },
@@ -54,10 +58,11 @@ export default defineConfig(({ mode }) => {
       target: 'esnext',
       chunkSizeWarningLimit: 3000,
       rollupOptions: {
-        external: ['unrar-js', 'y-prosemirror'], // y-prosemirror externalizado para evitar erros de build
+        external: ['unrar-js'],
         output: {
+          // Roteamento dinâmico de Chunks: preserva a integridade de instâncias co-dependentes
           manualChunks(id) {
-            // Isolamento do motor PDF para carregamento sob demanda
+            // Isolamento estrutural do motor de renderização de PDFs
             if (id.includes('pdfjs-dist')) {
               return 'pdf-engine';
             }
@@ -85,6 +90,7 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       'process.env.API_KEY': JSON.stringify(process.env.API_KEY || env.API_KEY),
+      // Mapeamento global para neutralizar "process is not defined" no escopo global
       'global': 'window',
     }
   };
