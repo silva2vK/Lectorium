@@ -3,7 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Icon } from '../../shared/Icon';
 import { generateChartData, analyzeChartData } from '../../../services/aiService';
 import { VisualChart, PALETTES } from '../../shared/VisualChart';
-import { PieChart, Radar } from 'lucide-react';
+import { NodeViewWrapper } from '@tiptap/react';
+import { PieChart, Radar, Settings2, Table, Palette, Sparkles, X, HelpCircle, Eraser, FileText, Plus, Trash2, AlignLeft, Grid3X3, Layout, ActivitySquare, Layers, Wand2, Activity } from 'lucide-react';
 
 
 const DEFAULT_DATA = [
@@ -435,7 +436,7 @@ export const ChartNodeView = (props: any) => {
                 <div className="flex border-b border-white/10 bg-[#0f172a]">
                     <button onClick={() => setEditTab('data')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${editTab === 'data' ? 'text-brand border-b-2 border-brand' : 'text-gray-500'}`}><Icon name="Table" size={14} className="inline mr-1"/> Dados</button>
                     <button onClick={() => setEditTab('style')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${editTab === 'style' ? 'text-brand border-b-2 border-brand' : 'text-gray-500'}`}><Icon name="Palette" size={14} className="inline mr-1"/> Estilo</button>
-                    <button onClick={() => setEditTab('ai')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${editTab === 'ai' ? 'text-brand border-b-2 border-brand' : 'text-gray-500'}`}><Icon name="Sparkles" size={14} className="inline mr-1"/> IA</button>
+                    <button onClick={() => setEditTab('ai')} className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider ${editTab === 'ai' ? 'text-brand border-b-2 border-brand' : 'text-gray-500'}`}><Sparkles size={14} className="inline mr-1"/> IA</button>
                     <button onClick={() => setIsEditing(false)} className="w-10 flex items-center justify-center text-gray-500 hover:text-white"><Icon name="X" size={16}/></button>
                 </div>
 
@@ -664,7 +665,7 @@ export const ChartNodeView = (props: any) => {
                                 disabled={isAiLoading || !aiPrompt.trim()}
                                 className="w-full bg-purple-600 text-white py-3 rounded-sm font-bold hover:brightness-110 disabled:opacity-50 flex justify-center gap-2 items-center shadow-lg"
                             >
-                                {isAiLoading ? <Icon name="Activity" className="animate-spin"/> : <Icon name="Sparkles" />} Gerar com IA
+                                {isAiLoading ? <Activity className="animate-spin"/> : <Sparkles />} Gerar com IA
                             </button>
                         </div>
                     )}

@@ -4,6 +4,7 @@ import { NodeViewWrapper } from '@tiptap/react';
 import katex from 'katex';
 import { Icon } from '../../shared/Icon';
 import { GoogleGenAI } from "@google/genai";
+import { Sparkles, Loader2 } from 'lucide-react';
 
 // --- SNIPPETS & TOOLS CONFIG ---
 const LATEX_TOOLS = {
@@ -231,7 +232,7 @@ export default (props: any) => {
                                 disabled={isAiLoading || !latex}
                                 className="absolute bottom-4 right-4 bg-brand/10 hover:bg-brand/20 text-brand border border-brand/30 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 backdrop-blur-sm transition-all"
                              >
-                                {isAiLoading ? <Icon name="Loader2" size={12} className="animate-spin"/> : <Icon name="Sparkles" size={12} />}
+                                {isAiLoading ? <Loader2 size={12} className="animate-spin"/> : <Sparkles size={12} />}
                                 {isAiLoading ? 'Analisando...' : 'Explicar Fórmula'}
                              </button>
                          </div>
@@ -259,7 +260,7 @@ export default (props: any) => {
                          {aiExplanation && (
                              <div className="p-4 bg-brand/5 border-t border-brand/20 animate-in slide-in-from-bottom-2">
                                  <h5 className="text-xs font-bold text-brand mb-1 flex items-center gap-1">
-                                     <Icon name="Sparkles" size={10} /> Insight do Gemini
+                                     <Sparkles size={10} /> Insight do Gemini
                                  </h5>
                                  <p className="text-xs text-gray-300 leading-relaxed">{aiExplanation}</p>
                              </div>

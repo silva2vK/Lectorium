@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Icon } from '../shared/Icon';
-import { X } from 'lucide-react';
+import { X, Highlighter, Sparkles, Book, Copy, Eraser } from 'lucide-react';
 
 
 export interface SelectionState {
