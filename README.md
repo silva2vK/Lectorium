@@ -14,7 +14,7 @@ Um leitor de PDF de classe mundial que vai além da visualização.
 
 ### 2. Editor de Texto Acadêmico
 Escreva artigos e teses sem lutar contra a formatação.
-*   **Compatibilidade DOCX:** Edite e exporte arquivos compatíveis com Microsoft Word.
+*   **Compatibilidade DOCX:** Edite e exporte arquivos compatíveis com Microsoft Word e Google Docs.
 *   **Foco na ABNT:** Ferramentas nativas para citações, referências bibliográficas e formatação acadêmica.
 *   **Assistente de Escrita:** Verificação ortográfica e sugestões de estilo em tempo real.
 
