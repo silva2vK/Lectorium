@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Icon } from '../shared/Icon';
 import { usePdfContext } from '../../context/PdfContext';
 import { usePdfStore } from '../../stores/usePdfStore';
-import { ChevronLeft, ChevronRight, MoveHorizontal, Minus, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MoveHorizontal, Minus, Plus, MousePointer2, Paintbrush, StickyNote, Pen, Eraser, SplitSquareHorizontal } from 'lucide-react';
 
 
 interface Props {
