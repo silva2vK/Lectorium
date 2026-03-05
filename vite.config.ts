@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => {
         // Corrigido: Literais JS puros para o esbuild
         define: {
           global: 'globalThis',
-          process: '({env: {}})' 
+          process: '({})'
         },
       },
     },
