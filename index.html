@@ -36,8 +36,8 @@
       body { 
         overscroll-behavior: none;
         touch-action: pan-x pan-y; 
-        background: #09090b; 
-        color: #e2e8f0; 
+        background: var(--bg-main, #09090b); /* Fallback de segurança integrado */
+        color: var(--text-main, #e2e8f0); 
         padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
         -webkit-text-size-adjust: 100%;
         text-size-adjust: 100%;
@@ -60,7 +60,7 @@
       .wf-loading { visibility: hidden; }
     </style>
   </head>
-  <body class="bg-[#09090b] text-[#e2e8f0]">
+  <body class="bg-bg text-text">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
