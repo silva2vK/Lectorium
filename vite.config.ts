@@ -2,7 +2,6 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,54 +15,41 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
-      nodePolyfills({
-        // Reduzimos ao essencial para evitar conflitos de caminho no esbuild
-        globals: {
-          Buffer: true,
-          global: true,
-          process: true,
-        },
-      }),
     ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
+        'process': 'process/browser',
+        'util': 'util',
       },
     },
     optimizeDeps: {
-      // REMOVEMOS o pdfjs-dist do include/exclude aqui para deixar o Vite tratar nativamente
-      include: [
-        'react', 
-        'react-dom', 
-        'lucide-react', 
-        '@tiptap/react'
-      ],
+      include: ['react', 'react-dom', 'lucide-react', '@tiptap/react'],
       esbuildOptions: {
         target: 'esnext',
-        supported: {
-          'top-level-await': true
+        supported: { 'top-level-await': true },
+        // Corrigido: Literais JS puros para o esbuild
+        define: {
+          global: 'globalThis',
+          process: '({env: {}})' 
         },
-        // Esta é a chave: impede o esbuild de travar em polyfills de terceiros
-        external: ['unrar-js'] 
       },
     },
     build: {
       outDir: 'dist',
       target: 'esnext',
       rollupOptions: {
-        // Garantimos que essas libs não quebrem o empacotamento
-        external: ['unrar-js'],
         output: {
           manualChunks: {
-            'pdf-vendor': ['pdfjs-dist'],
+            'pdf-engine': ['pdfjs-dist'],
             'ui-vendor': ['lucide-react', '@tiptap/react'],
           }
         }
       }
     },
     define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY),
-      'global': 'window',
+      // Injeção segura de variáveis de ambiente
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
     }
   };
 });
