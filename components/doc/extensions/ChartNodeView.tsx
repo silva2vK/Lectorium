@@ -5,7 +5,7 @@ import { generateChartData, analyzeChartData } from '../../../services/aiService
 import { VisualChart, PALETTES } from '../../shared/VisualChart';
 import { NodeViewWrapper } from '@tiptap/react';
 import { PieChart, Radar, Settings2, Table, Palette, Sparkles, X, HelpCircle, Eraser, FileText, Plus, Trash2, AlignLeft, Grid3X3, Layout, ActivitySquare, Layers, Wand2, Activity } from 'lucide-react';
-
+import { useGlobalContext } from '../../../context/GlobalContext';
 
 const DEFAULT_DATA = [
   { nome: 'Grupo A', valor: 85, desc: 'Meta Atingida' },
@@ -59,6 +59,7 @@ const CHART_TYPES = [
 ];
 
 export const ChartNodeView = (props: any) => {
+  const { addNotification } = useGlobalContext();
   const { node, updateAttributes } = props;
   const [isEditing, setIsEditing] = useState(false);
   
@@ -159,7 +160,7 @@ export const ChartNodeView = (props: any) => {
       });
       setIsEditing(false);
     } catch (e) {
-      alert("Erro ao salvar dados.");
+      addNotification("Erro ao salvar dados.", "error");
     }
   };
 
@@ -196,7 +197,7 @@ export const ChartNodeView = (props: any) => {
       setVisualData([...visualData, newRow]);
   };
   const removeRow = (index: number) => {
-      if (visualData.length <= 1) { alert("O gráfico precisa de pelo menos um item."); return; }
+      if (visualData.length <= 1) { addNotification("O gráfico precisa de pelo menos um item.", "warning"); return; }
       const item = visualData[index];
       setVisualData(prev => prev.filter((_, i) => i !== index));
       // Remove cor customizada associada ao item
@@ -214,7 +215,7 @@ export const ChartNodeView = (props: any) => {
       }
   };
   const removeSeries = (key: string) => {
-      if (seriesKeys.length <= 1) { alert("O gráfico precisa de pelo menos uma série de dados."); return; }
+      if (seriesKeys.length <= 1) { addNotification("O gráfico precisa de pelo menos uma série de dados.", "warning"); return; }
       if (confirm(`Excluir a série "${key}"?`)) {
           setSeriesKeys(prev => prev.filter(k => k !== key));
           setVisualData(prev => prev.map(row => { const { [key]: _, ...rest } = row; return rest; }));
@@ -657,7 +658,7 @@ export const ChartNodeView = (props: any) => {
                                             setEditTab('data'); 
                                         }
                                     } catch (e: any) {
-                                        alert(e.message);
+                                        addNotification(e.message, "error");
                                     } finally {
                                         setIsAiLoading(false);
                                     }

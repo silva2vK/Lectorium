@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Editor } from '@tiptap/react';
 import { Icon } from '../shared/Icon';
 import { Search, X, ArrowUp, ArrowDown, Replace, ReplaceAll } from 'lucide-react';
-
+import { useGlobalContext } from '../../context/GlobalContext';
 
 interface Props {
   editor: Editor | null;
@@ -12,6 +12,7 @@ interface Props {
 }
 
 export const FindReplaceBar: React.FC<Props> = ({ editor, isOpen, onClose }) => {
+  const { addNotification } = useGlobalContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [replaceTerm, setReplaceTerm] = useState('');
   const [results, setResults] = useState<{ from: number; to: number }[]>([]);
@@ -153,7 +154,7 @@ export const FindReplaceBar: React.FC<Props> = ({ editor, isOpen, onClose }) => 
     // Atualizar UI
     setResults([]);
     setCurrentIndex(-1);
-    alert(`${matches.length} ocorrências substituídas.`);
+    addNotification(`${matches.length} ocorrências substituídas.`, "success");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

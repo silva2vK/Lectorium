@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Icon } from '../../shared/Icon';
 import { Reference, ReferenceType } from '../../../types';
 import { X, Book, FileText, Globe, Trash2, Plus, Check } from 'lucide-react';
-
+import { useGlobalContext } from '../../../context/GlobalContext';
 
 interface Props {
   isOpen: boolean;
@@ -13,6 +13,7 @@ interface Props {
 }
 
 export const CitationModal: React.FC<Props> = ({ isOpen, onClose, onInsert, references }) => {
+  const { addNotification } = useGlobalContext();
   const [activeTab, setActiveTab] = useState<ReferenceType>('book');
   
   // Form State
@@ -55,7 +56,7 @@ export const CitationModal: React.FC<Props> = ({ isOpen, onClose, onInsert, refe
   const handleSubmit = () => {
     // Basic validation
     if (!title || !year || !authors[0].lastName) {
-        alert("Preencha ao menos o título, ano e sobrenome do primeiro autor.");
+        addNotification("Preencha ao menos o título, ano e sobrenome do primeiro autor.", "warning");
         return;
     }
 

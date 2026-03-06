@@ -63,7 +63,7 @@ export const SemanticRangeModal: React.FC<Props> = ({
     const count = e - s + 1;
 
     if (count > MAX_BATCH_SIZE) {
-        alert(`Limite técnico: processamos no máximo ${MAX_BATCH_SIZE} páginas por lote.`);
+        addNotification(`Limite técnico: processamos no máximo ${MAX_BATCH_SIZE} páginas por lote.`, "warning");
         return;
     }
 

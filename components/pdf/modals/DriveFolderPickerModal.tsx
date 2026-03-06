@@ -4,7 +4,7 @@ import { Icon } from '../../shared/Icon';
 import { listDriveFolders, uploadFileToDrive } from '../../../services/driveService';
 import { DriveFile, MIME_TYPES } from '../../../types';
 import { Folder, CheckCircle, ChevronLeft, Home, FolderPlus, Loader2, Check, X, ArrowRight } from 'lucide-react';
-
+import { useGlobalContext } from '../../../context/GlobalContext';
 
 interface Props {
   isOpen: boolean;
@@ -14,6 +14,7 @@ interface Props {
 }
 
 export const DriveFolderPickerModal: React.FC<Props> = ({ isOpen, onClose, accessToken, onSelectFolder }) => {
+  const { addNotification } = useGlobalContext();
   const [currentFolder, setCurrentFolder] = useState<{id: string, name: string}>({ id: 'root', name: 'Meu Drive' });
   const [folders, setFolders] = useState<DriveFile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -61,7 +62,7 @@ export const DriveFolderPickerModal: React.FC<Props> = ({ isOpen, onClose, acces
         // Recarrega a lista para mostrar a nova pasta
         await loadFolders(currentFolder.id);
     } catch (e) {
-        alert("Erro ao criar pasta.");
+        addNotification("Erro ao criar pasta.", "error");
     } finally {
         setIsCreatingInDrive(false);
     }

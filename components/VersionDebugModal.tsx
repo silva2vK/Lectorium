@@ -206,7 +206,7 @@ export const VersionDebugModal: React.FC<Props> = ({ isOpen, onClose }) => {
       `[${d.status.toUpperCase()}] ${d.name}: Build(${d.buildVersion}) | Requested(${d.requestedVersion}) | ACTUAL(${d.resolvedVersion})`
     ).join('\n');
     navigator.clipboard.writeText(report);
-    alert("Relatório técnico copiado!");
+    addNotification("Relatório técnico copiado!", "success");
   };
 
   if (!isOpen) return null;

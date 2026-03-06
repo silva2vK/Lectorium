@@ -3,9 +3,10 @@ import React, { useState } from 'react';
 import { Icon } from './shared/Icon';
 import { extractNewspaperContent } from '../services/visionService';
 import { CloudUpload, Loader2, History, Layers, BookOpen } from 'lucide-react';
-
+import { useGlobalContext } from '../context/GlobalContext';
 
 export const ArchivistDashboard: React.FC = () => {
+  const { addNotification } = useGlobalContext();
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<any>(null);
 
@@ -31,14 +32,14 @@ export const ArchivistDashboard: React.FC = () => {
       };
       
       reader.onerror = () => {
-        alert("Erro ao ler o arquivo.");
+        addNotification("Erro ao ler o arquivo.", "error");
         setIsProcessing(false);
       };
 
       reader.readAsDataURL(file);
     } catch (err) {
       console.error(err);
-      alert("Falha no processamento.");
+      addNotification("Falha no processamento.", "error");
       setIsProcessing(false);
     }
   };

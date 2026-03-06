@@ -44,7 +44,7 @@ export const OcrRangeModal: React.FC<Props> = ({
     const count = e - s + 1;
 
     if (count > MAX_BATCH_SIZE) {
-        alert(`Por segurança técnica e limites da API, processamos no máximo ${MAX_BATCH_SIZE} páginas por vez.\n\nPor favor, ajuste o intervalo.`);
+        addNotification(`Por segurança técnica e limites da API, processamos no máximo ${MAX_BATCH_SIZE} páginas por vez.\n\nPor favor, ajuste o intervalo.`, "warning");
         return;
     }
 
@@ -63,7 +63,7 @@ export const OcrRangeModal: React.FC<Props> = ({
         onConfirm(s, e); 
         onClose();
     } else {
-        alert("Erro: Documento não carregado na memória.");
+        addNotification("Erro: Documento não carregado na memória.", "error");
     }
   };
 

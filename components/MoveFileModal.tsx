@@ -5,7 +5,7 @@ import { BaseModal } from './shared/BaseModal';
 import { listDriveFolders, moveDriveFile } from '../services/driveService';
 import { DriveFile } from '../types';
 import { FolderInput, Loader2, CheckCircle, ArrowRight, Home, Folder } from 'lucide-react';
-
+import { useGlobalContext } from '../context/GlobalContext';
 
 interface Props {
   isOpen: boolean;
@@ -16,6 +16,7 @@ interface Props {
 }
 
 export const MoveFileModal: React.FC<Props> = ({ isOpen, onClose, fileToMove, accessToken, onMoveSuccess }) => {
+  const { addNotification } = useGlobalContext();
   const [currentFolder, setCurrentFolder] = useState<{id: string, name: string}>({ id: 'root', name: 'Meu Drive' });
   const [folders, setFolders] = useState<DriveFile[]>([]);
   const [loading, setLoading] = useState(false);
@@ -68,7 +69,7 @@ export const MoveFileModal: React.FC<Props> = ({ isOpen, onClose, fileToMove, ac
       onClose();
     } catch (e) {
       console.error(e);
-      alert("Erro ao mover arquivo.");
+      addNotification("Erro ao mover arquivo.", "error");
     } finally {
       setMoving(false);
     }

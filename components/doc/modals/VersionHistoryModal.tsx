@@ -4,7 +4,7 @@ import { Icon } from '../../shared/Icon';
 import { DocVersion, getDocVersions, saveDocVersion } from '../../../services/storageService';
 import { auth } from '../../../firebase';
 import { Clock, X, Loader2, RotateCcw, Save } from 'lucide-react';
-
+import { useGlobalContext } from '../../../context/GlobalContext';
 
 interface Props {
   isOpen: boolean;
@@ -15,6 +15,7 @@ interface Props {
 }
 
 export const VersionHistoryModal: React.FC<Props> = ({ isOpen, onClose, fileId, onRestore, currentContent }) => {
+  const { addNotification } = useGlobalContext();
   const [history, setHistory] = useState<DocVersion[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -47,7 +48,7 @@ export const VersionHistoryModal: React.FC<Props> = ({ isOpen, onClose, fileId, 
           await saveDocVersion(fileId, currentContent, author, name);
           await loadHistory();
       } catch (e) {
-          alert("Erro ao criar versão.");
+          addNotification("Erro ao criar versão.", "error");
       } finally {
           setCreating(false);
       }

@@ -15,6 +15,7 @@ import { Reference, EditorStats, MIME_TYPES } from '../../types';
 import { auth } from '../../firebase';
 import { generateDocxBlob } from '../../services/docxService';
 import { useSlideNavigation } from '../../hooks/useSlideNavigation';
+import { useGlobalContext } from '../../context/GlobalContext';
 
 interface Props {
   fileId: string;
@@ -38,6 +39,7 @@ export const DocEditor: React.FC<Props> = ({
   fileId, fileName, fileBlob, accessToken, 
   onToggleMenu, onAuthError, onBack, fileParents 
 }) => {
+  const { addNotification } = useGlobalContext();
   const isLocalFile = fileId.startsWith('local-') || !accessToken;
   const { modals, sidebars, modes, toggleModal, toggleSidebar, toggleMode } = useDocUI();
   
@@ -224,7 +226,7 @@ export const DocEditor: React.FC<Props> = ({
         URL.revokeObjectURL(url);
       }
     } catch (e: any) {
-      if (e.name !== 'AbortError') { alert("Não foi possível compartilhar o arquivo."); }
+      if (e.name !== 'AbortError') { addNotification("Não foi possível compartilhar o arquivo.", "error"); }
     } finally {
       setIsSharing(false);
     }

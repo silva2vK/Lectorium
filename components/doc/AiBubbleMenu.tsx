@@ -4,13 +4,14 @@ import { Editor, BubbleMenu } from '@tiptap/react';
 import { getAiClient } from '../../services/aiService';
 import { Icon } from '../shared/Icon';
 import { Loader2, RefreshCw, Scissors, Wand2, Bold, Italic, Link, Sparkles, ChevronRight } from 'lucide-react';
-
+import { useGlobalContext } from '../../context/GlobalContext';
 
 interface Props {
   editor: Editor;
 }
 
 export const AiBubbleMenu: React.FC<Props> = ({ editor }) => {
+  const { addNotification } = useGlobalContext();
   const [isLoading, setIsLoading] = useState(false);
   const [showAiSubmenu, setShowAiSubmenu] = useState(false);
 
@@ -40,7 +41,7 @@ export const AiBubbleMenu: React.FC<Props> = ({ editor }) => {
       }
     } catch (e) {
       console.error(e);
-      alert("Erro na IA. Verifique sua chave de API nas configurações ou sua conexão.");
+      addNotification("Erro na IA. Verifique sua chave de API nas configurações ou sua conexão.", "error");
     } finally {
       setIsLoading(false);
       setShowAiSubmenu(false);
