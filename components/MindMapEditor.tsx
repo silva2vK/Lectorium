@@ -7,8 +7,8 @@ import { AiChatPanel } from './shared/AiChatPanel';
 import { MindMapSaveModal } from './modals/MindMapSaveModal';
 import { MindMapRenameModal } from './modals/MindMapRenameModal';
 import { DriveFolderPickerModal } from './pdf/modals/DriveFolderPickerModal';
+import { useGlobalContext } from '../context/GlobalContext';
 import { Map, Menu, Edit2, Target, Sparkles, Loader2, Save, PlusCircle, Plus, Minus, LinkIcon, Square, MinusCircle, ImageIcon, Trash2, X } from 'lucide-react';
-
 
 // --- Constants ---
 const ZOOM_LIMITS = { MIN: 0.2, MAX: 1.35 }; 
@@ -28,6 +28,7 @@ interface Props {
 }
 
 export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, accessToken, onToggleMenu, onAuthError, onRename }) => {
+  const { addNotification } = useGlobalContext();
   const [nodes, setNodes] = useState<MindMapNode[]>([]);
   const [edges, setEdges] = useState<MindMapEdge[]>([]);
   const [viewport, setViewport] = useState<MindMapViewport>({ x: 0, y: 0, zoom: 1 });
@@ -147,10 +148,10 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
               // Atualização de arquivo existente
               await updateDriveFile(accessToken, fileId, blob, 'application/json');
           }
-          alert("Sincronizado com sucesso!");
+          addNotification("Sincronizado com sucesso!", "success");
       } catch (e) {
           console.error(e);
-          alert("Erro ao salvar no Drive.");
+          addNotification("Erro ao salvar no Drive.", "error");
       } finally {
           setIsSaving(false);
           setShowDrivePicker(false);

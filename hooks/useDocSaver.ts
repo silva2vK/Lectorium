@@ -14,6 +14,7 @@ import { MIME_TYPES, Reference } from '../types';
 import { PageSettings } from '../components/doc/modals/PageSetupModal';
 import { CommentData } from '../components/doc/CommentsSidebar';
 import { auth } from '../firebase';
+import { useGlobalContext } from '../context/GlobalContext';
 
 interface UseDocSaverProps {
   fileId: string;
@@ -25,6 +26,7 @@ interface UseDocSaverProps {
 }
 
 export const useDocSaver = ({ fileId, accessToken, isLocalFile, currentName, fileParents = [], onAuthError }: UseDocSaverProps) => {
+  const { addNotification } = useGlobalContext();
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'unsaved' | 'error'>('saved');
   const [isOfflineSaved, setIsOfflineSaved] = useState(false);
@@ -74,7 +76,7 @@ export const useDocSaver = ({ fileId, accessToken, isLocalFile, currentName, fil
 
       } catch (e) {
           console.error(e);
-          alert("Erro crítico ao gerar arquivo.");
+          addNotification("Erro crítico ao gerar arquivo.", "error");
           setIsSaving(false);
           setSaveStatus('error');
           return;
@@ -227,7 +229,7 @@ export const useDocSaver = ({ fileId, accessToken, isLocalFile, currentName, fil
           setSaveStatus('saved');
       } catch (e) {
           console.error("Download failed", e);
-          alert("Erro ao gerar o arquivo DOCX.");
+          addNotification("Erro ao gerar o arquivo DOCX.", "error");
           setSaveStatus('error');
       } finally {
           setIsSaving(false);
@@ -269,11 +271,11 @@ export const useDocSaver = ({ fileId, accessToken, isLocalFile, currentName, fil
                   fileParents && fileParents.length > 0 ? fileParents : [], 
                   MIME_TYPES.LECTORIUM
               );
-              alert("Arquivo Lectorium (.lect) salvo no Drive com sucesso!\nSalvo na mesma pasta do arquivo original.");
+              addNotification("Arquivo Lectorium (.lect) salvo no Drive com sucesso!\nSalvo na mesma pasta do arquivo original.", "success");
           }
       } catch (e) {
           console.error("Failed to save .lect", e);
-          alert("Erro ao salvar formato Lectorium.");
+          addNotification("Erro ao salvar formato Lectorium.", "error");
       } finally {
           setIsSaving(false);
       }

@@ -108,7 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         setCachingStatus('done');
     } catch (e) {
         setCachingStatus('idle'); 
-        alert("Erro ao baixar recursos.");
+        addNotification("Erro ao baixar recursos.", "error");
     }
   };
 
@@ -119,7 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       setCachingStatus('idle');
       setCacheProgress(0);
     } catch (e) {
-      alert("Erro ao limpar cache.");
+      addNotification("Erro ao limpar cache.", "error");
     }
   };
 

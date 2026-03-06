@@ -126,20 +126,20 @@ export const DriveBrowser: React.FC<Props> = ({
           try {
               await renameFile({ fileId: file.id, newName });
           } catch (e: any) {
-              alert("Erro ao renomear arquivo: " + e.message);
+              addNotification("Erro ao renomear arquivo: " + e.message, "error");
           }
       }
-  }, [renameFile]);
+  }, [renameFile, addNotification]);
 
   const handleDelete = useCallback(async (file: DriveFile) => { 
       if (confirm(`Tem certeza que deseja excluir "${file.name}"?`)) {
           try {
               await deleteFile(file.id);
           } catch (e: any) {
-              alert("Erro ao excluir: " + e.message);
+              addNotification("Erro ao excluir: " + e.message, "error");
           }
       }
-  }, [deleteFile]);
+  }, [deleteFile, addNotification]);
   
   const handleShare = useCallback(async (file: DriveFile) => { 
       setActiveMenuId(null); 

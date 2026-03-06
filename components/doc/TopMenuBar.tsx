@@ -6,6 +6,7 @@ import { HelpModal } from './modals/HelpModal';
 import { SymbolModal } from './modals/SymbolModal';
 import { VersionHistoryModal } from './modals/VersionHistoryModal';
 import { StyleConfigModal, StyleConfig } from './modals/StyleConfigModal';
+import { useGlobalContext } from '../../context/GlobalContext';
 
 interface Props {
   editor: Editor | null;

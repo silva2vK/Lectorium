@@ -37,6 +37,8 @@ export interface OcrMetrics {
   timestamp: number;
 }
 
+export type StorageMode = 'local' | 'drive' | 'hybrid';
+
 export interface DriveFile {
   id: string;
   name: string;
@@ -48,7 +50,7 @@ export interface DriveFile {
   pinned?: boolean;
   size?: string;
   modifiedTime?: string;
-  handle?: any;
+  handle?: FileSystemFileHandle | FileSystemDirectoryHandle | null;
 }
 
 export interface Annotation {

@@ -11,6 +11,7 @@ import { blobRegistry } from '../services/blobRegistry';
 import { Annotation, SemanticLensData, MIME_TYPES } from '../types';
 import { packLectoriumFile } from '../services/lectService';
 import { SuccessMode } from '../components/pdf/modals/SaveSuccessModal';
+import { useGlobalContext } from '../context/GlobalContext';
 
 export type SaveErrorType = 'auth' | 'forbidden' | 'network' | null;
 
@@ -47,6 +48,7 @@ export const usePdfSaver = ({
   setHasUnsavedOcr,
   password
 }: UsePdfSaverProps) => {
+  const { addNotification } = useGlobalContext();
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState<SaveErrorType>(null);
@@ -247,7 +249,7 @@ export const usePdfSaver = ({
                 }
                 
                 if (isFallback) {
-                    alert("Aviso: O arquivo original é protegido. Suas alterações foram salvas num novo arquivo '.lect' (Lectorium Workspace) para manter suas anotações.");
+                    addNotification("Aviso: O arquivo original é protegido. Suas alterações foram salvas num novo arquivo '.lect' (Lectorium Workspace) para manter suas anotações.", "info");
                 }
 
             } catch (e: any) {
