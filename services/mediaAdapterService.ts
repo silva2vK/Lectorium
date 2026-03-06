@@ -1,9 +1,6 @@
 
-import UTIF from 'utif';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import heic2any from 'heic2any';
-import daikon from 'daikon';
-import JSZip from 'jszip';
 import { createSmartCanvas, smartCanvasToBlob } from '../utils/canvasUtils';
 
 // Tipos suportados pelo adaptador
@@ -96,6 +93,7 @@ async function convertHeicToPdf(blob: Blob): Promise<Blob> {
  * Converte TIFF para PDF
  */
 async function convertTiffToPdf(buffer: ArrayBuffer): Promise<Blob> {
+  const UTIF = (await import('utif')).default || await import('utif');
   const ifds = UTIF.decode(buffer);
   const pdfDoc = await PDFDocument.create();
 
@@ -216,6 +214,7 @@ async function convertTextToPdf(text: string): Promise<Blob> {
 }
 
 async function convertDicomToPdf(buffer: ArrayBuffer): Promise<Blob> {
+  const daikon = (await import('daikon')).default || await import('daikon');
   const dataView = new DataView(buffer);
   const image = daikon.Series.parseImage(dataView);
 
@@ -302,6 +301,7 @@ async function processCbr(data: Uint8Array): Promise<Blob> {
 }
 
 async function convertCbzToPdf(blob: Blob): Promise<Blob> {
+  const JSZip = (await import('jszip')).default || await import('jszip');
   const zip = await JSZip.loadAsync(blob);
   const pdfDoc = await PDFDocument.create();
   

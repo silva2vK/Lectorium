@@ -14,40 +14,29 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       nodePolyfills({
-        // Cobertura total para utilitários de sistema operacional emulados no browser
-        include: ['fs', 'path', 'process', 'buffer', 'util', 'stream'],
-        globals: {
-          Buffer: true,
-          global: true,
-          process: true,
-        },
+        include: ['process', 'buffer', 'stream', 'util'],
+        globals: { process: true, Buffer: true },
       }),
     ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './'),
-        // Resolução explícita para evitar falhas do Recharts no React 19
         'react-is': path.resolve(__dirname, './node_modules/react-is'),
       },
     },
     optimizeDeps: {
-      // Injeção de dependências críticas na fase de pré-bundle
       include: [
         'pdfjs-dist', 
         'react', 
         'react-dom', 
-        'mermaid', 
         'lucide-react', 
         '@tiptap/react',
         '@tiptap/extension-bubble-menu'
       ],
-      // Exclusão cirúrgica: impede o Vite de corromper o worker do PDF.js processando-o como CJS
       exclude: ['pdfjs-dist'],
-      // Força a compatibilidade CommonJS/ESM para o Lucide (resolve erro de construtor)
       needsInterop: ['lucide-react'],
       esbuildOptions: {
         target: 'esnext',
-        // Liberação de escopo global para o PDF.js v4+ (Top-level Await)
         supported: {
           'top-level-await': true
         }
@@ -56,30 +45,92 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       target: 'esnext',
-      chunkSizeWarningLimit: 3000,
+      chunkSizeWarningLimit: 1500,
       rollupOptions: {
         external: ['unrar-js'],
         output: {
-          // Roteamento dinâmico de Chunks: preserva a integridade de instâncias co-dependentes
           manualChunks(id) {
-            // Isolamento estrutural do motor de renderização de PDFs
-            if (id.includes('pdfjs-dist')) {
-              return 'pdf-engine';
-            }
-            if (id.includes('@tiptap') || id.includes('lucide-react')) {
-              return 'vendor-ui';
-            }
-            if (id.includes('firebase')) {
-              return 'vendor-firebase';
-            }
-            if (id.includes('mermaid') || id.includes('pdf-lib') || id.includes('jszip') || id.includes('docx')) {
-              return 'vendor-utils';
-            }
-            if (id.includes('react') || id.includes('react-dom')) {
+            // React core — carregado primeiro, sempre em cache
+            if (id.includes('node_modules/react') ||
+                id.includes('node_modules/react-dom') ||
+                id.includes('node_modules/scheduler')) {
               return 'vendor-react';
             }
-            if (id.includes('@google/genai')) {
-              return 'ai-sdk';
+
+            // Firebase — isolado pois muda pouco
+            if (id.includes('node_modules/firebase') ||
+                id.includes('node_modules/@firebase')) {
+              return 'vendor-firebase';
+            }
+
+            // SDK da IA Gemini — grande, carregado apenas quando IA é usada
+            if (id.includes('node_modules/@google/genai')) {
+              return 'vendor-ai-sdk';
+            }
+
+            // TipTap + ProseMirror — apenas no DocEditor (já é lazy)
+            if (id.includes('node_modules/@tiptap') ||
+                id.includes('node_modules/prosemirror') ||
+                id.includes('node_modules/@prosemirror') ||
+                id.includes('node_modules/y-prosemirror')) {
+              return 'vendor-editor';
+            }
+
+            // Yjs + colaboração — separado do editor
+            if (id.includes('node_modules/yjs') ||
+                id.includes('node_modules/y-webrtc') ||
+                id.includes('node_modules/lib0')) {
+              return 'vendor-yjs';
+            }
+
+            // PDF engine — já é worker, mas isolar o engine principal
+            if (id.includes('node_modules/pdfjs-dist') ||
+                id.includes('node_modules/pdf-lib')) {
+              return 'vendor-pdf';
+            }
+
+            // Mermaid — diagramas, carregado sob demanda
+            if (id.includes('node_modules/mermaid') ||
+                id.includes('node_modules/@mermaid-js')) {
+              return 'vendor-mermaid';
+            }
+
+            // KaTeX — fórmulas matemáticas
+            if (id.includes('node_modules/katex')) {
+              return 'vendor-katex';
+            }
+
+            // Daikon (DICOM) + UTIF (TIFF) — raramente usados
+            // Serão isolados para lazy load posterior
+            if (id.includes('node_modules/daikon') ||
+                id.includes('node_modules/utif')) {
+              return 'vendor-medical-formats';
+            }
+
+            // Recharts + D3 derivados
+            if (id.includes('node_modules/recharts') ||
+                id.includes('node_modules/d3-')) {
+              return 'vendor-charts';
+            }
+
+            // JSZip, uuid, idb e outras utils genéricas
+            if (id.includes('node_modules/jszip') ||
+                id.includes('node_modules/uuid') ||
+                id.includes('node_modules/idb') ||
+                id.includes('node_modules/clsx') ||
+                id.includes('node_modules/tailwind-merge')) {
+              return 'vendor-utils-light';
+            }
+
+            // Lucide icons — grande coleção de SVGs
+            if (id.includes('node_modules/lucide-react')) {
+              return 'vendor-icons';
+            }
+
+            // Zustand + TanStack Query — estado global
+            if (id.includes('node_modules/zustand') ||
+                id.includes('node_modules/@tanstack')) {
+              return 'vendor-state';
             }
           }
         },
@@ -90,7 +141,6 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       'process.env.API_KEY': JSON.stringify(process.env.API_KEY || env.API_KEY),
-      // Mapeamento global para neutralizar "process is not defined" no escopo global
       'global': 'window',
     }
   };

@@ -1,23 +1,31 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { NodeViewProps } from '@tiptap/react';
-import mermaid from 'mermaid';
 import { Icon } from '../../shared/Icon';
 import { LazyNodeView } from './LazyNodeView';
 import { Edit2, Workflow, X, HelpCircle, Check } from 'lucide-react';
 
-
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'base',
-  themeVariables: {
-    primaryColor: '#e2e8f0', 
-    primaryTextColor: '#000000',
-    lineColor: '#334155',
-    fontSize: '14px',
-    fontFamily: 'Inter, system-ui, sans-serif',
+let mermaidPromise: Promise<any> | null = null;
+const getMermaid = () => {
+  if (!mermaidPromise) {
+    mermaidPromise = import('mermaid').then(m => {
+      const mermaid = m.default || m;
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'base',
+        themeVariables: {
+          primaryColor: '#e2e8f0', 
+          primaryTextColor: '#000000',
+          lineColor: '#334155',
+          fontSize: '14px',
+          fontFamily: 'Inter, system-ui, sans-serif',
+        }
+      });
+      return mermaid;
+    });
   }
-});
+  return mermaidPromise;
+};
 
 export default (props: NodeViewProps) => {
   const { node, updateAttributes } = props;
@@ -34,6 +42,7 @@ export default (props: NodeViewProps) => {
     const render = async () => {
       if (!containerRef.current) return;
       try {
+        const mermaid = await getMermaid();
         containerRef.current.innerHTML = '';
         const { svg } = await mermaid.render(idRef.current, chart);
         if (active && containerRef.current) {
