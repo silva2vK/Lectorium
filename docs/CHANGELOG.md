@@ -1,5 +1,11 @@
 # Lectorium - Histórico de Edições (Changelog)
 
+## 2026-03-06
+
+- **Data/Hora (BRT):** 2026-03-06 09:27:00
+- **Arquivos Modificados:** `/context/DocEditorContext.tsx`, `/components/doc/TopMenuBar.tsx`, `/services/localFileService.ts`, `/hooks/useFileManager.tsx` (renomeado de `.ts`), `/src/types.ts`
+- **Resumo:** Substituição de chamadas `alert()` por `addNotification()` do `useGlobalContext` para melhor UX. Tipagem estrita de `storageMode` e `FileSystemHandle` em `types.ts` removendo `any`. Renomeação de `useFileManager.ts` para `.tsx` para suportar JSX.
+
 ## 2026-03-02
 
 - **Data/Hora (BRT):** 2026-03-02 20:20:00

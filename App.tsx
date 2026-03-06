@@ -14,6 +14,7 @@ import { StorageMode } from './types';
 import { Loader2, Wifi, Sparkles, X, ScanLine, Maximize, Monitor } from 'lucide-react';
 import ReauthToast from './components/ReauthToast';
 import { LegalModal, LegalTab } from './components/modals/LegalModal';
+import { GlobalHelpModal } from './components/GlobalHelpModal';
 import { GlobalProvider, useGlobalContext } from './context/GlobalContext';
 import { OcrCompletionModal } from './components/modals/OcrCompletionModal';
 import { SecretThemeModal } from './components/SecretThemeModal';
