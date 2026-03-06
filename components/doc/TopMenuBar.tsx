@@ -211,6 +211,7 @@ const MenuSubHeader = ({ label, onBack }: { label: string, onBack: () => void })
 
 export const TopMenuBar: React.FC<Props> = (props) => {
   const { editor } = props;
+  const { addNotification } = useGlobalContext();
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [activeSubMenu, setActiveSubMenu] = useState<string | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -326,7 +327,7 @@ export const TopMenuBar: React.FC<Props> = (props) => {
               editor?.chain().focus().insertContent(text).run(); 
           }
       } catch {
-          alert("Não foi possível ler a área de transferência.");
+          addNotification("Não foi possível ler a área de transferência.", "error");
       }
       closeMenu();
   };
@@ -352,7 +353,7 @@ export const TopMenuBar: React.FC<Props> = (props) => {
           <MenuItem icon={History} label="Histórico de versões" onClick={() => exec(() => setShowHistoryModal(true))} />
           <MenuDivider />
           <MenuItem icon={Edit2} label="Renomear" onClick={() => exec(props.onRename)} />
-          <MenuItem icon={FolderInput} label="Mover" onClick={() => exec(() => alert("Funcionalidade disponível apenas na visualização de pastas."))} />
+          <MenuItem icon={FolderInput} label="Mover" onClick={() => exec(() => addNotification("Funcionalidade disponível apenas na visualização de pastas.", "info"))} />
           <MenuItem icon={Trash2} label="Mover para lixeira" onClick={() => exec(props.onTrash)} isDanger />
           <MenuDivider />
           <MenuItem icon={WifiOff} label="Tornar disponível off-line" onClick={() => exec(props.onSave)} />
@@ -380,8 +381,8 @@ export const TopMenuBar: React.FC<Props> = (props) => {
       <MenuDivider />
       <MenuItem icon={Scissors} label="Recortar" onClick={() => exec(() => { navigator.clipboard.writeText(window.getSelection()?.toString() || ''); editor.chain().focus().deleteSelection().run(); })} shortcut="Ctrl+X" />
       <MenuItem icon={Copy} label="Copiar" onClick={() => exec(() => navigator.clipboard.writeText(window.getSelection()?.toString() || ''))} shortcut="Ctrl+C" />
-      <MenuItem icon={Clipboard} label="Colar" onClick={() => exec(async () => { try { const t = await navigator.clipboard.readText(); editor.chain().focus().insertContent(t).run(); } catch { alert("Use Ctrl+V"); } })} shortcut="Ctrl+V" />
-      <MenuItem icon={Clipboard} label="Colar sem formatação" onClick={() => exec(async () => { try { const t = await navigator.clipboard.readText(); editor.chain().focus().insertContent(t).run(); } catch { alert("Use Ctrl+Shift+V"); } })} shortcut="Ctrl+Shift+V" />
+      <MenuItem icon={Clipboard} label="Colar" onClick={() => exec(async () => { try { const t = await navigator.clipboard.readText(); editor.chain().focus().insertContent(t).run(); } catch { addNotification("Use Ctrl+V", "warning"); } })} shortcut="Ctrl+V" />
+      <MenuItem icon={Clipboard} label="Colar sem formatação" onClick={() => exec(async () => { try { const t = await navigator.clipboard.readText(); editor.chain().focus().insertContent(t).run(); } catch { addNotification("Use Ctrl+Shift+V", "warning"); } })} shortcut="Ctrl+Shift+V" />
       <MenuDivider />
       <MenuItem icon={CheckSquare} label="Selecionar tudo" onClick={() => exec(() => editor.chain().focus().selectAll().run())} shortcut="Ctrl+A" />
       <MenuItem icon={Trash2} label="Excluir" onClick={() => exec(() => editor.chain().focus().deleteSelection().run())} isDanger />
@@ -558,7 +559,7 @@ export const TopMenuBar: React.FC<Props> = (props) => {
         </div>
       ))}
       <MenuDivider />
-      <MenuItem icon={Save} label="Salvar como meus estilos padrão" onClick={() => exec(() => alert("Estilos salvos."))} className="text-xs text-[#a8c7fa]" />
+      <MenuItem icon={Save} label="Salvar como meus estilos padrão" onClick={() => exec(() => addNotification("Estilos salvos.", "success"))} className="text-xs text-[#a8c7fa]" />
     </MenuDropdown>
   );
 
@@ -637,7 +638,7 @@ export const TopMenuBar: React.FC<Props> = (props) => {
       <MenuItem icon={PenTool} label="Sugestões (Review)" onClick={() => exec(props.toggleSuggestionMode)} isActive={props.suggestionMode} />
       <MenuDivider />
       <MenuItem icon={FileCode} label="Importar Markdown" onClick={handleMarkdownImport} />
-      <MenuItem icon={Languages} label="Traduzir documento" onClick={() => exec(() => alert("Recurso de tradução em breve."))} />
+      <MenuItem icon={Languages} label="Traduzir documento" onClick={() => exec(() => addNotification("Recurso de tradução em breve.", "info"))} />
     </MenuDropdown>
   );
 

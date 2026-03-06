@@ -10,6 +10,7 @@ import { useDocLoader } from './useDocLoader';
 import { useDocSaver } from './useDocSaver';
 import { PageSettings } from '../components/doc/modals/PageSetupModal';
 import { CommentData } from '../components/doc/CommentsSidebar';
+import { useGlobalContext } from '../context/GlobalContext';
 
 interface UseDocFileHandlerProps {
   editor: Editor | null;
@@ -30,7 +31,7 @@ interface UseDocFileHandlerProps {
 export const useDocFileHandler = ({ 
   editor, fileId, fileName, fileBlob, accessToken, isLocalFile, fileParents, onAuthError, onBack, onFitWidth, onLoadSettings, onLoadComments, onLoadReferences 
 }: UseDocFileHandlerProps) => {
-  
+  const { addNotification } = useGlobalContext();
   const [currentName, setCurrentName] = useState(fileName.replace('.docx', ''));
   const [loadingState, setLoadingState] = useState<LoadingStatus>('init');
   const [displayProgress, setDisplayProgress] = useState(0);
@@ -176,7 +177,7 @@ export const useDocFileHandler = ({
               else await deleteOfflineFile(fileId);
           }
           if (onBack) onBack();
-      } catch (e: any) { alert("Erro ao excluir arquivo."); }
+      } catch (e: any) { addNotification("Erro ao excluir arquivo.", "error"); }
   }, [accessToken, fileId, currentName, isLocalFile, onBack]);
 
   return {

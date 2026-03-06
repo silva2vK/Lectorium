@@ -11,6 +11,7 @@ import { Reference, EditorStats, MIME_TYPES } from '../types';
 import { auth } from '../firebase';
 import { generateDocxBlob } from '../services/docxService';
 import { PageSettings } from '../components/doc/modals/PageSetupModal';
+import { useGlobalContext } from './GlobalContext';
 
 interface DocEditorContextProps {
   // Core
@@ -99,6 +100,8 @@ export const DocEditorProvider: React.FC<ProviderProps> = ({
   const contentRef = useRef<HTMLDivElement>(null);
   const docScrollerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { addNotification } = useGlobalContext();
 
   const userInfo = useMemo(() => {
     const u = auth.currentUser;
@@ -289,7 +292,7 @@ export const DocEditorProvider: React.FC<ProviderProps> = ({
         URL.revokeObjectURL(url);
       }
     } catch (e: any) {
-      if (e.name !== 'AbortError') { alert("Não foi possível compartilhar o arquivo."); }
+      if (e.name !== 'AbortError') { addNotification("Não foi possível compartilhar o arquivo.", "error"); }
     } finally {
       setIsSharing(false);
     }
