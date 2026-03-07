@@ -1,15 +1,21 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo, Suspense } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Float, Html, OrbitControls, Stars } from '@react-three/drei';
-import * as THREE from 'three';
+
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { Icon } from './shared/Icon';
 import { updateDriveFile, downloadDriveFile, uploadFileToDrive } from '../services/driveService';
-import { MindMapNode, MindMapEdge, MindMapData } from '../types';
+import { MindMapNode, MindMapEdge, MindMapViewport, MindMapData } from '../types';
 import { AiChatPanel } from './shared/AiChatPanel';
 import { MindMapSaveModal } from './modals/MindMapSaveModal';
 import { MindMapRenameModal } from './modals/MindMapRenameModal';
 import { DriveFolderPickerModal } from './pdf/modals/DriveFolderPickerModal';
 import { useGlobalContext } from '../context/GlobalContext';
-import { Menu, Target, Sparkles, Loader2, Save, PlusCircle, LinkIcon, ImageIcon, Trash2, X } from 'lucide-react';
+import { Map, Menu, Edit2, Target, Sparkles, Loader2, Save, PlusCircle, Plus, Minus, LinkIcon, Square, MinusCircle, ImageIcon, Trash2, X } from 'lucide-react';
+
+// --- Constants ---
+const ZOOM_LIMITS = { MIN: 0.2, MAX: 1.35 }; 
+const AREA_LIMIT = 5000; 
+const GRID_COLOR_NORMAL = 'rgba(255, 255, 255, 0.35)';
+const GRID_COLOR_LIMIT = '#dc143c';
+const NODE_COLORS = ['#4ade80', '#3b82f6', '#a855f7', '#ec4899', '#f97316', '#ef4444', '#ffffff'];
 
 interface Props {
   fileId: string;
@@ -18,335 +24,65 @@ interface Props {
   accessToken: string;
   onToggleMenu: () => void;
   onAuthError?: () => void;
-  onRename?: (newName: string) => void;
+  onRename?: (newName: string) => void; 
 }
 
-// --- PEÇA 1: compute3DPositions ---
-function compute3DPositions(nodes: MindMapNode[], edges: MindMapEdge[]): Map<string, THREE.Vector3> {
-  const positions = new Map<string, THREE.Vector3>();
-  if (nodes.length === 0) return positions;
-
-  const SPREAD = 12;
-  const rootNode = nodes.find(n => n.isRoot) || nodes[0];
-  
-  // BFS para calcular profundidade
-  const depths = new Map<string, number>();
-  const queue: { id: string, d: number }[] = [{ id: rootNode.id, d: 0 }];
-  const visited = new Set<string>();
-  
-  while (queue.length > 0) {
-    const { id, d } = queue.shift()!;
-    if (visited.has(id)) continue;
-    visited.add(id);
-    depths.set(id, d);
-    
-    // Encontrar filhos
-    const childrenIds = edges.filter(e => e.from === id).map(e => e.to);
-    for (const childId of childrenIds) {
-      if (!visited.has(childId)) {
-        queue.push({ id: childId, d: d + 1 });
-      }
-    }
-  }
-  
-  // Nós não conectados ganham profundidade 0
-  for (const node of nodes) {
-    if (!depths.has(node.id)) depths.set(node.id, 0);
-  }
-  
-  const maxDepth = Math.max(1, ...Array.from(depths.values()));
-  
-  // Encontrar limites 2D para normalizar
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const node of nodes) {
-    minX = Math.min(minX, node.x);
-    maxX = Math.max(maxX, node.x);
-    minY = Math.min(minY, node.y);
-    maxY = Math.max(maxY, node.y);
-  }
-  
-  const rangeX = Math.max(1, maxX - minX);
-  const rangeY = Math.max(1, maxY - minY);
-  
-  for (let i = 0; i < nodes.length; i++) {
-    const node = nodes[i];
-    const depth = depths.get(node.id) || 0;
-    
-    // Normalizar X e Y para [-SPREAD, SPREAD]
-    // Inverter Y pois no canvas 2D o Y cresce para baixo, no 3D cresce para cima
-    const nx = ((node.x - minX) / rangeX) * (SPREAD * 2) - SPREAD;
-    const ny = -(((node.y - minY) / rangeY) * (SPREAD * 2) - SPREAD);
-    
-    // Z baseado na profundidade (raiz na frente, folhas no fundo)
-    const nz = ((depth / maxDepth) * 2 - 1) * SPREAD * 0.6;
-    
-    // Jitter determinístico
-    const seed = (i * 137) ^ (i << 4);
-    const jitterX = ((seed % 100) / 100) * 0.5 - 0.25;
-    const jitterY = (((seed >> 2) % 100) / 100) * 0.5 - 0.25;
-    
-    positions.set(node.id, new THREE.Vector3(nx + jitterX, ny + jitterY, nz));
-  }
-  
-  return positions;
-}
-
-// --- PEÇA 2: EnergyEdge ---
-const EnergyEdge = ({ fromPos, toPos, color, fromIndex, toIndex }: { fromPos: THREE.Vector3, toPos: THREE.Vector3, color: string, fromIndex: number, toIndex: number }) => {
-  const materialRef = useRef<THREE.ShaderMaterial>(null);
-  
-  const curve = useMemo(() => {
-    const mid1 = new THREE.Vector3().lerpVectors(fromPos, toPos, 0.33);
-    const mid2 = new THREE.Vector3().lerpVectors(fromPos, toPos, 0.66);
-    
-    // Offset determinístico
-    const offset1 = ((fromIndex + toIndex) % 5) * 0.2 - 0.4;
-    const offset2 = ((fromIndex * toIndex) % 5) * 0.2 - 0.4;
-    
-    mid1.y += offset1;
-    mid2.x += offset2;
-    
-    return new THREE.CatmullRomCurve3([fromPos, mid1, mid2, toPos]);
-  }, [fromPos, toPos, fromIndex, toIndex]);
-  
-  const geometry = useMemo(() => {
-    const points = curve.getPoints(60);
-    const geo = new THREE.BufferGeometry().setFromPoints(points);
-    
-    // Adicionar atributo U para o shader
-    const uvs = new Float32Array(points.length);
-    for (let i = 0; i < points.length; i++) {
-      uvs[i] = i / (points.length - 1);
-    }
-    geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 1));
-    return geo;
-  }, [curve]);
-  
-  const shaderMaterial = useMemo(() => {
-    const threeColor = new THREE.Color(color);
-    return new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 },
-        uColor: { value: threeColor }
-      },
-      vertexShader: `
-        varying float vU;
-        void main() {
-          vU = uv.x;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform float uTime;
-        uniform vec3 uColor;
-        varying float vU;
-        void main() {
-          float pulse = sin(vU * 8.0 - uTime * 3.0) * 0.5 + 0.5;
-          float edgeFade = smoothstep(0.0, 0.1, vU) * smoothstep(1.0, 0.9, vU);
-          gl_FragColor = vec4(uColor * (0.5 + pulse * 0.8), pulse * edgeFade * 0.8);
-        }
-      `,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending
-    });
-  }, [color]);
-  
-  useFrame((state) => {
-    if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
-    }
-  });
-  
-  return (
-    <line geometry={geometry}>
-      <primitive object={shaderMaterial} ref={materialRef} attach="material" />
-    </line>
-  );
-};
-
-// --- PEÇA 3: HoloNode ---
-const HoloNode = ({ 
-  node, position, isSelected, isRoot, isLinkingSource, 
-  isEditing, editText, onSelect, onDoubleClick, onEditChange, onEditCommit 
-}: any) => {
-  const coreRef = useRef<THREE.Mesh>(null);
-  const radius = isRoot ? 0.55 : 0.38;
-  const color = node.color || '#4ade80';
-  
-  useFrame((state) => {
-    if (coreRef.current) {
-      const scale = Math.sin(state.clock.elapsedTime * 1.8 + position.x) * 0.08 + 1.0;
-      coreRef.current.scale.set(scale, scale, scale);
-    }
-  });
-  
-  return (
-    <Float speed={1.2} floatIntensity={0.3} position={position}>
-      <group>
-        {/* Glow externo */}
-        <mesh>
-          <sphereGeometry args={[radius * 2.2, 32, 32]} />
-          <meshBasicMaterial color={color} transparent opacity={0.1} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false} />
-        </mesh>
-        
-        {/* Anel orbital (selecionado ou linking) */}
-        {(isSelected || isLinkingSource) && (
-          <mesh rotation-x={Math.PI / 2}>
-            <torusGeometry args={[radius * 1.5, 0.02, 16, 64]} />
-            <meshBasicMaterial color={isLinkingSource ? '#f97316' : color} transparent opacity={0.8} blending={THREE.AdditiveBlending} />
-          </mesh>
-        )}
-        
-        {/* Core */}
-        <mesh 
-          ref={coreRef}
-          onClick={(e) => { e.stopPropagation(); onSelect(node.id); }}
-          onDoubleClick={(e) => { e.stopPropagation(); onDoubleClick(node.id); }}
-        >
-          <sphereGeometry args={[radius, 32, 32]} />
-          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={isSelected ? 1.6 : 0.8} />
-        </mesh>
-        
-        {/* Label HTML */}
-        <Html position={[0, radius + 0.5, 0]} center distanceFactor={10} occlude={false} transform>
-          {isEditing ? (
-            <textarea
-              autoFocus
-              value={editText}
-              onChange={(e) => onEditChange(e.target.value)}
-              onBlur={onEditCommit}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  onEditCommit();
-                }
-              }}
-              className="bg-black/80 text-white border border-white/30 rounded p-2 text-sm font-mono outline-none min-w-[150px] resize-none"
-              style={{ pointerEvents: 'auto' }}
-              rows={3}
-            />
-          ) : (
-            <div 
-              className="text-white font-mono text-sm whitespace-pre-wrap text-center cursor-pointer max-w-[200px]"
-              style={{ 
-                textShadow: `0 0 8px ${color}, 0 0 12px ${color}`,
-                pointerEvents: 'none'
-              }}
-            >
-              {node.text}
-            </div>
-          )}
-        </Html>
-      </group>
-    </Float>
-  );
-};
-
-// --- PEÇA 4: Scene ---
-const Scene = ({ 
-  nodes, edges, positions, selectedNodeId, editingNodeId, editText, linkingSourceId,
-  onSelect, onDoubleClick, onEditChange, onEditCommit, onBackgroundClick, orbitEnabled
-}: any) => {
-  useEffect(() => {
-    // Acessar a cena global via useThree não é estritamente necessário se usarmos color attach="background" e fog attach="fog" no Canvas
-    // Mas para garantir a cor exata do fog:
-  }, []);
-
-  return (
-    <>
-      <fog attach="fog" args={[0x000814, 0.028]} />
-      <ambientLight intensity={0.15} />
-      <pointLight position={[0, 0, 0]} color="#4ade80" intensity={2.5} />
-      <pointLight position={[8, 6, -5]} color="#3b82f6" intensity={1.5} />
-      <pointLight position={[-8, -4, 5]} color="#a855f7" intensity={1.2} />
-      
-      <Stars radius={60} count={3500} factor={3} fade speed={0.4} />
-      
-      {edges.map((edge: MindMapEdge, i: number) => {
-        const fromPos = positions.get(edge.from);
-        const toPos = positions.get(edge.to);
-        const toNode = nodes.find((n: MindMapNode) => n.id === edge.to);
-        
-        if (!fromPos || !toPos || !toNode) return null;
-        
-        const fromIndex = nodes.findIndex((n: MindMapNode) => n.id === edge.from);
-        const toIndex = nodes.findIndex((n: MindMapNode) => n.id === edge.to);
-        
-        return (
-          <EnergyEdge 
-            key={edge.id} 
-            fromPos={fromPos} 
-            toPos={toPos} 
-            color={toNode.color || '#4ade80'} 
-            fromIndex={fromIndex}
-            toIndex={toIndex}
-          />
-        );
-      })}
-      
-      {nodes.map((node: MindMapNode) => {
-        const pos = positions.get(node.id);
-        if (!pos) return null;
-        
-        return (
-          <HoloNode
-            key={node.id}
-            node={node}
-            position={pos}
-            isSelected={selectedNodeId === node.id}
-            isRoot={node.isRoot}
-            isLinkingSource={linkingSourceId === node.id}
-            isEditing={editingNodeId === node.id}
-            editText={editText}
-            onSelect={onSelect}
-            onDoubleClick={onDoubleClick}
-            onEditChange={onEditChange}
-            onEditCommit={onEditCommit}
-          />
-        );
-      })}
-      
-      {/* Background click plane */}
-      <mesh position={[0, 0, -30]} visible={false} onClick={(e) => { e.stopPropagation(); onBackgroundClick(); }}>
-        <planeGeometry args={[200, 200]} />
-        <meshBasicMaterial />
-      </mesh>
-      
-      <OrbitControls 
-        enabled={orbitEnabled} 
-        enableDamping 
-        dampingFactor={0.08} 
-        minDistance={3} 
-        maxDistance={50} 
-        makeDefault 
-      />
-    </>
-  );
-};
-
-// --- PEÇA 5: MindMapEditor ---
 export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, accessToken, onToggleMenu, onAuthError, onRename }) => {
   const { addNotification } = useGlobalContext();
   const [nodes, setNodes] = useState<MindMapNode[]>([]);
   const [edges, setEdges] = useState<MindMapEdge[]>([]);
+  const [viewport, setViewport] = useState<MindMapViewport>({ x: 0, y: 0, zoom: 1 });
   
+  const viewportRef = useRef<MindMapViewport>({ x: 0, y: 0, zoom: 1 });
+  const isAtLimitRef = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [showAiSidebar, setShowAiSidebar] = useState(false);
   const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
 
+  // Modal States
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
 
+  const [isDraggingCanvas, setIsDraggingCanvas] = useState(false);
+  const pointersRef = useRef<Map<number, { x: number, y: number }>>(new Map());
+  const prevPinchDistRef = useRef<number | null>(null);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [dragNodeId, setDragNodeId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentLayerRef = useRef<HTMLDivElement>(null); 
+  const gridLayerRef = useRef<HTMLDivElement>(null);    
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isLocalOnly = useMemo(() => fileId.startsWith('local-'), [fileId]);
+
+  const clampViewport = useCallback((v: MindMapViewport): { viewport: MindMapViewport, atLimit: boolean } => {
+    let atLimit = false;
+    let newZoom = Math.max(ZOOM_LIMITS.MIN, Math.min(ZOOM_LIMITS.MAX, v.zoom));
+    if (newZoom !== v.zoom) atLimit = true;
+    let newX = Math.max(-AREA_LIMIT, Math.min(AREA_LIMIT, v.x));
+    let newY = Math.max(-AREA_LIMIT, Math.min(AREA_LIMIT, v.y));
+    if (newX !== v.x || newY !== v.y) atLimit = true;
+    return { viewport: { x: newX, y: newY, zoom: newZoom }, atLimit };
+  }, []);
+
+  const applyVisualTransform = useCallback(() => {
+      const { viewport: clamped, atLimit } = clampViewport(viewportRef.current);
+      viewportRef.current = clamped;
+      isAtLimitRef.current = atLimit;
+      if (contentLayerRef.current) contentLayerRef.current.style.transform = `translate(${clamped.x}px, ${clamped.y}px) scale(${clamped.zoom})`;
+      if (gridLayerRef.current) {
+          gridLayerRef.current.style.backgroundSize = `${40 * clamped.zoom}px ${40 * clamped.zoom}px`;
+          gridLayerRef.current.style.backgroundPosition = `${clamped.x}px ${clamped.y}px`;
+          gridLayerRef.current.style.backgroundImage = `radial-gradient(${atLimit ? GRID_COLOR_LIMIT : GRID_COLOR_NORMAL} 1.5px, transparent 1.5px)`;
+      }
+  }, [clampViewport]);
 
   useEffect(() => {
     let mounted = true;
@@ -360,297 +96,291 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
         if (blob) {
             const data: MindMapData = JSON.parse(await blob.text());
             if (mounted) {
+                const sanitized = clampViewport({ x: Number(data.viewport?.x) || window.innerWidth / 2, y: Number(data.viewport?.y) || window.innerHeight / 2, zoom: Number(data.viewport?.zoom) || 1 });
                 setNodes(data.nodes || []);
                 setEdges(data.edges || []);
+                viewportRef.current = sanitized.viewport;
+                setViewport(sanitized.viewport);
+                applyVisualTransform();
             }
-        } else {
-            initDefault();
-        }
-      } catch (err) {
-        console.error("Erro ao carregar mapa mental:", err);
-        if (mounted) {
-            addNotification("Erro ao carregar mapa mental.", "error");
-            initDefault();
-        }
-      } finally {
-        if (mounted) setIsLoading(false);
-      }
+        } else { initDefault(); }
+      } catch (e) { initDefault(); } finally { if (mounted) setIsLoading(false); }
     };
     load();
     return () => { mounted = false; };
-  }, [fileId, fileBlob, accessToken, addNotification]);
+  }, [fileId, fileBlob]);
 
   const initDefault = () => {
-    setNodes([{ id: 'root', text: 'Ideia Central', x: window.innerWidth / 2, y: window.innerHeight / 2, color: '#4ade80', isRoot: true }]);
-    setEdges([]);
+      const vp = { x: window.innerWidth / 2, y: window.innerHeight / 2, zoom: 1 };
+      setNodes([{ id: 'root', text: "Ideia Central", x: 0, y: 0, width: 200, height: 80, color: '#a855f7', isRoot: true, fontSize: 18 }]);
+      viewportRef.current = vp;
+      setViewport(vp);
+      applyVisualTransform();
   };
 
-  const saveMap = async (targetFolderId?: string) => {
-    if (isLocalOnly && !targetFolderId) {
-        setShowDrivePicker(true);
-        return;
-    }
-    
-    setIsSaving(true);
-    try {
-        const dataToSave: MindMapData = {
-            nodes,
-            edges,
-            viewport: { x: 0, y: 0, zoom: 1 } // Fixo para compatibilidade
-        };
-        const blob = new Blob([JSON.stringify(dataToSave)], { type: 'application/json' });
-        
-        if (isLocalOnly && targetFolderId) {
-            await uploadFileToDrive(accessToken, blob, fileName, targetFolderId);
-            addNotification("Mapa salvo no Drive com sucesso!", "success");
-            setShowDrivePicker(false);
-        } else if (!isLocalOnly) {
-            await updateDriveFile(accessToken, fileId, blob);
-            addNotification("Mapa salvo com sucesso!", "success");
-        }
-    } catch (err: any) {
-        console.error("Erro ao salvar:", err);
-        if (err.message?.includes('401')) {
-            onAuthError?.();
-        } else {
-            addNotification("Erro ao salvar o mapa.", "error");
-        }
-    } finally {
-        setIsSaving(false);
-    }
+  const handleDownloadJson = () => {
+      const data = { nodes, edges, viewport };
+      const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName.endsWith('.mindmap') ? fileName : `${fileName}.mindmap`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
   };
 
-  const handleAddNode = () => {
-    const newNodeId = `node-${Date.now()}`;
-    const selectedNode = nodes.find(n => n.id === selectedNodeId);
-    
-    const baseNode = selectedNode || nodes[0];
-    const offset = 150;
-    
-    const newNode: MindMapNode = {
-      id: newNodeId,
-      text: 'Novo Nó',
-      x: baseNode ? baseNode.x + offset : window.innerWidth / 2,
-      y: baseNode ? baseNode.y + offset : window.innerHeight / 2,
-      color: baseNode?.color || '#3b82f6'
-    };
-    
-    setNodes(prev => [...prev, newNode]);
-    
-    if (selectedNodeId) {
-      setEdges(prev => [...prev, { id: `edge-${Date.now()}`, from: selectedNodeId, to: newNodeId }]);
-    }
-    
-    setSelectedNodeId(newNodeId);
-    setEditingNodeId(newNodeId);
-    setEditText('Novo Nó');
-  };
-
-  const handleDeleteNode = () => {
-    if (!selectedNodeId) return;
-    const nodeToDelete = nodes.find(n => n.id === selectedNodeId);
-    if (nodeToDelete?.isRoot) {
-        addNotification("Não é possível excluir o nó raiz.", "warning");
-        return;
-    }
-    setNodes(prev => prev.filter(n => n.id !== selectedNodeId));
-    setEdges(prev => prev.filter(e => e.from !== selectedNodeId && e.to !== selectedNodeId));
-    setSelectedNodeId(null);
-  };
-
-  const handleSelectNode = (id: string) => {
-    if (linkingSourceId && linkingSourceId !== id) {
-      const edgeExists = edges.some(e => (e.from === linkingSourceId && e.to === id) || (e.from === id && e.to === linkingSourceId));
-      if (!edgeExists) {
-        setEdges(prev => [...prev, { id: `edge-${Date.now()}`, from: linkingSourceId, to: id }]);
+  const handleSaveToDrive = async (folderId?: string) => {
+      if (!accessToken) {
+          onAuthError?.();
+          return;
       }
-      setLinkingSourceId(null);
-    } else {
-      setSelectedNodeId(id);
+      setIsSaving(true);
+      try {
+          const blob = new Blob([JSON.stringify({ nodes, edges, viewport })], { type: 'application/json' });
+          const name = fileName.endsWith('.mindmap') ? fileName : `${fileName}.mindmap`;
+          
+          if (isLocalOnly && folderId) {
+              // Primeiro upload para uma pasta específica
+              await uploadFileToDrive(accessToken, blob, name, [folderId], 'application/json');
+          } else {
+              // Atualização de arquivo existente
+              await updateDriveFile(accessToken, fileId, blob, 'application/json');
+          }
+          addNotification("Sincronizado com sucesso!", "success");
+      } catch (e) {
+          console.error(e);
+          addNotification("Erro ao salvar no Drive.", "error");
+      } finally {
+          setIsSaving(false);
+          setShowDrivePicker(false);
+      }
+  };
+
+  const screenToWorld = (sx: number, sy: number) => {
+    const rect = containerRef.current!.getBoundingClientRect();
+    const v = viewportRef.current;
+    return { x: (sx - rect.left - v.x) / v.zoom, y: (sy - rect.top - v.y) / v.zoom };
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const target = e.target as HTMLElement;
+    const nodeId = target.closest('[data-node-id]')?.getAttribute('data-node-id');
+
+    if (nodeId && pointersRef.current.size === 1) {
+        if (linkingSourceId && linkingSourceId !== nodeId) {
+            setEdges(prev => [...prev, { id: `edge-${Date.now()}`, from: linkingSourceId, to: nodeId }]);
+            setLinkingSourceId(null);
+            return;
+        }
+        setSelectedNodeId(nodeId);
+        setDragNodeId(nodeId);
+        const node = nodes.find(n => n.id === nodeId);
+        if (node) {
+            const pos = screenToWorld(e.clientX, e.clientY);
+            setDragOffset({ x: pos.x - node.x, y: pos.y - node.y });
+        }
+        setIsDraggingCanvas(false);
+    } else if (pointersRef.current.size === 1) {
+        if (!target.closest('.mindmap-toolbar')) {
+            setIsDraggingCanvas(true);
+            setDragStart({ x: e.clientX, y: e.clientY });
+            setSelectedNodeId(null);
+            setLinkingSourceId(null);
+        }
     }
   };
 
-  const handleDoubleClick = (id: string) => {
-    const node = nodes.find(n => n.id === id);
-    if (node) {
-      setEditingNodeId(id);
-      setEditText(node.text);
-      setSelectedNodeId(id);
+  const handlePointerMove = (e: React.PointerEvent) => {
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const pts = Array.from(pointersRef.current.values()) as { x: number, y: number }[];
+    if (pts.length === 2) {
+        const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        if (prevPinchDistRef.current) {
+            const scaleDiff = dist / prevPinchDistRef.current;
+            viewportRef.current.zoom *= scaleDiff;
+            applyVisualTransform();
+        }
+        prevPinchDistRef.current = dist;
+        return;
+    }
+    if (isDraggingCanvas && pts.length === 1) {
+        viewportRef.current.x += e.clientX - dragStart.x;
+        viewportRef.current.y += e.clientY - dragStart.y;
+        applyVisualTransform();
+        setDragStart({ x: e.clientX, y: e.clientY });
+    }
+    if (dragNodeId) {
+        const pos = screenToWorld(e.clientX, e.clientY);
+        setNodes(prev => prev.map(n => n.id === dragNodeId ? { ...n, x: pos.x - dragOffset.x, y: pos.y - dragOffset.y } : n));
     }
   };
 
-  const handleEditCommit = () => {
-    if (!editingNodeId) return;
-    setNodes(prev => prev.map(n => n.id === editingNodeId ? { ...n, text: editText } : n));
-    setEditingNodeId(null);
+  const handlePointerUp = (e: React.PointerEvent) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size === 0) {
+        setIsDraggingCanvas(false);
+        setDragNodeId(null);
+        prevPinchDistRef.current = null;
+        setViewport({ ...viewportRef.current });
+    }
   };
 
-  const handleChangeColor = (color: string) => {
-    if (!selectedNodeId) return;
-    setNodes(prev => prev.map(n => n.id === selectedNodeId ? { ...n, color } : n));
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file && selectedNodeId) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+              const base64 = event.target?.result as string;
+              setNodes(prev => prev.map(n => n.id === selectedNodeId ? { ...n, imageUrl: base64, height: Math.max(n.height, 120) } : n));
+          };
+          reader.readAsDataURL(file);
+      }
   };
 
-  const handleImageUpload = () => {
-    addNotification("Imagens serão exibidas na próxima versão 3D.", "info");
+  const updateNodeAttr = (patch: Partial<MindMapNode>) => {
+      if (!selectedNodeId) return;
+      setNodes(prev => prev.map(n => n.id === selectedNodeId ? { ...n, ...patch } : n));
   };
 
-  const positions = useMemo(() => compute3DPositions(nodes, edges), [nodes, edges]);
-  const orbitEnabled = !editingNodeId;
+  const selectedNode = useMemo(() => nodes.find(n => n.id === selectedNodeId), [nodes, selectedNodeId]);
 
   return (
-    <div className="w-full h-full relative overflow-hidden bg-[#000814]">
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between z-10 pointer-events-none">
-        <div className="flex items-center space-x-4 pointer-events-auto">
-          <button onClick={onToggleMenu} className="p-2 bg-black/70 backdrop-blur-xl text-white rounded hover:bg-white/10 border border-white/10 transition-colors">
-            <Menu size={20} />
-          </button>
-          <div className="flex items-center space-x-2">
-            <span className="text-white font-medium bg-black/70 backdrop-blur-xl px-3 py-1.5 rounded border border-white/10">{fileName}</span>
-            {linkingSourceId && (
-              <span className="text-orange-400 text-sm font-mono animate-pulse bg-black/70 backdrop-blur-xl px-3 py-1.5 rounded border border-orange-500/30 flex items-center">
-                <LinkIcon size={14} className="mr-2" /> Selecione o destino
-              </span>
+    <div className="w-full h-full bg-[#000000] relative overflow-hidden flex flex-col font-sans select-none touch-none">
+        <div ref={gridLayerRef} className="absolute inset-0 pointer-events-none z-0 transition-colors duration-300" />
+
+        {/* HEADER BAR */}
+        <div className="absolute top-4 left-4 z-40 flex items-center gap-3">
+            <button onClick={onToggleMenu} className="p-2.5 bg-surface rounded-xl border border-border text-text-sec hover:text-text shadow-lg active:scale-95 transition-all"><Menu size={22} /></button>
+            <button 
+                onClick={() => setShowRenameModal(true)}
+                className="bg-surface px-4 py-1.5 rounded-xl border border-white/5 shadow-md flex items-center gap-2 group hover:border-brand/40 transition-all active:scale-95"
+                title="Clique para renomear"
+            >
+                <span className="font-bold text-sm text-text-sec group-hover:text-text truncate max-w-[150px] md:max-w-xs">{fileName.replace('.mindmap','').replace('.json','')}</span>
+                <Edit2 size={12} className="text-text-sec group-hover:text-brand opacity-0 group-hover:opacity-100 transition-all" />
+            </button>
+            <button onClick={() => { viewportRef.current = {x: window.innerWidth/2, y: window.innerHeight/2, zoom: 1}; applyVisualTransform(); setViewport({...viewportRef.current}); }} className="p-2.5 bg-surface rounded-full border border-border text-text-sec hover:text-brand shadow-md active:scale-95 transition-all"><Target size={18} /></button>
+        </div>
+
+        <div className="absolute top-4 right-4 z-40 flex gap-2">
+            <button onClick={() => setShowAiSidebar(!showAiSidebar)} className={`p-2.5 rounded-xl border transition-colors shadow-lg active:scale-95 ${showAiSidebar ? 'bg-brand/20 text-brand border-brand/50' : 'bg-surface text-text-sec border-border hover:text-white'}`}><Sparkles size={20} /></button>
+            <button 
+                onClick={() => setShowSaveModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-brand text-bg rounded-xl font-bold hover:brightness-110 shadow-lg active:scale-95 transition-all"
+            >
+                {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} Salvar
+            </button>
+        </div>
+
+        {/* CANVAS */}
+        <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing relative" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
+            <div ref={contentLayerRef} className="w-full h-full transform-gpu origin-top-left will-change-transform pointer-events-none">
+                <svg className="absolute top-0 left-0 overflow-visible" style={{ width: 1, height: 1 }}>
+                    {edges.map(edge => {
+                        const from = nodes.find(n => n.id === edge.from), to = nodes.find(n => n.id === edge.to);
+                        if (!from || !to) return null;
+                        const sx = from.x + from.width/2, sy = from.y + from.height/2, ex = to.x + to.width/2, ey = to.y + to.height/2;
+                        return <path key={edge.id} d={`M ${sx} ${sy} C ${sx + 50} ${sy}, ${ex - 50} ${ey}, ${ex} ${ey}`} stroke={to.color} strokeWidth="2" fill="none" opacity="0.6" />;
+                    })}
+                </svg>
+                {nodes.map(node => (
+                    <div
+                        key={node.id}
+                        data-node-id={node.id}
+                        className={`absolute flex flex-col items-center justify-center p-2 bg-surface border-2 transition-all duration-200 pointer-events-auto ${selectedNodeId === node.id ? 'ring-4 ring-brand/30 border-brand z-10' : 'border-border'} ${node.shape === 'circle' ? 'rounded-full' : 'rounded-xl'}`}
+                        style={{ left: node.x, top: node.y, minWidth: node.width, minHeight: node.height, borderColor: node.color }}
+                        onDoubleClick={() => { setEditingNodeId(node.id); setEditText(node.text); }}
+                    >
+                        {node.imageUrl && <img src={node.imageUrl} className="w-full h-24 object-cover rounded-lg mb-2 pointer-events-none" />}
+                        {editingNodeId === node.id ? (
+                            <textarea autoFocus value={editText} onChange={e => setEditText(e.target.value)} onBlur={() => { setNodes(prev => prev.map(n => n.id === node.id ? { ...n, text: editText } : n)); setEditingNodeId(null); }} className="bg-transparent text-center text-white outline-none resize-none w-full" style={{ fontSize: node.fontSize || 14 }} />
+                        ) : <span className="text-center w-full break-words font-medium" style={{ fontSize: node.fontSize || 14 }}>{node.text}</span>}
+                    </div>
+                ))}
+            </div>
+        </div>
+
+        {/* TOOLBAR */}
+        <div className="mindmap-toolbar absolute bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#0d1117]/95 backdrop-blur-md border border-[#30363d] p-1.5 rounded-2xl flex items-center gap-1 shadow-2xl animate-in slide-in-from-bottom-2">
+            {!selectedNode ? (
+                <>
+                    <button onClick={() => { const pos = screenToWorld(window.innerWidth/2, window.innerHeight/2); setNodes(prev => [...prev, { id: `node-${Date.now()}`, text: "Novo Item", x: pos.x, y: pos.y, width: 180, height: 70, color: '#3b82f6', fontSize: 14 }]); }} className="flex items-center gap-2 px-4 py-2.5 bg-brand text-bg rounded-xl font-bold text-sm hover:brightness-110 active:scale-95 transition-all"><PlusCircle size={18}/> Novo Nó</button>
+                    <div className="w-px h-6 bg-[#333] mx-2" />
+                    <button onClick={() => { viewportRef.current.zoom = Math.min(viewportRef.current.zoom * 1.2, ZOOM_LIMITS.MAX); applyVisualTransform(); setViewport({...viewportRef.current}); }} className="p-2.5 text-white hover:bg-white/5 rounded-xl"><Plus size={18}/></button>
+                    <span className="text-[10px] font-mono text-text-sec min-w-[40px] text-center">{Math.round(viewport.zoom * 100)}%</span>
+                    <button onClick={() => { viewportRef.current.zoom = Math.max(viewportRef.current.zoom / 1.2, ZOOM_LIMITS.MIN); applyVisualTransform(); setViewport({...viewportRef.current}); }} className="p-2.5 text-white hover:bg-white/5 rounded-xl"><Minus size={18}/></button>
+                </>
+            ) : (
+                <div className="flex items-center gap-1 animate-in fade-in zoom-in-95 duration-200">
+                    <button onClick={() => setLinkingSourceId(selectedNodeId)} className={`p-2.5 rounded-xl transition-colors ${linkingSourceId === selectedNodeId ? 'bg-brand text-bg' : 'text-gray-400 hover:text-white hover:bg-white/10'}`} title="Conectar a outro nó"><LinkIcon size={18}/></button>
+                    <button onClick={() => updateNodeAttr({ shape: selectedNode.shape === 'circle' ? 'rectangle' : 'circle' })} className="p-2.5 text-gray-400 hover:text-white rounded-xl" title="Trocar Forma"><Square size={18}/></button>
+                    <div className="w-px h-6 bg-[#333] mx-1" />
+                    <div className="flex items-center bg-black/40 p-1 rounded-xl gap-1">
+                        {NODE_COLORS.map(c => (
+                            <button key={c} onClick={() => updateNodeAttr({ color: c })} className={`w-5 h-5 rounded-full border border-white/10 transition-transform hover:scale-125 ${selectedNode.color === c ? 'ring-2 ring-white/50' : ''}`} style={{ backgroundColor: c }} />
+                        ))}
+                    </div>
+                    <div className="w-px h-6 bg-[#333] mx-1" />
+                    <div className="flex items-center gap-0.5">
+                        <button onClick={() => updateNodeAttr({ fontSize: Math.max(8, (selectedNode.fontSize || 14) - 2) })} className="p-2.5 text-gray-400 hover:text-white rounded-xl" title="Diminuir Fonte"><MinusCircle size={18}/></button>
+                        <span className="text-[10px] font-bold text-brand w-6 text-center">{selectedNode.fontSize || 14}</span>
+                        <button onClick={() => updateNodeAttr({ fontSize: Math.min(36, (selectedNode.fontSize || 14) + 2) })} className="p-2.5 text-gray-400 hover:text-white rounded-xl" title="Aumentar Fonte"><PlusCircle size={18}/></button>
+                    </div>
+                    <div className="w-px h-6 bg-[#333] mx-1" />
+                    <button onClick={() => fileInputRef.current?.click()} className="p-2.5 text-gray-400 hover:text-white rounded-xl" title="Adicionar Imagem"><ImageIcon size={18}/></button>
+                    <button onClick={() => { setNodes(prev => prev.filter(n => n.id !== selectedNodeId)); setEdges(prev => prev.filter(e => e.from !== selectedNodeId && e.to !== selectedNodeId)); setSelectedNodeId(null); }} className="p-2.5 text-red-500 hover:bg-red-500/10 rounded-xl ml-1" title="Excluir Nó"><Trash2 size={18}/></button>
+                    <button onClick={() => setSelectedNodeId(null)} className="p-2.5 text-gray-500 hover:text-white rounded-xl" title="Fechar Edição"><X size={18}/></button>
+                </div>
             )}
-          </div>
         </div>
-        <div className="flex items-center space-x-2 pointer-events-auto">
-          <button onClick={() => setShowAiSidebar(!showAiSidebar)} className={`p-2 rounded flex items-center space-x-2 border transition-colors ${showAiSidebar ? 'bg-purple-600/20 text-purple-400 border-purple-500/50' : 'bg-black/70 backdrop-blur-xl text-white hover:bg-white/10 border-white/10'}`}>
-            <Sparkles size={18} />
-            <span className="text-sm font-medium hidden sm:inline">Kalaki</span>
-          </button>
-          <button onClick={() => saveMap()} disabled={isSaving} className="p-2 bg-black/70 backdrop-blur-xl text-white rounded hover:bg-white/10 border border-white/10 transition-colors disabled:opacity-50 flex items-center space-x-2">
-            {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-            <span className="text-sm font-medium hidden sm:inline">Salvar</span>
-          </button>
-        </div>
-      </div>
 
-      {/* 3D Canvas Container */}
-      <div className="absolute inset-0">
-        <Canvas 
-          camera={{ position: [0, 0, 22], fov: 60 }}
-          gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
-          dpr={[1, 2]}
-        >
-          <color attach="background" args={['#000814']} />
-          <Suspense fallback={null}>
-            <Scene 
-              nodes={nodes}
-              edges={edges}
-              positions={positions}
-              selectedNodeId={selectedNodeId}
-              editingNodeId={editingNodeId}
-              editText={editText}
-              linkingSourceId={linkingSourceId}
-              onSelect={handleSelectNode}
-              onDoubleClick={handleDoubleClick}
-              onEditChange={setEditText}
-              onEditCommit={handleEditCommit}
-              onBackgroundClick={() => {
-                if (!editingNodeId) {
-                  setSelectedNodeId(null);
-                  setLinkingSourceId(null);
-                }
-              }}
-              orbitEnabled={orbitEnabled}
-            />
-          </Suspense>
-        </Canvas>
-      </div>
+        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
 
-      {/* Toolbar */}
-      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center space-x-2 p-2 bg-black/70 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl z-10">
-        <button onClick={handleAddNode} className="p-2 text-white hover:bg-white/10 rounded transition-colors" title="Adicionar Nó">
-          <PlusCircle size={20} />
-        </button>
-        
-        <div className="w-px h-6 bg-white/20 mx-1" />
-        
-        <button 
-          onClick={() => {
-            if (selectedNodeId) {
-              setLinkingSourceId(linkingSourceId === selectedNodeId ? null : selectedNodeId);
-            }
-          }} 
-          disabled={!selectedNodeId}
-          className={`p-2 rounded transition-colors ${linkingSourceId ? 'bg-orange-500/20 text-orange-400' : 'text-white hover:bg-white/10'} disabled:opacity-30`}
-          title="Conectar Nós"
-        >
-          <LinkIcon size={20} />
-        </button>
-        
-        <button onClick={handleImageUpload} disabled={!selectedNodeId} className="p-2 text-white hover:bg-white/10 rounded transition-colors disabled:opacity-30" title="Adicionar Imagem">
-          <ImageIcon size={20} />
-        </button>
-        
-        <div className="w-px h-6 bg-white/20 mx-1" />
-        
-        <div className="flex space-x-1 px-2">
-          {['#4ade80', '#3b82f6', '#a855f7', '#ec4899', '#f97316', '#ef4444', '#ffffff'].map(c => (
-            <button
-              key={c}
-              onClick={() => handleChangeColor(c)}
-              disabled={!selectedNodeId}
-              className="w-6 h-6 rounded-full border border-white/20 disabled:opacity-30 transition-transform hover:scale-110"
-              style={{ backgroundColor: c }}
-            />
-          ))}
-        </div>
-        
-        <div className="w-px h-6 bg-white/20 mx-1" />
-        
-        <button onClick={handleDeleteNode} disabled={!selectedNodeId} className="p-2 text-red-400 hover:bg-red-500/20 rounded transition-colors disabled:opacity-30" title="Excluir Nó">
-          <Trash2 size={20} />
-        </button>
-      </div>
+        {/* MODALS */}
+        <MindMapSaveModal 
+            isOpen={showSaveModal} 
+            onClose={() => setShowSaveModal(false)}
+            onDownload={handleDownloadJson}
+            onSaveToDrive={() => isLocalOnly ? setShowDrivePicker(true) : handleSaveToDrive()}
+            isLocalOnly={isLocalOnly}
+        />
 
-      {/* Hint */}
-      <div className="absolute bottom-4 right-4 text-white/40 text-xs font-mono z-10 pointer-events-none">
-        Arraste para rotacionar · Scroll para zoom
-      </div>
+        <MindMapRenameModal 
+            isOpen={showRenameModal}
+            onClose={() => setShowRenameModal(false)}
+            currentName={fileName}
+            onRename={onRename || (() => {})}
+        />
 
-      <input type="file" hidden ref={fileInputRef} />
+        <DriveFolderPickerModal 
+            isOpen={showDrivePicker}
+            onClose={() => setShowDrivePicker(false)}
+            accessToken={accessToken}
+            onSelectFolder={handleSaveToDrive}
+        />
 
-      {/* Modals & Overlays */}
-      {showSaveModal && <MindMapSaveModal onSave={(name) => { onRename?.(name); saveMap(); setShowSaveModal(false); }} onClose={() => setShowSaveModal(false)} currentName={fileName} />}
-      {showRenameModal && <MindMapRenameModal onRename={(name) => { onRename?.(name); setShowRenameModal(false); }} onClose={() => setShowRenameModal(false)} currentName={fileName} />}
-      {showDrivePicker && <DriveFolderPickerModal accessToken={accessToken} onFolderSelected={(folderId) => saveMap(folderId)} onClose={() => setShowDrivePicker(false)} />}
-      
-      {showAiSidebar && (
-        <div className="absolute top-0 right-0 w-96 h-full bg-black/90 backdrop-blur-xl border-l border-white/10 z-20 flex flex-col shadow-2xl">
-          <div className="p-4 border-b border-white/10 flex justify-between items-center">
-            <h3 className="text-white font-medium flex items-center"><Sparkles size={16} className="mr-2 text-purple-400" /> Kalaki AI</h3>
-            <button onClick={() => setShowAiSidebar(false)} className="text-gray-400 hover:text-white"><X size={20} /></button>
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <AiChatPanel 
-              fileId={fileId} 
-              accessToken={accessToken} 
-              contextData={JSON.stringify({ nodes, edges })} 
-              onApplySuggestion={(suggestion) => {
-                try {
-                  const parsed = JSON.parse(suggestion);
-                  if (parsed.nodes && parsed.edges) {
-                    setNodes(parsed.nodes);
-                    setEdges(parsed.edges);
-                    addNotification("Mapa atualizado pela IA", "success");
-                  }
-                } catch (e) {
-                  addNotification("Formato de sugestão inválido", "error");
-                }
-              }} 
-            />
-          </div>
-        </div>
-      )}
+        {showAiSidebar && (
+            <div className="absolute inset-y-0 right-0 z-50 w-96 bg-[#1e1e1e] border-l border-[#444746] shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+                <div className="flex items-center justify-between p-4 border-b border-[#444746] bg-surface">
+                    <h3 className="font-bold text-[#e3e3e3] flex items-center gap-2 text-sm uppercase tracking-widest"><Sparkles size={18} className="text-brand" /> Kalaki</h3>
+                    <button onClick={() => setShowAiSidebar(false)} className="text-gray-400 hover:text-white p-1"><X size={20} /></button>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                    <AiChatPanel contextText={JSON.stringify({nodes, edges})} documentName={fileName} fileId={fileId} />
+                </div>
+            </div>
+        )}
 
-      {isLoading && (
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
-          <Loader2 size={48} className="text-blue-500 animate-spin mb-4" />
-          <p className="text-white font-mono">Inicializando Rede Holográfica...</p>
-        </div>
-      )}
+        {isLoading && (
+            <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-md flex flex-col items-center justify-center">
+                <Loader2 size={48} className="text-brand animate-spin mb-4" />
+                <p className="text-white font-bold animate-pulse uppercase tracking-[0.2em]">Higienizando Canvas...</p>
+            </div>
+        )}
     </div>
   );
 };
