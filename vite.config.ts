@@ -57,6 +57,17 @@ export default defineConfig(({ mode }) => {
               return 'vendor-react';
             }
 
+            // Motor 3D pesado
+            if (id.includes('node_modules/three')) {
+              return 'three-vendor';
+            }
+
+            // Bindings do React para o 3D
+            if (id.includes('node_modules/@react-three/fiber') ||
+                id.includes('node_modules/@react-three/drei')) {
+              return 'r3f-vendor';
+            }
+
             // Firebase — isolado pois muda pouco
             if (id.includes('node_modules/firebase') ||
                 id.includes('node_modules/@firebase')) {

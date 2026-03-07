@@ -8,7 +8,7 @@ import { MindMapSaveModal } from './modals/MindMapSaveModal';
 import { MindMapRenameModal } from './modals/MindMapRenameModal';
 import { DriveFolderPickerModal } from './pdf/modals/DriveFolderPickerModal';
 import { useGlobalContext } from '../context/GlobalContext';
-import { Map, Menu, Edit2, Target, Sparkles, Loader2, Save, PlusCircle, Plus, Minus, LinkIcon, Square, MinusCircle, ImageIcon, Trash2, X } from 'lucide-react';
+import { Map as MapIcon, Menu, Edit2, Target, Sparkles, Loader2, Save, PlusCircle, Plus, Minus, LinkIcon, Square, MinusCircle, ImageIcon, Trash2, X } from 'lucide-react';
 
 // --- Constants ---
 const ZOOM_LIMITS = { MIN: 0.2, MAX: 1.35 }; 

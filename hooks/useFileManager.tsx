@@ -205,7 +205,7 @@ export function useFileManager({
     if (file.name.endsWith('.docx') || file.mimeType === MIME_TYPES.DOCX || file.mimeType === MIME_TYPES.GOOGLE_DOC) return <DocEditor key={file.id} {...commonProps} fileId={file.id} fileName={file.name} fileBlob={file.blob} fileParents={file.parents} />;
     if (file.mimeType.startsWith('image/') || file.mimeType === 'application/dicom' || file.mimeType.startsWith('text/') || file.name.endsWith('.cbz')) return <UniversalMediaAdapter key={file.id} {...commonProps} file={file} onToggleNavigation={commonProps.onToggleMenu} />;
     
-    return <PdfViewer key={file.id} {...commonProps} fileId={file.id} fileName={file.name} fileBlob={file.blob} fileParents={file.parents} />;
+    return <PdfViewer key={file.id} {...commonProps} fileId={file.id} fileName={file.name} fileBlob={file.blob} fileParents={file.parents} onRename={(newName) => handleRenameActiveFile(file.id, newName)} />;
   }, [openFiles, commonProps, handleRenameActiveFile]);
 
   return {

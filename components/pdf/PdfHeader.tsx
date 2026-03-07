@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Icon } from '../shared/Icon';
-import { PanelLeft, ArrowLeft, Save, Minimize, Maximize } from 'lucide-react';
+import { PanelLeft, ArrowLeft, Save, Minimize, Maximize, Edit2 } from 'lucide-react';
 
 
 interface PdfHeaderProps {
@@ -15,6 +15,7 @@ interface PdfHeaderProps {
   onBack: () => void;
   onSave: () => void;
   onToggleFullscreen: () => void;
+  onRenameClick?: () => void;
   headerRef: React.RefObject<HTMLDivElement>;
 }
 
@@ -29,6 +30,7 @@ export const PdfHeader: React.FC<PdfHeaderProps> = ({
   onBack,
   onSave,
   onToggleFullscreen,
+  onRenameClick,
   headerRef
 }) => {
   return (
@@ -50,8 +52,15 @@ export const PdfHeader: React.FC<PdfHeaderProps> = ({
                 )}
                 <button onClick={onBack} className="p-2.5 hover:bg-white/10 rounded-full text-white/80 hover:text-white transition-colors active:scale-95"><ArrowLeft size={20}/></button>
                 <div className="h-6 w-px bg-white/10 mx-1"></div>
-                <div className="flex flex-col px-2 max-w-[150px] md:max-w-[400px]">
-                    <span className="text-xs font-bold text-white truncate">{fileName}</span>
+                <div 
+                  className="flex flex-col px-2 max-w-[150px] md:max-w-[400px] cursor-pointer group"
+                  onClick={onRenameClick}
+                  title="Renomear Arquivo"
+                >
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white truncate group-hover:text-brand transition-colors">{fileName}</span>
+                        {onRenameClick && <Edit2 size={12} className="text-white/30 group-hover:text-brand transition-colors" />}
+                    </div>
                     <span className="text-[10px] text-brand/80 font-mono flex items-center gap-1">
                         PÁGINA {currentPage} <span className="text-white/30">/</span> {numPages}
                     </span>

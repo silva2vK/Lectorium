@@ -31,6 +31,7 @@ import { SaveErrorModal } from './pdf/modals/SaveErrorModal';
 import { PasswordPromptModal } from './pdf/modals/PasswordPromptModal';
 import { PdfRestrictionModal } from './pdf/modals/PdfRestrictionModal';
 import { SaveSuccessModal } from './pdf/modals/SaveSuccessModal';
+import { RenameFileModal } from './modals/RenameFileModal';
 
 // Services
 import { fetchDefinition } from '../services/dictionaryService';
@@ -51,6 +52,7 @@ interface Props {
   onToggleMenu?: () => void; 
   onAuthError?: () => void;
   onToggleSplitView?: () => void;
+  onRename?: (newName: string) => void;
   
   // Props para dados importados (LectAdapter)
   initialAnnotations?: Annotation[];
@@ -70,11 +72,12 @@ interface PdfViewerContentProps extends Props {
   hasPageMismatch: boolean;
   resolveConflict: (action: 'use_external' | 'restore_lectorium' | 'merge') => void;
   password?: string;
+  onRename?: (newName: string) => void;
 }
 
 const PdfViewerContent: React.FC<PdfViewerContentProps> = ({ 
   accessToken, fileId, fileName, fileParents, onBack, originalBlob, setOriginalBlob, pdfDoc, pageDimensions, numPages, jumpToPageRef, onToggleNavigation, onToggleMenu, onToggleSplitView,
-  conflictDetected, isCheckingIntegrity, hasPageMismatch, resolveConflict, onAuthError, password
+  conflictDetected, isCheckingIntegrity, hasPageMismatch, resolveConflict, onAuthError, password, onRename
 }) => {
   const scale = usePdfStore(state => state.scale);
   const setScale = usePdfStore(state => state.setScale);
@@ -208,6 +211,7 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
   const [showDrivePicker, setShowDrivePicker] = useState(false);
   const [isOfflineAvailable, setIsOfflineAvailableState] = useState(false);
   const [showDefinitionModal, setShowDefinitionModal] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
   const [definition, setDefinition] = useState<any>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -409,6 +413,7 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
         onBack={onBack}
         onSave={() => setShowSaveModal(true)}
         onToggleFullscreen={toggleFullscreen}
+        onRenameClick={onRename ? () => setShowRenameModal(true) : undefined}
         headerRef={headerRef}
       />
 
@@ -500,6 +505,14 @@ const PdfViewerContent: React.FC<PdfViewerContentProps> = ({
         onClose={closeSuccessModal}
         mode={successModal.mode}
         fileName={fileName}
+      />
+
+      <RenameFileModal
+        isOpen={showRenameModal}
+        onClose={() => setShowRenameModal(false)}
+        currentName={fileName}
+        onRename={onRename || (() => {})}
+        fileExtension=".pdf"
       />
       
       {isSaving && (
