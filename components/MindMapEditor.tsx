@@ -209,7 +209,7 @@ const HoloNode = ({
         </mesh>
         
         {/* Label HTML */}
-        <Html position={[0, radius + 0.5, 0]} center distanceFactor={10} occlude={false}>
+        <Html position={[0, radius + 0.5, 0]} center distanceFactor={10} occlude={false} transform>
           {isEditing ? (
             <textarea
               autoFocus
