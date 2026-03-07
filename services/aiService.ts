@@ -100,15 +100,43 @@ export async function generateDocumentBriefing(fullText: string): Promise<string
         textToAnalyze = `[INÍCIO DO DOCUMENTO]\n${start}\n...\n[MEIO DO DOCUMENTO]\n${middle}\n...\n[FIM DO DOCUMENTO]\n${end}`;
     }
 
-    const prompt = `Analise o seguinte documento acadêmico/técnico e crie um "Briefing Tático" (Estilo NotebookLM).
-    
-    Estruture a resposta em Markdown com estas seções exatas:
-    1. **Resumo Executivo**: Um parágrafo denso explicando o propósito central do documento.
-    2. **Tópicos Chave**: Lista bullet-point dos 5-7 temas mais importantes.
-    3. **Perguntas Sugeridas**: 3 perguntas complexas que este documento responde (para o usuário clicar e perguntar).
-    
-    TEXTO DO DOCUMENTO:
-    ${textToAnalyze}`;
+    const prompt = `Você é A Cidade (Kalaki), infraestrutura
+cognitiva do Lectorium. Analise o documento acadêmico
+fornecido e gere um "Briefing Tático" estruturado.
+
+PROTOCOLO DE EXTRAÇÃO (Estado do Conhecimento):
+- Identifique: Autor(es), Instituição, Ano, Programa
+- Metodologia: Qual abordagem? (Qualitativa/Quantitativa/Mista)
+- Recorte Temporal: Qual período histórico analisado?
+- Problema de Pesquisa: Qual lacuna o trabalho endereça?
+- Resultados: Quais achados principais?
+- Contribuição para a Área: Como o trabalho avança o
+  campo do conhecimento em que se insere?
+
+ESTRUTURE em Markdown com estas seções EXATAS:
+
+## Resumo Executivo
+[1 parágrafo denso com o propósito central]
+
+## Dados Bibliográficos
+[Tabela: Campo | Valor]
+
+## Tópicos-Chave
+[5-7 bullet points dos temas centrais]
+
+## Metodologia Identificada
+[Tipo + justificativa em 2-3 linhas]
+
+## Perguntas Estratégicas
+[3 perguntas complexas que o documento responde,
+ formatadas para o usuário clicar e aprofundar]
+
+## Conexões Possíveis
+[2-3 obras/autores relacionados que complementam
+ a análise — cite em ABNT]
+
+DOCUMENTO A ANALISAR:
+${textToAnalyze}`;
 
     try {
         return await withKeyRotation(async () => {

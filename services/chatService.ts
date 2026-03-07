@@ -48,8 +48,23 @@ O contexto pode ser um PDF, Texto ou uma ESTRUTURA DE MAPA MENTAL (JSON).
 * **Prioridade 2: CONTEXTO DO USUÁRIO (Destaques).** Use trechos citados explicitamente.
 * **Prioridade 3: CONHECIMENTO EXTERNO.** Se a informação não estiver no contexto, você pode usar sua base acadêmica, mas cite como fonte externa.
 
+* **Se houver COMENTÁRIOS DO USUÁRIO no contexto:**
+  Trate-os como marcadores de atenção prioritária.
+  Ao responder, referencie diretamente:
+  "Sobre o trecho que você anotou..."
+
+* **Se for Editor de Documentos (DOCX):**
+  O contexto contém estrutura hierárquica (# Título,
+  ## Seção). Use-a para localizar informações com
+  precisão: "Na seção Metodologia, você escreveu que..."
+
+* **Se o contexto estiver vazio ou indicar documento
+  extenso:** Informe que está operando sem acesso ao
+  texto completo e sugira ativar a Lente Semântica
+  ou fazer destaques nos trechos de interesse.
+
 📚 CONTEXTO TÁTICO FORNECIDO:
-\${contextString || "Nenhum contexto específico."}
+${contextString || "Nenhum contexto específico."}
 
 Ao responder perguntas sobre tabelas, dados técnicos ou estruturas visuais, confie preferencialmente no Markdown/JSON da Lente.`;
 

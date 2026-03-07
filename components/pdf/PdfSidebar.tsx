@@ -23,6 +23,7 @@ interface Props {
   onCopyFichamento: () => void;
   onDownloadFichamento: () => void;
   onNavigateBack?: () => void;
+  fileName?: string;
 }
 
 // Cores baseadas nos temas do sistema (index.css)
@@ -41,7 +42,7 @@ const THEME_COLORS = [
 ];
 
 export const PdfSidebar: React.FC<Props> = ({
-  isOpen, onClose, activeTab, onTabChange, sidebarAnnotations, fichamentoText, onCopyFichamento, onDownloadFichamento, onNavigateBack
+  isOpen, onClose, activeTab, onTabChange, sidebarAnnotations, fichamentoText, onCopyFichamento, onDownloadFichamento, onNavigateBack, fileName
 }) => {
   const { settings, updateSettings, removeAnnotation, updateAnnotation, ocrMap, nativeTextMap, hasUnsavedOcr, fileId, generateSearchIndex, docPageOffset, setDocPageOffset } = usePdfContext();
   
@@ -155,7 +156,7 @@ export const PdfSidebar: React.FC<Props> = ({
         
         {/* Sidebar Container */}
         <div 
-            className={`fixed inset-y-0 right-0 z-[60] w-80 md:w-96 transition-transform duration-500 cubic-bezier(0.16, 1, 0.3, 1) flex ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+            className={`fixed inset-y-0 right-0 z-[60] transition-transform duration-500 cubic-bezier(0.16, 1, 0.3, 1) flex ${isOpen ? 'translate-x-0' : 'translate-x-full'} ${(activeTab === 'ai' || activeTab === 'chat') ? 'w-[90vw] sm:w-[60vw] md:w-[50vw] max-w-[800px]' : 'w-80 md:w-96'}`}
         >
             {/* THE HANDLER (Attached to Sidebar when OPEN) */}
             <div className="absolute top-1/2 -left-6 -translate-y-1/2 z-[70] flex items-center">
@@ -272,11 +273,12 @@ export const PdfSidebar: React.FC<Props> = ({
                     ) : activeTab === 'chat' ? (
                         <AiChatPanel 
                             contextText={contextForAi} 
-                            documentName="Documento PDF" 
+                            documentName={fileName || "Documento PDF"} 
                             className="bg-transparent"
                             fileId={fileId}
                             onIndexRequest={() => generateSearchIndex(contextForAi)}
                             numPages={numPages}
+                            storageKey={`kalaki-chat-pdf-${fileId}`}
                         />
                     ) : activeTab === 'lens' ? (
                         <SemanticLensPanel pageNumber={currentPage} onNavigateBack={onNavigateBack} />

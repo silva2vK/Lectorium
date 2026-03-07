@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { get, set, del } from 'idb-keyval';
 import { Send, Sparkles, Loader2, User, Bot, Trash2, MessageSquare, FileSearch, Copy, Check, BrainCircuit, Database, BookOpen, Podcast } from 'lucide-react';
 import { ChatMessage, SemanticLensData } from '../../types';
 import { chatWithDocumentStream } from '../../services/chatService';
@@ -17,6 +18,7 @@ interface Props {
   fileId?: string; 
   onIndexRequest?: () => Promise<void>; 
   numPages?: number; 
+  storageKey?: string;
 }
 
 const MessageItem: React.FC<{ m: ChatMessage }> = ({ m }) => {
@@ -56,8 +58,37 @@ const MessageItem: React.FC<{ m: ChatMessage }> = ({ m }) => {
     );
 };
 
-export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, className = "", fileId, onIndexRequest, numPages = 0 }) => {
+export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, className = "", fileId, onIndexRequest, numPages = 0, storageKey }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+
+  // Carrega histórico persistido na montagem
+  useEffect(() => {
+      if (!storageKey) {
+          setIsLoadingHistory(false);
+          return;
+      }
+      get(storageKey).then((stored: ChatMessage[] | undefined) => {
+          if (stored && Array.isArray(stored) && stored.length > 0) {
+              setMessages(stored);
+          }
+      }).catch(() => {}).finally(() => {
+          setIsLoadingHistory(false);
+      });
+  }, [storageKey]);
+
+  // Persiste histórico a cada mudança (exceto durante carregamento inicial)
+  useEffect(() => {
+      if (!storageKey || isLoadingHistory) return;
+      if (messages.length === 0) {
+          del(storageKey).catch(() => {});
+          return;
+      }
+      // Limita a 100 mensagens para não estourar o IDB
+      const toStore = messages.slice(-100);
+      set(storageKey, toStore).catch(() => {});
+  }, [messages, storageKey, isLoadingHistory]);
+
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isRagActive, setIsRagActive] = useState(false);
@@ -244,13 +275,21 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
                   </button>
               )}
               <div className="w-px h-4 bg-white/10 mx-1"></div>
-              <button onClick={() => setMessages([])} className="p-1.5 text-text-sec hover:text-red-400 rounded" title="Limpar"><Trash2 size={14} /></button>
+              <button onClick={() => {
+                  setMessages([]);
+                  if (storageKey) del(storageKey).catch(() => {});
+              }} className="p-1.5 text-text-sec hover:text-red-400 rounded" title="Limpar"><Trash2 size={14} /></button>
           </div>
       </div>
 
       {/* Messages Area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar relative z-10">
-          {messages.length === 0 && (
+          {isLoadingHistory && (
+              <div className="flex items-center justify-center h-full">
+                  <Loader2 size={20} className="animate-spin text-brand opacity-50" />
+              </div>
+          )}
+          {messages.length === 0 && !isLoadingHistory && (
               <div className="flex flex-col items-center justify-center h-full text-center p-6 space-y-4 opacity-70">
                   <div className="relative">
                       <div className="absolute inset-0 bg-brand/20 blur-xl rounded-full"></div>
@@ -269,6 +308,12 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
                       {isGeneratingBriefing ? <Loader2 size={14} className="animate-spin" /> : <Podcast size={14} className="text-pink-400 group-hover:scale-110" />}
                       Gerar Guia de Estudo
                   </button>
+                  {storageKey && (
+                      <p className="text-[10px] text-text-sec mt-2 opacity-60">
+                          Histórico salvo neste dispositivo. 
+                          Use 🗑 para limpar.
+                      </p>
+                  )}
               </div>
           )}
           {messages.map((m, i) => <MessageItem key={i} m={m} />)}
