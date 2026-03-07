@@ -1,5 +1,22 @@
 # Lectorium - Histórico de Edições (Changelog)
 
+## 2026-03-07
+
+- **Data/Hora (BRT):** 2026-03-07 13:02:14
+- **Arquivos Modificados:** `/components/MindMapEditor.tsx`, `package.json`
+- **Resumo:** Transformação completa do editor de mapas mentais de 2D para 3D holográfico.
+- **Features adicionadas:**
+  - Integração com `@react-three/fiber`, `@react-three/drei` e `three`.
+  - Algoritmo `compute3DPositions` para converter coordenadas 2D em espaço 3D (Z baseado em profundidade na árvore).
+  - Componente `EnergyEdge` usando `CatmullRomCurve3` e `ShaderMaterial` para arestas animadas.
+  - Componente `HoloNode` renderizando esferas 3D com glow, anéis orbitais e labels HTML flutuantes.
+  - Câmera controlada via `OrbitControls` (zoom e rotação).
+  - Estética sci-fi (fundo escuro, fog, estrelas, blending aditivo).
+- **Bugs corrigidos / Notas:**
+  - A estrutura de dados original (`MindMapData`, `MindMapNode`, `MindMapEdge`) foi preservada.
+  - O campo `viewport` é salvo com valores fixos para manter compatibilidade com o formato `.mindmap`.
+  - Imagens (`imageUrl`) foram temporariamente desativadas na renderização 3D com um aviso ao usuário.
+
 ## 2026-03-06
 
 - **Data/Hora (BRT):** 2026-03-06 09:27:00
