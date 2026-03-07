@@ -79,16 +79,16 @@ export const generateDocxBlob = async (
            }
         }
         else if (node.type === 'blockquote') {
-            const children = (node.content || []).flatMap((p: any) => (p.content || []).flatMap((n: any) => {
-                // Simplificação: reutiliza lógica interna se necessário, ou manual
-                // Como não exportamos processTextNode, recriamos um parágrafo interno simples
-                return [new TextRun(n.text)];
-            }));
-            docChildren.push(new Paragraph({
-                children: children,
-                indent: { left: 720 }, // 0.5 inch
-                style: "Quote"
-            }));
+            const innerParagraphs = (node.content || []).map((p: any) =>
+                createDocxParagraph(p, comments)
+            );
+            // Aplica indentação de citação em cada parágrafo interno
+            innerParagraphs.forEach((para: any) => {
+                if (para && para.root) {
+                    para.root.indent = { left: 720, right: 720 };
+                }
+            });
+            docChildren.push(...innerParagraphs);
         }
         else if (node.type === 'pageBreak') {
             if (docChildren.length > 0 && docChildren[docChildren.length-1] instanceof Paragraph) {
@@ -99,15 +99,47 @@ export const generateDocxBlob = async (
         }
         // Custom Nodes Placeholder
         else if (['codeBlock', 'mathNode', 'mermaidNode', 'chart', 'qrCodeNode'].includes(node.type)) {
-            let text = `[Elemento: ${node.type}]`;
-            if (node.type === 'codeBlock') text = `[Código: ${node.attrs?.title || 'Snippet'}]`;
-            if (node.type === 'mathNode') text = `[Fórmula: ${node.attrs?.latex}]`;
             
-            docChildren.push(new Paragraph({
-                children: [new TextRun({ text, color: "555555", italics: true })],
-                alignment: AlignmentType.CENTER,
-                spacing: { before: 240, after: 240 }
-            }));
+            // Tenta extrair texto do nó quando disponível
+            let displayText = '';
+            let warningText = '';
+            
+            if (node.type === 'codeBlock') {
+                const codeText = node.content?.[0]?.text || '';
+                const lang = node.attrs?.language || '';
+                displayText = codeText;
+                warningText = `[Bloco de Código${lang ? ` - ${lang}` : ''}]`;
+                // Exporta o código como texto monoespaçado
+                docChildren.push(new Paragraph({
+                    children: [new TextRun({
+                        text: codeText,
+                        font: 'Courier New',
+                        size: 20,
+                        color: '1a1a1a'
+                    })],
+                    spacing: { before: 120, after: 120 }
+                }));
+            } else {
+                // Para elementos visuais (math, mermaid, chart, qr)
+                // que não têm representação textual direta
+                const label = {
+                    mathNode: `Fórmula: ${node.attrs?.latex || ''}`,
+                    mermaidNode: 'Diagrama Mermaid',
+                    chart: 'Gráfico',
+                    qrCodeNode: `QR Code: ${node.attrs?.value || ''}`
+                }[node.type as string] || node.type;
+                
+                docChildren.push(new Paragraph({
+                    children: [new TextRun({
+                        text: `⚠ [${label} — exportação visual não suportada]`,
+                        color: 'B45309',
+                        italics: true,
+                        size: 18
+                    })],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { before: 200, after: 200 }
+                }));
+            }
         }
     } catch (e) {
         console.warn(`Erro exportando nó tipo ${node.type}`, e);

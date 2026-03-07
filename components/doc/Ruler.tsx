@@ -69,20 +69,37 @@ export const Ruler: React.FC<RulerProps> = ({ editor, marginLeft, marginRight, w
   }, [editor]);
 
   // Handle Dragging Logic
-  const handleMouseDown = (e: React.MouseEvent, type: 'left' | 'firstLine' | 'right') => {
-    e.preventDefault();
+  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent, type: 'left' | 'firstLine' | 'right') => {
+    // Evita scroll da tela ao arrastar no mobile
+    if (e.type === 'touchstart') {
+      // e.preventDefault() aqui pode quebrar o click, então usamos touch-action: none no CSS
+    } else {
+      e.preventDefault();
+    }
     e.stopPropagation();
     setIsDragging(type);
   };
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
+  const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (!isDragging || !rulerRef.current) return;
+
+    // Pega a coordenada X dependendo do tipo de evento (mouse ou touch)
+    let clientX = 0;
+    if ('touches' in e) {
+        if (e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+        } else {
+            return;
+        }
+    } else {
+        clientX = (e as MouseEvent).clientX;
+    }
 
     const rect = rulerRef.current.getBoundingClientRect();
     // Fallback para evitar divisão por zero ou escala errada
     const visualWidth = rect.width || width;
     const scaleFactor = visualWidth / width; 
-    const relativeX = (e.clientX - rect.left) / scaleFactor;
+    const relativeX = (clientX - rect.left) / scaleFactor;
 
     const maxLeft = width - pageMarginRightPx - paraRightMargin - 20; 
     const minRight = pageMarginLeftPx + paraLeftMargin + 20;
@@ -122,13 +139,19 @@ export const Ruler: React.FC<RulerProps> = ({ editor, marginLeft, marginRight, w
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('touchmove', handleMouseMove, { passive: false });
+      document.addEventListener('touchend', handleMouseUp);
     } else {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleMouseMove);
+      document.removeEventListener('touchend', handleMouseUp);
     }
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleMouseMove);
+      document.removeEventListener('touchend', handleMouseUp);
     };
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
@@ -240,19 +263,21 @@ export const Ruler: React.FC<RulerProps> = ({ editor, marginLeft, marginRight, w
 
         {/* 1. First Line Indent (Top Pip) */}
         <div 
-            className="absolute top-0 w-3 h-3 cursor-col-resize z-40 group hover:scale-125 transition-transform"
+            className="absolute top-0 w-6 h-6 -mt-1 cursor-col-resize z-40 group hover:scale-125 transition-transform flex justify-center touch-none"
             style={{ left: posFirstLineMarker, transform: 'translateX(-50%)' }}
             onMouseDown={(e) => handleMouseDown(e, 'firstLine')}
+            onTouchStart={(e) => handleMouseDown(e, 'firstLine')}
             title="Recuo da primeira linha"
         >
-            <div className="w-full h-full bg-brand shadow-sm border border-black/20" style={{ clipPath: 'polygon(0 0, 100% 0, 50% 100%)' }} />
+            <div className="w-3 h-3 bg-brand shadow-sm border border-black/20 mt-1" style={{ clipPath: 'polygon(0 0, 100% 0, 50% 100%)' }} />
         </div>
 
         {/* 2. Left Indent (Bottom Pip) */}
         <div 
-            className="absolute bottom-0 w-3 h-4 cursor-col-resize z-40 group flex flex-col items-center hover:scale-125 transition-transform"
+            className="absolute bottom-0 w-6 h-8 -mb-2 cursor-col-resize z-40 group flex flex-col items-center hover:scale-125 transition-transform touch-none"
             style={{ left: posLeftMarker, transform: 'translateX(-50%)' }}
             onMouseDown={(e) => handleMouseDown(e, 'left')}
+            onTouchStart={(e) => handleMouseDown(e, 'left')}
             title="Recuo à esquerda"
         >
             <div className="w-3 h-3 bg-brand shadow-sm border border-black/20 mb-[1px]" style={{ clipPath: 'polygon(50% 0, 0 100%, 100% 100%)' }} />
@@ -261,12 +286,13 @@ export const Ruler: React.FC<RulerProps> = ({ editor, marginLeft, marginRight, w
 
         {/* 3. Right Indent (Bottom Pip) */}
         <div 
-            className="absolute bottom-0 w-3 h-3 cursor-col-resize z-40 group hover:scale-125 transition-transform"
+            className="absolute bottom-0 w-6 h-6 -mb-1 cursor-col-resize z-40 group hover:scale-125 transition-transform flex justify-center items-end touch-none"
             style={{ left: posRightMarker, transform: 'translateX(-50%)' }}
             onMouseDown={(e) => handleMouseDown(e, 'right')}
+            onTouchStart={(e) => handleMouseDown(e, 'right')}
             title="Recuo à direita"
         >
-            <div className="w-full h-full bg-brand shadow-sm border border-black/20" style={{ clipPath: 'polygon(50% 0, 0 100%, 100% 100%)' }} />
+            <div className="w-3 h-3 bg-brand shadow-sm border border-black/20 mb-1" style={{ clipPath: 'polygon(50% 0, 0 100%, 100% 100%)' }} />
         </div>
 
     </div>

@@ -44,7 +44,7 @@ export const PaginationExtension = Extension.create({
     // CACHE DE ALTO DESEMPENHO
     // Mapeia a referência do objeto Node do ProseMirror para sua altura em pixels.
     // Como os nós do PM são imutáveis, se o conteúdo muda, o objeto muda, e o cache invalida automaticamente.
-    const heightCache = new WeakMap<PMNode, number>();
+    let heightCache = new WeakMap<PMNode, number>();
 
     return [
       new Plugin({
@@ -69,6 +69,11 @@ export const PaginationExtension = Extension.create({
         },
         view: (editorView) => {
           
+          // Guarda as últimas opções conhecidas para detectar mudança de layout
+          let lastPageHeight = this.options.pageHeight;
+          let lastMarginTop = this.options.pageMarginTop;
+          let lastMarginBottom = this.options.pageMarginBottom;
+
           // Função que cria o elemento DOM do espaçador (Gap)
           const createPageBreakWidget = (height: number, pageNumber: number) => {
              const container = document.createElement('div');
@@ -116,8 +121,20 @@ export const PaginationExtension = Extension.create({
                        
                        heightCache.set(node, nodeHeight);
                    } else {
-                       // Fallback conservador
-                       nodeHeight = 24; 
+                       const FALLBACK_HEIGHTS: Record<string, number> = {
+                           table: 200,
+                           image: 150,
+                           codeBlock: 100,
+                           mathNode: 60,
+                           mermaidNode: 180,
+                           chart: 200,
+                           qrCodeNode: 120,
+                           paragraph: 24,
+                           heading: 36,
+                           blockquote: 48,
+                           horizontalRule: 16,
+                       };
+                       nodeHeight = FALLBACK_HEIGHTS[node.type.name] ?? 24;
                    }
                }
                return nodeHeight;
@@ -233,11 +250,14 @@ export const PaginationExtension = Extension.create({
             if (!editorView.isDestroyed) {
                 const decoSet = DecorationSet.create(state.doc, decorations);
                 
-                const tr = editorView.state.tr.setMeta(key, { decorations: decoSet });
-                editorView.dispatch(tr);
-
-                const event = new CustomEvent('pagination-calculated', { detail: { count: pageCount } });
-                editorView.dom.dispatchEvent(event);
+                Promise.resolve().then(() => {
+                    if (editorView.isDestroyed) return;
+                    const tr = editorView.state.tr.setMeta(key, { decorations: decoSet });
+                    editorView.dispatch(tr);
+                    const event = new CustomEvent('pagination-calculated',
+                        { detail: { count: pageCount } });
+                    editorView.dom.dispatchEvent(event);
+                });
             }
 
             isCalculating = false;
@@ -257,7 +277,22 @@ export const PaginationExtension = Extension.create({
                 const docChanged = !view.state.doc.eq(prevState.doc);
                 const forceUpdate = view.state.tr.getMeta('pagination-force-update');
                 
-                if (docChanged || forceUpdate) {
+                // NOVO: Detecta mudança nas opções de layout (zoom, tamanho de papel)
+                const layoutChanged = 
+                    this.options.pageHeight !== lastPageHeight ||
+                    this.options.pageMarginTop !== lastMarginTop ||
+                    this.options.pageMarginBottom !== lastMarginBottom;
+
+                if (layoutChanged) {
+                    // Invalida o cache inteiro criando um novo WeakMap
+                    // (O WeakMap antigo será coletado pelo GC naturalmente)
+                    heightCache = new WeakMap<PMNode, number>();
+                    lastPageHeight = this.options.pageHeight;
+                    lastMarginTop = this.options.pageMarginTop;
+                    lastMarginBottom = this.options.pageMarginBottom;
+                }
+
+                if (docChanged || forceUpdate || layoutChanged) {
                     scheduleUpdate();
                 }
             },

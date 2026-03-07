@@ -130,7 +130,12 @@ export const useDocEditorConfig = ({ onUpdate, fileId, userInfo, onTableDoubleCl
       PageBreak,
       SectionBreak,
       FootnoteSeparator, 
-      PaginationExtension,
+      PaginationExtension.configure({
+          pageHeight: 1123,      // A4 padrão, será atualizado pelo DocEditor
+          pageMarginTop: 96,
+          pageMarginBottom: 96,
+          pageGap: 20,
+      }),
       Subscript,
       Superscript,
       MathExtension,

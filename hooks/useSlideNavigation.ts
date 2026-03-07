@@ -54,7 +54,6 @@ export const useSlideNavigation = ({
           break;
         case 'ArrowLeft':
         case 'ArrowUp':
-        case 'Backspace': // Backspace volta
           e.preventDefault();
           prevPage();
           break;
