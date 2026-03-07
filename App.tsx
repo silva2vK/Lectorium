@@ -83,6 +83,11 @@ const GlobalToastContainer = () => {
 };
 
 const AppContent = () => {
+  const isMountedRef = React.useRef(true);
+  useEffect(() => {
+      return () => { isMountedRef.current = false; };
+  }, []);
+
   const { addNotification, isOcrRunning } = useGlobalContext();
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(() => getValidDriveToken());
@@ -158,6 +163,7 @@ const AppContent = () => {
     });
 
     const handleTokenUpdate = (e: Event) => {
+        if (!isMountedRef.current) return;
         const customEvent = e as CustomEvent;
         if (customEvent.detail && customEvent.detail.token) {
             setAccessToken(customEvent.detail.token);

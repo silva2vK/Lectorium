@@ -32,10 +32,12 @@ export const getValidDriveToken = (): string | null => {
   try {
     const { token, expiresAt } = JSON.parse(data);
     if (Date.now() > expiresAt) {
+      localStorage.removeItem(TOKEN_DATA_KEY);
       return null; 
     }
     return token;
   } catch (e) {
+    localStorage.removeItem(TOKEN_DATA_KEY);
     return null;
   }
 };
@@ -76,13 +78,21 @@ export async function checkRedirectResult() {
 /**
  * Protocolo de Refresh Silencioso via GSI
  */
+let refreshPromise: Promise<string | null> | null = null;
+
 export async function refreshDriveTokenSilently(): Promise<string | null> {
-  return new Promise((resolve) => {
+  // Se já há um refresh em andamento, todos esperam o mesmo resultado
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
+  refreshPromise = new Promise((resolve) => {
     try {
       const client = (window as any).google?.accounts?.oauth2?.initTokenClient({
-        client_id: "315143132640-m5cr88sfdhs41lh5nbn166ahiom4omum.apps.googleusercontent.com", // ID extraído da config
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "315143132640-m5cr88sfdhs41lh5nbn166ahiom4omum.apps.googleusercontent.com",
         scope: DRIVE_SCOPES,
         callback: (response: any) => {
+          refreshPromise = null; // Libera o singleton
           if (response.access_token) {
             saveDriveToken(response.access_token, response.expires_in);
             resolve(response.access_token);
@@ -91,7 +101,17 @@ export async function refreshDriveTokenSilently(): Promise<string | null> {
             resolve(null);
           }
         },
+        error_callback: () => {
+          refreshPromise = null;
+          resolve(null);
+        }
       });
+
+      if (!client) {
+        refreshPromise = null;
+        resolve(null);
+        return;
+      }
 
       // Tenta obter o e-mail do usuário atual para desambiguação
       const userEmail = auth.currentUser?.email;
@@ -104,9 +124,12 @@ export async function refreshDriveTokenSilently(): Promise<string | null> {
       });
     } catch (e) {
       console.warn("[GSI] Falha no refresh silencioso", e);
+      refreshPromise = null;
       resolve(null);
     }
   });
+
+  return refreshPromise;
 }
 
 export async function signInWithGoogleDrive() {
