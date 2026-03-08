@@ -26,7 +26,6 @@ export default defineConfig(({ mode }) => {
     },
     optimizeDeps: {
       include: [
-        'pdfjs-dist', 
         'react', 
         'react-dom', 
         'lucide-react', 
@@ -79,19 +78,20 @@ export default defineConfig(({ mode }) => {
               return 'vendor-ai-sdk';
             }
 
+            // *** CRÍTICO: y-prosemirror AQUI, antes da regra do editor ***
+            // Se ficar na regra do editor, cria ciclo com vendor-yjs
+            if (id.includes('node_modules/yjs') ||
+                id.includes('node_modules/y-webrtc') ||
+                id.includes('node_modules/y-prosemirror') ||
+                id.includes('node_modules/lib0')) {
+              return 'vendor-yjs';
+            }
+
             // TipTap + ProseMirror — apenas no DocEditor (já é lazy)
             if (id.includes('node_modules/@tiptap') ||
                 id.includes('node_modules/prosemirror') ||
-                id.includes('node_modules/@prosemirror') ||
-                id.includes('node_modules/y-prosemirror')) {
+                id.includes('node_modules/@prosemirror')) {
               return 'vendor-editor';
-            }
-
-            // Yjs + colaboração — separado do editor
-            if (id.includes('node_modules/yjs') ||
-                id.includes('node_modules/y-webrtc') ||
-                id.includes('node_modules/lib0')) {
-              return 'vendor-yjs';
             }
 
             // PDF engine — já é worker, mas isolar o engine principal
@@ -118,9 +118,8 @@ export default defineConfig(({ mode }) => {
               return 'vendor-medical-formats';
             }
 
-            // Recharts + D3 derivados
-            if (id.includes('node_modules/recharts') ||
-                id.includes('node_modules/d3-')) {
+            // Recharts
+            if (id.includes('node_modules/recharts')) {
               return 'vendor-charts';
             }
 
@@ -151,7 +150,6 @@ export default defineConfig(({ mode }) => {
       port: 3000
     },
     define: {
-      'process.env.API_KEY': JSON.stringify(process.env.API_KEY || env.API_KEY),
       'global': 'window',
     }
   };

@@ -1,9 +1,4 @@
 
-@config "./tailwind.config.js";
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* PDF.js viewer */
 @import 'pdfjs-dist/web/pdf_viewer.css';
 
@@ -12,6 +7,11 @@
 
 /* highlight.js tema */
 @import 'highlight.js/styles/atom-one-dark.css';
+
+@config "./tailwind.config.js";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Google Fonts Self-Hosted */
 @font-face {
