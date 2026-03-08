@@ -420,7 +420,7 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
       }
     }
     nodes.forEach(n => {
-      if (!visible.has(n.id) && !edges.some(e => e.to === n.id)) {
+      if (!visible.has(n.id)) {
         visible.add(n.id);
       }
     });
@@ -586,26 +586,45 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
                     const ex = to.x + to.width/2, ey = to.y + to.height/2;
                     const depth = nodeDepthMap.get(to.id) ?? 1;
                     const strokeW = Math.max(1, 2.5 - depth * 0.4);
+                    const pathD = `M ${sx} ${sy} C ${sx + (ex-sx)*0.5} ${sy}, ${sx + (ex-sx)*0.5} ${ey}, ${ex} ${ey}`;
                     
                     return (
-                      <path
-                        key={edge.id}
-                        d={`M ${sx} ${sy} C ${sx + (ex-sx)*0.5} ${sy}, ${sx + (ex-sx)*0.5} ${ey}, ${ex} ${ey}`}
-                        stroke={`url(#grad-${edge.id})`}
-                        strokeWidth={strokeW}
-                        fill="none"
-                        filter="url(#edge-glow)"
-                        className="transition-opacity duration-280"
-                        style={{ opacity: isVisible ? 1 : 0 }}
-                        ref={el => {
-                          if (el && !el.style.strokeDasharray) {
-                            const len = el.getTotalLength();
-                            el.style.strokeDasharray = `${len}`;
-                            el.style.strokeDashoffset = `${len}`;
-                            el.style.animation = `flowLine ${Math.max(1, len / 150)}s linear infinite`;
-                          }
-                        }}
-                      />
+                      <React.Fragment key={edge.id}>
+                        {/* Path 1 — linha base (sempre visível, estática) */}
+                        <path
+                          key={`${edge.id}-base`}
+                          d={pathD}
+                          stroke={`url(#grad-${edge.id})`}
+                          strokeWidth={strokeW}
+                          fill="none"
+                          filter="url(#edge-glow)"
+                          opacity={isVisible ? 0.5 : 0}
+                          className="transition-opacity duration-280"
+                        />
+                        {/* Path 2 — sinapse (pulso viajante) */}
+                        <path
+                          key={`${edge.id}-synapse`}
+                          d={pathD}
+                          stroke={from.color}
+                          strokeWidth={strokeW + 1.5}
+                          fill="none"
+                          opacity={isVisible ? 1 : 0}
+                          className="transition-opacity duration-280"
+                          ref={el => {
+                            if (el && !el.style.strokeDasharray) {
+                              const len = el.getTotalLength();
+                              const synapseLen = Math.min(60, len * 0.18);
+                              const duration = Math.max(1.5, len / 200);
+                              const delay = Math.random() * duration;
+                              el.style.setProperty('--path-len', `${len}px`);
+                              el.style.strokeDasharray = `${synapseLen} ${len}`;
+                              el.style.strokeDashoffset = `${len + synapseLen}`;
+                              el.style.animation = `synapseTravel ${duration}s ${delay}s linear infinite`;
+                              el.style.filter = `drop-shadow(0 0 3px ${from.color})`;
+                            }
+                          }}
+                        />
+                      </React.Fragment>
                     );
                   })}
                 </svg>

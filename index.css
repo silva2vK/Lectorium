@@ -377,11 +377,11 @@ html.maker .tactical-puller:hover .puller-indicator {
   100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 
-@keyframes flowLine {
-  to { stroke-dashoffset: 0; }
+@keyframes synapseTravel {
+  from { stroke-dashoffset: calc(var(--path-len, 500px) + 60px); }
+  to   { stroke-dashoffset: -60px; }
 }
 
 .animate-pulse-emerald {
   animation: pulse-emerald 2s infinite;
 }
-
