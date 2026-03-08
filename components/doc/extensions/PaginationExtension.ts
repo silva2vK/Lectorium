@@ -39,6 +39,7 @@ export const PaginationExtension = Extension.create({
   },
 
   addProseMirrorPlugins() {
+    const extension = this;
     const key = new PluginKey('pagination');
     
     // CACHE DE ALTO DESEMPENHO
@@ -70,9 +71,9 @@ export const PaginationExtension = Extension.create({
         view: (editorView) => {
           
           // Guarda as últimas opções conhecidas para detectar mudança de layout
-          let lastPageHeight = this.options.pageHeight;
-          let lastMarginTop = this.options.pageMarginTop;
-          let lastMarginBottom = this.options.pageMarginBottom;
+          let lastPageHeight = extension.options.pageHeight;
+          let lastMarginTop = extension.options.pageMarginTop;
+          let lastMarginBottom = extension.options.pageMarginBottom;
 
           // Função que cria o elemento DOM do espaçador (Gap)
           const createPageBreakWidget = (height: number, pageNumber: number) => {
@@ -148,7 +149,7 @@ export const PaginationExtension = Extension.create({
             isCalculating = true;
 
             const { state } = editorView;
-            const { pageHeight, pageMarginTop, pageMarginBottom, pageGap } = this.options;
+            const { pageHeight, pageMarginTop, pageMarginBottom, pageGap } = extension.options;
             
             // Altura útil de conteúdo (ex: A4 1123px - 96px - 96px = 931px)
             const contentHeightPerBox = pageHeight - pageMarginTop - pageMarginBottom;
@@ -279,17 +280,17 @@ export const PaginationExtension = Extension.create({
                 
                 // NOVO: Detecta mudança nas opções de layout (zoom, tamanho de papel)
                 const layoutChanged = 
-                    this.options.pageHeight !== lastPageHeight ||
-                    this.options.pageMarginTop !== lastMarginTop ||
-                    this.options.pageMarginBottom !== lastMarginBottom;
+                    extension.options.pageHeight !== lastPageHeight ||
+                    extension.options.pageMarginTop !== lastMarginTop ||
+                    extension.options.pageMarginBottom !== lastMarginBottom;
 
                 if (layoutChanged) {
                     // Invalida o cache inteiro criando um novo WeakMap
                     // (O WeakMap antigo será coletado pelo GC naturalmente)
                     heightCache = new WeakMap<PMNode, number>();
-                    lastPageHeight = this.options.pageHeight;
-                    lastMarginTop = this.options.pageMarginTop;
-                    lastMarginBottom = this.options.pageMarginBottom;
+                    lastPageHeight = extension.options.pageHeight;
+                    lastMarginTop = extension.options.pageMarginTop;
+                    lastMarginBottom = extension.options.pageMarginBottom;
                 }
 
                 if (docChanged || forceUpdate || layoutChanged) {
