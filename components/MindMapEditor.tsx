@@ -57,7 +57,8 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
   
   const containerRef = useRef<HTMLDivElement>(null);
   const contentLayerRef = useRef<HTMLDivElement>(null); 
-  const gridLayerRef = useRef<HTMLDivElement>(null);    
+  const starCanvasRef = useRef<HTMLCanvasElement>(null);
+  const animFrameRef = useRef<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isLocalOnly = useMemo(() => fileId.startsWith('local-'), [fileId]);
@@ -79,11 +80,6 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
       if (contentLayerRef.current) {
           contentLayerRef.current.style.transform = `perspective(1800px) rotateX(8deg) translate(${clamped.x}px, ${clamped.y}px) scale(${clamped.zoom})`;
           contentLayerRef.current.style.transformOrigin = 'center top';
-      }
-      if (gridLayerRef.current) {
-          gridLayerRef.current.style.backgroundSize = `${40 * clamped.zoom}px ${40 * clamped.zoom}px`;
-          gridLayerRef.current.style.backgroundPosition = `${clamped.x}px ${clamped.y}px`;
-          gridLayerRef.current.style.backgroundImage = `radial-gradient(${atLimit ? GRID_COLOR_LIMIT : GRID_COLOR_NORMAL} 1.5px, transparent 1.5px)`;
       }
   }, [clampViewport]);
 
@@ -112,6 +108,114 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
     load();
     return () => { mounted = false; };
   }, [fileId, fileBlob]);
+
+  useEffect(() => {
+    const canvas = starCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d')!;
+
+    const resize = () => {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    };
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+
+    const pickStarColor = () => {
+      const colors = [
+        'rgba(255,255,255,1)',
+        'rgba(200,220,255,1)',
+        'rgba(255,240,200,1)',
+        'rgba(255,200,200,1)',
+        'rgba(180,200,255,1)',
+        'rgba(200,255,220,1)',
+      ];
+      return colors[Math.floor(Math.random() * colors.length)];
+    };
+
+    const STAR_COUNT = 300;
+    const stars = Array.from({ length: STAR_COUNT }, () => ({
+      x: Math.random(),
+      y: Math.random(),
+      radius: Math.random() * 1.6 + 0.2,
+      opacity: Math.random() * 0.8 + 0.2,
+      twinkleSpeed: Math.random() * 0.02 + 0.005,
+      twinkleOffset: Math.random() * Math.PI * 2,
+      color: pickStarColor(),
+    }));
+
+    let frame = 0;
+    const animate = () => {
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      // Fundo gradiente profundo
+      const grad = ctx.createRadialGradient(w*0.4, h*0.3, 0, w*0.5, h*0.5, w*0.9);
+      grad.addColorStop(0, '#0d0d1a');
+      grad.addColorStop(0.4, '#080818');
+      grad.addColorStop(0.7, '#050510');
+      grad.addColorStop(1, '#020208');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Nebulosa roxa
+      const neb1 = ctx.createRadialGradient(w*0.65, h*0.3, 0, w*0.65, h*0.3, w*0.35);
+      neb1.addColorStop(0, 'rgba(80,20,160,0.13)');
+      neb1.addColorStop(0.5, 'rgba(20,40,100,0.06)');
+      neb1.addColorStop(1, 'transparent');
+      ctx.fillStyle = neb1;
+      ctx.fillRect(0, 0, w, h);
+
+      // Nebulosa azul
+      const neb2 = ctx.createRadialGradient(w*0.2, h*0.7, 0, w*0.2, h*0.7, w*0.28);
+      neb2.addColorStop(0, 'rgba(20,80,160,0.11)');
+      neb2.addColorStop(1, 'transparent');
+      ctx.fillStyle = neb2;
+      ctx.fillRect(0, 0, w, h);
+
+      // Nebulosa verde sutil
+      const neb3 = ctx.createRadialGradient(w*0.8, h*0.75, 0, w*0.8, h*0.75, w*0.2);
+      neb3.addColorStop(0, 'rgba(20,120,80,0.07)');
+      neb3.addColorStop(1, 'transparent');
+      ctx.fillStyle = neb3;
+      ctx.fillRect(0, 0, w, h);
+
+      // Estrelas
+      stars.forEach(star => {
+        const twinkle = Math.sin(frame * star.twinkleSpeed + star.twinkleOffset);
+        const op = star.opacity * (0.6 + 0.4 * twinkle);
+        const r = star.radius * (0.85 + 0.15 * twinkle);
+        const sx = star.x * w, sy = star.y * h;
+
+        if (star.radius > 1.2) {
+          const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, r * 5);
+          glow.addColorStop(0, star.color.replace('1)', `${op * 0.6})`));
+          glow.addColorStop(1, 'transparent');
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(sx, sy, r * 5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.globalAlpha = op;
+        ctx.fillStyle = star.color;
+        ctx.beginPath();
+        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      });
+
+      frame++;
+      animFrameRef.current = requestAnimationFrame(animate);
+    };
+    animate();
+
+    return () => {
+      cancelAnimationFrame(animFrameRef.current);
+      ro.disconnect();
+    };
+  }, []);
 
   const initDefault = () => {
       const vp = { x: window.innerWidth / 2, y: window.innerHeight / 2, zoom: 1 };
@@ -279,7 +383,7 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
 
   return (
     <div className="w-full h-full bg-[#000000] relative overflow-hidden flex flex-col font-sans select-none touch-none">
-        <div ref={gridLayerRef} className="absolute inset-0 pointer-events-none z-0 transition-colors duration-300" />
+        <canvas ref={starCanvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-0" />
 
         {/* HEADER BAR */}
         <div className="absolute top-4 left-4 z-40 flex items-center gap-3">
