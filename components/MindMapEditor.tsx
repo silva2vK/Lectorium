@@ -76,7 +76,10 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
       const { viewport: clamped, atLimit } = clampViewport(viewportRef.current);
       viewportRef.current = clamped;
       isAtLimitRef.current = atLimit;
-      if (contentLayerRef.current) contentLayerRef.current.style.transform = `translate(${clamped.x}px, ${clamped.y}px) scale(${clamped.zoom})`;
+      if (contentLayerRef.current) {
+          contentLayerRef.current.style.transform = `perspective(1800px) rotateX(8deg) translate(${clamped.x}px, ${clamped.y}px) scale(${clamped.zoom})`;
+          contentLayerRef.current.style.transformOrigin = 'center top';
+      }
       if (gridLayerRef.current) {
           gridLayerRef.current.style.backgroundSize = `${40 * clamped.zoom}px ${40 * clamped.zoom}px`;
           gridLayerRef.current.style.backgroundPosition = `${clamped.x}px ${clamped.y}px`;
@@ -248,6 +251,32 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
 
   const selectedNode = useMemo(() => nodes.find(n => n.id === selectedNodeId), [nodes, selectedNodeId]);
 
+  const nodeDepthMap = useMemo(() => {
+    const depthMap = new Map<string, number>();
+    const root = nodes.find(n => n.isRoot) || nodes[0];
+    if (!root) return depthMap;
+
+    const queue: Array<{ id: string; depth: number }> = [{ id: root.id, depth: 0 }];
+    const visited = new Set<string>();
+
+    while (queue.length > 0) {
+      const { id, depth } = queue.shift()!;
+      if (visited.has(id)) continue;
+      visited.add(id);
+      depthMap.set(id, depth);
+      edges
+        .filter(e => e.from === id)
+        .forEach(e => queue.push({ id: e.to, depth: depth + 1 }));
+    }
+    // nós sem conexão ficam em profundidade 1
+    nodes.forEach(n => { if (!depthMap.has(n.id)) depthMap.set(n.id, 1); });
+    return depthMap;
+  }, [nodes, edges]);
+
+  const maxDepth = useMemo(() =>
+    Math.max(1, ...Array.from(nodeDepthMap.values())),
+  [nodeDepthMap]);
+
   return (
     <div className="w-full h-full bg-[#000000] relative overflow-hidden flex flex-col font-sans select-none touch-none">
         <div ref={gridLayerRef} className="absolute inset-0 pointer-events-none z-0 transition-colors duration-300" />
@@ -278,21 +307,66 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
 
         {/* CANVAS */}
         <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing relative" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
-            <div ref={contentLayerRef} className="w-full h-full transform-gpu origin-top-left will-change-transform pointer-events-none">
+            <div ref={contentLayerRef} className="w-full h-full transform-gpu will-change-transform pointer-events-none" style={{ transformStyle: 'preserve-3d' }}>
                 <svg className="absolute top-0 left-0 overflow-visible" style={{ width: 1, height: 1 }}>
+                  <defs>
                     {edges.map(edge => {
-                        const from = nodes.find(n => n.id === edge.from), to = nodes.find(n => n.id === edge.to);
-                        if (!from || !to) return null;
-                        const sx = from.x + from.width/2, sy = from.y + from.height/2, ex = to.x + to.width/2, ey = to.y + to.height/2;
-                        return <path key={edge.id} d={`M ${sx} ${sy} C ${sx + 50} ${sy}, ${ex - 50} ${ey}, ${ex} ${ey}`} stroke={to.color} strokeWidth="2" fill="none" opacity="0.6" />;
+                      const from = nodes.find(n => n.id === edge.from);
+                      const to = nodes.find(n => n.id === edge.to);
+                      if (!from || !to) return null;
+                      return (
+                        <linearGradient key={`grad-${edge.id}`} id={`grad-${edge.id}`} gradientUnits="userSpaceOnUse"
+                          x1={from.x + from.width/2} y1={from.y + from.height/2}
+                          x2={to.x + to.width/2} y2={to.y + to.height/2}>
+                          <stop offset="0%" stopColor={from.color} stopOpacity="0.9" />
+                          <stop offset="100%" stopColor={to.color} stopOpacity="0.4" />
+                        </linearGradient>
+                      );
                     })}
+                    {/* filtro de brilho suave nas arestas */}
+                    <filter id="edge-glow">
+                      <feGaussianBlur stdDeviation="2" result="blur" />
+                      <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                    </filter>
+                  </defs>
+                  {edges.map(edge => {
+                    const from = nodes.find(n => n.id === edge.from);
+                    const to = nodes.find(n => n.id === edge.to);
+                    if (!from || !to) return null;
+                    const sx = from.x + from.width/2, sy = from.y + from.height/2;
+                    const ex = to.x + to.width/2, ey = to.y + to.height/2;
+                    const depth = nodeDepthMap.get(to.id) ?? 1;
+                    // arestas de nós mais profundos são mais finas
+                    const strokeW = Math.max(1, 2.5 - depth * 0.4);
+                    return (
+                      <path
+                        key={edge.id}
+                        d={`M ${sx} ${sy} C ${sx + (ex-sx)*0.5} ${sy}, ${sx + (ex-sx)*0.5} ${ey}, ${ex} ${ey}`}
+                        stroke={`url(#grad-${edge.id})`}
+                        strokeWidth={strokeW}
+                        fill="none"
+                        filter="url(#edge-glow)"
+                      />
+                    );
+                  })}
                 </svg>
                 {nodes.map(node => (
                     <div
                         key={node.id}
                         data-node-id={node.id}
-                        className={`absolute flex flex-col items-center justify-center p-2 bg-surface border-2 transition-all duration-200 pointer-events-auto ${selectedNodeId === node.id ? 'ring-4 ring-brand/30 border-brand z-10' : 'border-border'} ${node.shape === 'circle' ? 'rounded-full' : 'rounded-xl'}`}
-                        style={{ left: node.x, top: node.y, minWidth: node.width, minHeight: node.height, borderColor: node.color }}
+                        className={`absolute flex flex-col items-center justify-center p-2 border-2 transition-all duration-200 pointer-events-auto ${selectedNodeId === node.id ? 'ring-4 ring-brand/30 border-brand z-10' : 'border-border'} ${node.shape === 'circle' ? 'rounded-full' : 'rounded-xl'}`}
+                        style={{
+                          left: node.x,
+                          top: node.y,
+                          minWidth: node.width,
+                          minHeight: node.height,
+                          borderColor: node.color,
+                          transform: `translateZ(${Math.max(0, (maxDepth - (nodeDepthMap.get(node.id) ?? 1)) * 18)}px)`,
+                          backgroundColor: `color-mix(in srgb, ${node.color} ${Math.max(8, 18 - (nodeDepthMap.get(node.id) ?? 1) * 3)}%, #0d1117 90%)`,
+                          boxShadow: selectedNodeId === node.id
+                            ? `0 0 0 2px ${node.color}40, 0 ${8 + (maxDepth - (nodeDepthMap.get(node.id) ?? 1)) * 4}px ${20 + (maxDepth - (nodeDepthMap.get(node.id) ?? 1)) * 6}px ${node.color}50`
+                            : `0 ${4 + (maxDepth - (nodeDepthMap.get(node.id) ?? 1)) * 3}px ${12 + (maxDepth - (nodeDepthMap.get(node.id) ?? 1)) * 4}px rgba(0,0,0,0.6)`,
+                        }}
                         onDoubleClick={() => { setEditingNodeId(node.id); setEditText(node.text); }}
                     >
                         {node.imageUrl && <img src={node.imageUrl} className="w-full h-24 object-cover rounded-lg mb-2 pointer-events-none" />}
@@ -306,16 +380,28 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
 
         {/* TOOLBAR */}
         <div className="mindmap-toolbar absolute bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#0d1117]/95 backdrop-blur-md border border-[#30363d] p-1.5 rounded-2xl flex items-center gap-1 shadow-2xl animate-in slide-in-from-bottom-2">
+            {/* zoom sempre visível — independente de seleção */}
+            <button
+              onClick={() => { viewportRef.current.zoom = Math.min(viewportRef.current.zoom * 1.2, ZOOM_LIMITS.MAX); applyVisualTransform(); setViewport({...viewportRef.current}); }}
+              className="p-2.5 text-white hover:bg-white/5 rounded-xl"
+            ><Plus size={18}/></button>
+            <span className="text-[10px] font-mono text-text-sec min-w-[40px] text-center">{Math.round(viewport.zoom * 100)}%</span>
+            <button
+              onClick={() => { viewportRef.current.zoom = Math.max(viewportRef.current.zoom / 1.2, ZOOM_LIMITS.MIN); applyVisualTransform(); setViewport({...viewportRef.current}); }}
+              className="p-2.5 text-white hover:bg-white/5 rounded-xl"
+            ><Minus size={18}/></button>
+
             {!selectedNode ? (
                 <>
-                    <button onClick={() => { const pos = screenToWorld(window.innerWidth/2, window.innerHeight/2); setNodes(prev => [...prev, { id: `node-${Date.now()}`, text: "Novo Item", x: pos.x, y: pos.y, width: 180, height: 70, color: '#3b82f6', fontSize: 14 }]); }} className="flex items-center gap-2 px-4 py-2.5 bg-brand text-bg rounded-xl font-bold text-sm hover:brightness-110 active:scale-95 transition-all"><PlusCircle size={18}/> Novo Nó</button>
                     <div className="w-px h-6 bg-[#333] mx-2" />
-                    <button onClick={() => { viewportRef.current.zoom = Math.min(viewportRef.current.zoom * 1.2, ZOOM_LIMITS.MAX); applyVisualTransform(); setViewport({...viewportRef.current}); }} className="p-2.5 text-white hover:bg-white/5 rounded-xl"><Plus size={18}/></button>
-                    <span className="text-[10px] font-mono text-text-sec min-w-[40px] text-center">{Math.round(viewport.zoom * 100)}%</span>
-                    <button onClick={() => { viewportRef.current.zoom = Math.max(viewportRef.current.zoom / 1.2, ZOOM_LIMITS.MIN); applyVisualTransform(); setViewport({...viewportRef.current}); }} className="p-2.5 text-white hover:bg-white/5 rounded-xl"><Minus size={18}/></button>
+                    <button
+                      onClick={() => { const pos = screenToWorld(window.innerWidth/2, window.innerHeight/2); setNodes(prev => [...prev, { id: `node-${Date.now()}`, text: "Novo Item", x: pos.x, y: pos.y, width: 180, height: 70, color: '#3b82f6', fontSize: 14 }]); }}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-brand text-bg rounded-xl font-bold text-sm hover:brightness-110 active:scale-95 transition-all"
+                    ><PlusCircle size={18}/> Novo Nó</button>
                 </>
             ) : (
                 <div className="flex items-center gap-1 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="w-px h-6 bg-[#333] mx-1" />
                     <button onClick={() => setLinkingSourceId(selectedNodeId)} className={`p-2.5 rounded-xl transition-colors ${linkingSourceId === selectedNodeId ? 'bg-brand text-bg' : 'text-gray-400 hover:text-white hover:bg-white/10'}`} title="Conectar a outro nó"><LinkIcon size={18}/></button>
                     <button onClick={() => updateNodeAttr({ shape: selectedNode.shape === 'circle' ? 'rectangle' : 'circle' })} className="p-2.5 text-gray-400 hover:text-white rounded-xl" title="Trocar Forma"><Square size={18}/></button>
                     <div className="w-px h-6 bg-[#333] mx-1" />
