@@ -46,6 +46,15 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
 
+  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
+
+  const focusVisibleIds = useMemo(() => {
+    if (!focusedNodeId) return null;
+    const ids = new Set<string>([focusedNodeId]);
+    edges.filter(e => e.from === focusedNodeId).forEach(e => ids.add(e.to));
+    return ids;
+  }, [focusedNodeId, edges]);
+
   const [isDraggingCanvas, setIsDraggingCanvas] = useState(false);
   const pointersRef = useRef<Map<number, { x: number, y: number }>>(new Map());
   const prevPinchDistRef = useRef<number | null>(null);
@@ -58,8 +67,16 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
   const containerRef = useRef<HTMLDivElement>(null);
   const contentLayerRef = useRef<HTMLDivElement>(null); 
   const starCanvasRef = useRef<HTMLCanvasElement>(null);
+  const minimapCanvasRef = useRef<HTMLCanvasElement>(null);
   const animFrameRef = useRef<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const toolbarPosRef = useRef({ x: window.innerWidth / 2, y: window.innerHeight - 60 });
+  const [isDraggingToolbar, setIsDraggingToolbar] = useState(false);
+  const toolbarDragStartRef = useRef({ x: 0, y: 0 });
+  const [isMinimapVisible, setIsMinimapVisible] = useState(true);
+  const isMinimapVisibleRef = useRef(true);
 
   const isLocalOnly = useMemo(() => fileId.startsWith('local-'), [fileId]);
 
@@ -277,6 +294,10 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
     const target = e.target as HTMLElement;
     const nodeId = target.closest('[data-node-id]')?.getAttribute('data-node-id');
 
+    if (focusedNodeId && !nodeId) {
+        setFocusedNodeId(null);
+    }
+
     if (nodeId && pointersRef.current.size === 1) {
         if (linkingSourceId && linkingSourceId !== nodeId) {
             setEdges(prev => [...prev, { id: `edge-${Date.now()}`, from: linkingSourceId, to: nodeId }]);
@@ -372,7 +393,6 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
         .filter(e => e.from === id)
         .forEach(e => queue.push({ id: e.to, depth: depth + 1 }));
     }
-    // nós sem conexão ficam em profundidade 1
     nodes.forEach(n => { if (!depthMap.has(n.id)) depthMap.set(n.id, 1); });
     return depthMap;
   }, [nodes, edges]);
@@ -381,9 +401,132 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
     Math.max(1, ...Array.from(nodeDepthMap.values())),
   [nodeDepthMap]);
 
+  const visibleNodes = useMemo(() => {
+    const visible = new Set<string>();
+    const root = nodes.find(n => n.isRoot) || nodes[0];
+    if (!root) return visible;
+
+    const queue = [root.id];
+    visible.add(root.id);
+
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      const node = nodes.find(n => n.id === id);
+      if (node && !node.collapsed) {
+        edges.filter(e => e.from === id).forEach(e => {
+          visible.add(e.to);
+          queue.push(e.to);
+        });
+      }
+    }
+    nodes.forEach(n => {
+      if (!visible.has(n.id) && !edges.some(e => e.to === n.id)) {
+        visible.add(n.id);
+      }
+    });
+    return visible;
+  }, [nodes, edges]);
+
+  const childCountMap = useMemo(() => {
+    const counts = new Map<string, number>();
+    edges.forEach(e => {
+      counts.set(e.from, (counts.get(e.from) || 0) + 1);
+    });
+    return counts;
+  }, [edges]);
+
+  const updateMinimap = useCallback(() => {
+    const canvas = minimapCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d')!;
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    
+    // Draw nodes
+    const scale = Math.min(w / (AREA_LIMIT * 2), h / (AREA_LIMIT * 2));
+    const cx = w / 2, cy = h / 2;
+    
+    nodes.forEach(n => {
+      if (!visibleNodes.has(n.id)) return;
+      ctx.fillStyle = n.color;
+      ctx.fillRect(cx + n.x * scale, cy + n.y * scale, 4, 4);
+    });
+
+    // Draw viewport
+    const v = viewportRef.current;
+    const vw = (window.innerWidth / v.zoom) * scale;
+    const vh = (window.innerHeight / v.zoom) * scale;
+    const vx = cx - (v.x * scale) - vw / 2;
+    const vy = cy - (v.y * scale) - vh / 2;
+    
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.fillRect(vx, vy, vw, vh);
+    ctx.strokeRect(vx, vy, vw, vh);
+  }, [nodes, visibleNodes]);
+
+  useEffect(() => {
+    updateMinimap();
+  }, [nodes, viewport, updateMinimap]);
+
+  const handleToolbarPointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setIsDraggingToolbar(true);
+    toolbarDragStartRef.current = { x: e.clientX - toolbarPosRef.current.x, y: e.clientY - toolbarPosRef.current.y };
+  };
+
+  const handleToolbarPointerMove = (e: React.PointerEvent) => {
+    if (!isDraggingToolbar || !toolbarRef.current) return;
+    e.stopPropagation();
+    let newX = e.clientX - toolbarDragStartRef.current.x;
+    let newY = e.clientY - toolbarDragStartRef.current.y;
+    toolbarPosRef.current = { x: newX, y: newY };
+    toolbarRef.current.style.left = `${newX}px`;
+    toolbarRef.current.style.top = `${newY}px`;
+    toolbarRef.current.style.transform = `translate(-50%, -50%)`;
+
+    const w = window.innerWidth, h = window.innerHeight;
+    const isOverMinimap = newX > w - 250 && newY > h - 150;
+    if (isOverMinimap === isMinimapVisibleRef.current) {
+        isMinimapVisibleRef.current = !isOverMinimap;
+        setIsMinimapVisible(!isOverMinimap);
+    }
+  };
+
+  const handleToolbarPointerUp = (e: React.PointerEvent) => {
+    if (!isDraggingToolbar || !toolbarRef.current) return;
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    setIsDraggingToolbar(false);
+    
+    // Snap magnético (threshold: 80px)
+    let newX = toolbarPosRef.current.x;
+    let newY = toolbarPosRef.current.y;
+    const w = window.innerWidth, h = window.innerHeight;
+    const threshold = 80;
+    
+    if (newX < threshold) newX = 80;
+    if (newX > w - threshold) newX = w - 80;
+    if (newY < threshold) newY = 80;
+    if (newY > h - threshold) newY = h - 80;
+    
+    toolbarPosRef.current = { x: newX, y: newY };
+    toolbarRef.current.style.left = `${newX}px`;
+    toolbarRef.current.style.top = `${newY}px`;
+
+    const isOverMinimap = newX > w - 250 && newY > h - 150;
+    if (isOverMinimap === isMinimapVisibleRef.current) {
+        isMinimapVisibleRef.current = !isOverMinimap;
+        setIsMinimapVisible(!isOverMinimap);
+    }
+  };
+
   return (
     <div className="w-full h-full bg-[#000000] relative overflow-hidden flex flex-col font-sans select-none touch-none">
         <canvas ref={starCanvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-0" />
+        <div className={`absolute inset-0 pointer-events-none transition-opacity duration-280 z-0 ${focusedNodeId ? 'bg-black/45 opacity-100' : 'opacity-0'}`} />
 
         {/* HEADER BAR */}
         <div className="absolute top-4 left-4 z-40 flex items-center gap-3">
@@ -437,11 +580,13 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
                     const from = nodes.find(n => n.id === edge.from);
                     const to = nodes.find(n => n.id === edge.to);
                     if (!from || !to) return null;
+                    
+                    const isVisible = visibleNodes.has(to.id);
                     const sx = from.x + from.width/2, sy = from.y + from.height/2;
                     const ex = to.x + to.width/2, ey = to.y + to.height/2;
                     const depth = nodeDepthMap.get(to.id) ?? 1;
-                    // arestas de nós mais profundos são mais finas
                     const strokeW = Math.max(1, 2.5 - depth * 0.4);
+                    
                     return (
                       <path
                         key={edge.id}
@@ -450,40 +595,83 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
                         strokeWidth={strokeW}
                         fill="none"
                         filter="url(#edge-glow)"
+                        className="transition-opacity duration-280"
+                        style={{ opacity: isVisible ? 1 : 0 }}
+                        ref={el => {
+                          if (el && !el.style.strokeDasharray) {
+                            const len = el.getTotalLength();
+                            el.style.strokeDasharray = `${len}`;
+                            el.style.strokeDashoffset = `${len}`;
+                            el.style.animation = `flowLine ${Math.max(1, len / 150)}s linear infinite`;
+                          }
+                        }}
                       />
                     );
                   })}
                 </svg>
-                {nodes.map(node => (
+                {nodes.map(node => {
+                    if (!visibleNodes.has(node.id)) return null;
+                    const isFocused = focusedNodeId ? focusVisibleIds?.has(node.id) : true;
+                    const childCount = childCountMap.get(node.id) || 0;
+                    const computedWidth = Math.max(node.width, Math.min(280, 180 + childCount * 8));
+                    const depth = nodeDepthMap.get(node.id) ?? 1;
+                    const hasChildren = childCount > 0;
+
+                    return (
                     <div
                         key={node.id}
                         data-node-id={node.id}
-                        className={`absolute flex flex-col items-center justify-center p-2 border-2 transition-all duration-200 pointer-events-auto ${selectedNodeId === node.id ? 'ring-4 ring-brand/30 border-brand z-10' : 'border-border'} ${node.shape === 'circle' ? 'rounded-full' : 'rounded-xl'}`}
+                        className={`absolute flex flex-col items-center justify-center p-2 border-2 transition-all duration-280 pointer-events-auto group ${selectedNodeId === node.id ? 'ring-4 ring-brand/30 border-brand z-10' : 'border-border'} ${node.shape === 'circle' ? 'rounded-full' : 'rounded-xl'}`}
                         style={{
                           left: node.x,
                           top: node.y,
-                          minWidth: node.width,
+                          minWidth: computedWidth,
                           minHeight: node.height,
                           borderColor: node.color,
-                          transform: `translateZ(${Math.max(0, (maxDepth - (nodeDepthMap.get(node.id) ?? 1)) * 18)}px)`,
-                          backgroundColor: `color-mix(in srgb, ${node.color} ${Math.max(8, 18 - (nodeDepthMap.get(node.id) ?? 1) * 3)}%, #0d1117 90%)`,
+                          opacity: isFocused ? 1 : 0.08,
+                          pointerEvents: isFocused ? 'auto' : 'none',
+                          transform: `translateZ(${Math.max(0, (maxDepth - depth) * 18)}px)`,
+                          backgroundColor: `color-mix(in srgb, ${node.color} ${Math.max(8, 18 - depth * 3)}%, #0d1117 90%)`,
                           boxShadow: selectedNodeId === node.id
-                            ? `0 0 0 2px ${node.color}40, 0 ${8 + (maxDepth - (nodeDepthMap.get(node.id) ?? 1)) * 4}px ${20 + (maxDepth - (nodeDepthMap.get(node.id) ?? 1)) * 6}px ${node.color}50`
-                            : `0 ${4 + (maxDepth - (nodeDepthMap.get(node.id) ?? 1)) * 3}px ${12 + (maxDepth - (nodeDepthMap.get(node.id) ?? 1)) * 4}px rgba(0,0,0,0.6)`,
+                            ? `0 0 0 2px ${node.color}40, 0 ${8 + (maxDepth - depth) * 4}px ${20 + (maxDepth - depth) * 6}px ${node.color}50`
+                            : `0 0 ${Math.min(12, childCount * 2)}px ${node.color}40, 0 ${4 + (maxDepth - depth) * 3}px ${12 + (maxDepth - depth) * 4}px rgba(0,0,0,0.6)`,
                         }}
-                        onDoubleClick={() => { setEditingNodeId(node.id); setEditText(node.text); }}
+                        onDoubleClick={() => { 
+                            if (focusedNodeId === node.id) setFocusedNodeId(null);
+                            else setFocusedNodeId(node.id);
+                        }}
                     >
                         {node.imageUrl && <img src={node.imageUrl} className="w-full h-24 object-cover rounded-lg mb-2 pointer-events-none" />}
                         {editingNodeId === node.id ? (
                             <textarea autoFocus value={editText} onChange={e => setEditText(e.target.value)} onBlur={() => { setNodes(prev => prev.map(n => n.id === node.id ? { ...n, text: editText } : n)); setEditingNodeId(null); }} className="bg-transparent text-center text-white outline-none resize-none w-full" style={{ fontSize: node.fontSize || 14 }} />
                         ) : <span className="text-center w-full break-words font-medium" style={{ fontSize: node.fontSize || 14 }}>{node.text}</span>}
+                        
+                        {hasChildren && (
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); setNodes(prev => prev.map(n => n.id === node.id ? { ...n, collapsed: !n.collapsed } : n)); }}
+                                className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#1e1e1e] border border-[#444746] rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-20 hover:bg-[#333]"
+                            >
+                                {node.collapsed ? <Plus size={14} className="text-white" /> : <Minus size={14} className="text-white" />}
+                            </button>
+                        )}
+                        {node.collapsed && (
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow-[0_0_10px_#fff] animate-pulse pointer-events-none" />
+                        )}
                     </div>
-                ))}
+                )})}
             </div>
         </div>
 
         {/* TOOLBAR */}
-        <div className="mindmap-toolbar absolute bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#0d1117]/95 backdrop-blur-md border border-[#30363d] p-1.5 rounded-2xl flex items-center gap-1 shadow-2xl animate-in slide-in-from-bottom-2">
+        <div 
+            ref={toolbarRef}
+            onPointerDown={handleToolbarPointerDown}
+            onPointerMove={handleToolbarPointerMove}
+            onPointerUp={handleToolbarPointerUp}
+            onPointerCancel={handleToolbarPointerUp}
+            className="mindmap-toolbar absolute z-40 bg-white/5 backdrop-blur-md border border-white/10 p-1.5 rounded-2xl flex items-center gap-1 shadow-2xl cursor-move touch-none"
+            style={{ left: toolbarPosRef.current.x, top: toolbarPosRef.current.y, transform: 'translate(-50%, -50%)' }}
+        >
             {/* zoom sempre visível — independente de seleção */}
             <button
               onClick={() => { viewportRef.current.zoom = Math.min(viewportRef.current.zoom * 1.2, ZOOM_LIMITS.MAX); applyVisualTransform(); setViewport({...viewportRef.current}); }}
@@ -500,12 +688,13 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
                     <div className="w-px h-6 bg-[#333] mx-2" />
                     <button
                       onClick={() => { const pos = screenToWorld(window.innerWidth/2, window.innerHeight/2); setNodes(prev => [...prev, { id: `node-${Date.now()}`, text: "Novo Item", x: pos.x, y: pos.y, width: 180, height: 70, color: '#3b82f6', fontSize: 14 }]); }}
-                      className="flex items-center gap-2 px-4 py-2.5 bg-brand text-bg rounded-xl font-bold text-sm hover:brightness-110 active:scale-95 transition-all"
+                      className="flex items-center gap-2 px-4 py-2.5 bg-brand text-bg rounded-xl font-bold text-sm hover:brightness-110 active:scale-95 transition-all animate-pulse-emerald"
                     ><PlusCircle size={18}/> Novo Nó</button>
                 </>
             ) : (
                 <div className="flex items-center gap-1 animate-in fade-in zoom-in-95 duration-200">
                     <div className="w-px h-6 bg-[#333] mx-1" />
+                    <button onClick={() => { setEditingNodeId(selectedNodeId); setEditText(selectedNode.text); }} className="p-2.5 text-gray-400 hover:text-white rounded-xl" title="Editar Texto"><Edit2 size={18}/></button>
                     <button onClick={() => setLinkingSourceId(selectedNodeId)} className={`p-2.5 rounded-xl transition-colors ${linkingSourceId === selectedNodeId ? 'bg-brand text-bg' : 'text-gray-400 hover:text-white hover:bg-white/10'}`} title="Conectar a outro nó"><LinkIcon size={18}/></button>
                     <button onClick={() => updateNodeAttr({ shape: selectedNode.shape === 'circle' ? 'rectangle' : 'circle' })} className="p-2.5 text-gray-400 hover:text-white rounded-xl" title="Trocar Forma"><Square size={18}/></button>
                     <div className="w-px h-6 bg-[#333] mx-1" />
@@ -529,6 +718,11 @@ export const MindMapEditor: React.FC<Props> = ({ fileId, fileName, fileBlob, acc
         </div>
 
         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+
+        {/* MINIMAP */}
+        <div className={`absolute bottom-4 right-4 z-30 bg-black/50 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-xl pointer-events-none transition-opacity duration-200 ${isMinimapVisible ? 'opacity-100' : 'opacity-0'}`}>
+            <canvas ref={minimapCanvasRef} width={160} height={90} className="block" />
+        </div>
 
         {/* MODALS */}
         <MindMapSaveModal 

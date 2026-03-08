@@ -164,6 +164,7 @@ export interface MindMapNode {
   imageUrl?: string;
   imageScale?: number;
   scale?: number; // Added to fix property not found error
+  collapsed?: boolean;
 }
 
 export interface MindMapEdge {

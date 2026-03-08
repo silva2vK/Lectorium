@@ -370,3 +370,18 @@ html.maker .tactical-puller:hover .puller-indicator {
   background-color: var(--maker-red) !important; 
   box-shadow: 0 0 15px var(--maker-red), 0 0 5px #fff !important; /* Glow Vermelho Intenso */
 }
+
+@keyframes pulse-emerald {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+@keyframes flowLine {
+  to { stroke-dashoffset: 0; }
+}
+
+.animate-pulse-emerald {
+  animation: pulse-emerald 2s infinite;
+}
+
