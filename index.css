@@ -1,7 +1,54 @@
 
+@config "./tailwind.config.js";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* PDF.js viewer */
+@import 'pdfjs-dist/web/pdf_viewer.css';
+
+/* KaTeX */
+@import 'katex/dist/katex.min.css';
+
+/* highlight.js tema */
+@import 'highlight.js/styles/atom-one-dark.css';
+
+/* Google Fonts Self-Hosted */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/inter-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/inter-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/inter-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/inter-700.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Pirata One';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/pirata-one-400.woff2') format('woff2');
+}
 
 /* RESET TAP HIGHLIGHT */
 * { -webkit-tap-highlight-color: transparent; }
