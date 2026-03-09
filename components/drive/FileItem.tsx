@@ -54,31 +54,13 @@ function getBrandColor(): string {
 }
 
 // Selo de lacre SVG — cera vermelha carmesim
-const WaxSeal: React.FC<{ size?: number }> = ({ size = 28 }) => (
-  <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
-    <defs>
-      <radialGradient id="wax-g" cx="38%" cy="32%" r="62%">
-        <stop offset="0%" stopColor="#ff4444" />
-        <stop offset="50%" stopColor="#cc0000" />
-        <stop offset="100%" stopColor="#6b0000" />
-      </radialGradient>
-      <radialGradient id="wax-s" cx="33%" cy="28%" r="38%">
-        <stop offset="0%" stopColor="rgba(255,160,160,0.55)" />
-        <stop offset="100%" stopColor="rgba(255,160,160,0)" />
-      </radialGradient>
-    </defs>
-    <path d="M14,2.5 C17.5,2.5 22.5,4.5 23.5,8.5 C25.5,10.5 26.5,13.5 24.5,16.5 C25.5,19.5 23.5,24.5 19.5,25.5 C17.5,27 10.5,27 7.5,24.5 C4.5,23 1.5,19 2.5,15 C1.5,12 2.5,8 5.5,6 C7.5,3 11,2.5 14,2.5 Z"
-      fill="url(#wax-g)" />
-    <path d="M14,2.5 C17.5,2.5 22.5,4.5 23.5,8.5 C25.5,10.5 26.5,13.5 24.5,16.5 C25.5,19.5 23.5,24.5 19.5,25.5 C17.5,27 10.5,27 7.5,24.5 C4.5,23 1.5,19 2.5,15 C1.5,12 2.5,8 5.5,6 C7.5,3 11,2.5 14,2.5 Z"
-      fill="url(#wax-s)" />
-    <circle cx="14" cy="14" r="6.5" stroke="rgba(60,0,0,0.45)" strokeWidth="0.6" fill="none" />
-    <text x="14" y="17.5" textAnchor="middle"
-      fontFamily="'Cormorant Garamond', Georgia, serif"
-      fontSize="9.5" fontWeight="600"
-      fill="rgba(70,0,0,0.75)"
-      style={{ userSelect: 'none' }}>
-      L
-    </text>
+// Ícone de disponível offline — checkmark circular verde
+const OfflineCheck: React.FC<{ size?: number }> = ({ size = 22 }) => (
+  <svg width={size} height={size} viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="11" cy="11" r="11" fill="#22c55e" />
+    <circle cx="11" cy="11" r="10" fill="#16a34a" opacity="0.4" />
+    {/* Checkmark path */}
+    <path d="M6 11.5L9.5 15L16 8" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
@@ -106,7 +88,7 @@ const ContextMenu: React.FC<CtxProps> = ({
       borderTop: `1px solid ${brandColor}50`,
       borderRadius: '2px',
       boxShadow: '0 12px 40px rgba(0,0,0,0.95), inset 0 1px 0 rgba(255,255,255,0.04)',
-      fontFamily: "'Cormorant Garamond', serif",
+      fontFamily: "'Inter', system-ui, sans-serif",
     }}>
     {[
       { icon: <Pin size={12} />, label: isPinned ? 'Desafixar' : 'Fixar', action: () => onTogglePin(file) },
@@ -167,7 +149,6 @@ export const FileItem: React.FC<FileItemProps> = ({
     : null;
 
   const sharedStyles = `
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap');
     .silver-letter {
       background: linear-gradient(150deg, #c8c8c8 0%, #ffffff 28%, #a8a8a8 52%, #d8d8d8 72%, #efefef 100%);
       -webkit-background-clip: text;
@@ -177,11 +158,11 @@ export const FileItem: React.FC<FileItemProps> = ({
     }
   `;
 
-  // ── ARQUIVO: card vertical com thumbnail ───────────────────────────────────
+  // ── ARQUIVO: card vertical com thumbnail — estilo original ────────────────
   if (!isFolder) {
     return (
       <div className="relative group">
-        <style>{sharedStyles + `
+        <style>{`
           .file-card-noir {
             transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease;
           }
@@ -204,90 +185,72 @@ export const FileItem: React.FC<FileItemProps> = ({
           onClick={() => onSelect(file)}
           className="file-card-noir w-full text-left overflow-hidden"
           style={{
-            // Pedra polida: preto azulado muito escuro com micro-reflexo
-            background: 'linear-gradient(160deg, #0e0e13 0%, #080809 50%, #0b0b0f 100%)',
+            background: '#0a0a0d',
             border: '1px solid rgba(255,255,255,0.07)',
-            borderTop: '2px solid rgba(255,255,255,0.06)',
-            borderRadius: '2px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.05)',
+            borderRadius: '3px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.85)',
             position: 'relative',
+            minHeight: '180px',
           }}
         >
-          {/* Linha de destaque brand no topo — revela no hover */}
+          {/* Linha brand no topo — revela no hover */}
           <div className="brand-reveal absolute top-0 left-0 right-0 h-[2px] z-10"
             style={{ background: `linear-gradient(90deg, transparent 0%, ${brandColor} 50%, transparent 100%)` }}
           />
 
-          {/* Preview / thumbnail */}
-          <div className="relative overflow-hidden" style={{ height: '140px', background: '#06060a' }}>
+          {/* Preview / thumbnail — ocupa quase todo o card */}
+          <div className="relative overflow-hidden" style={{ height: '155px', background: '#060609' }}>
             {file.thumbnailLink ? (
               <>
                 <img src={file.thumbnailLink} alt="" loading="lazy"
                   className="w-full h-full object-cover"
-                  style={{ opacity: 0.9, filter: 'contrast(1.04) brightness(0.94)' }}
+                  style={{ opacity: 0.92, filter: 'contrast(1.03) brightness(0.95)' }}
                 />
-                {/* Vignette sobre a imagem */}
                 <div className="absolute inset-0"
-                  style={{ background: 'radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.5) 100%)' }}
+                  style={{ background: 'radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.4) 100%)' }}
                 />
               </>
             ) : (
               <div className="w-full h-full flex items-center justify-center"
-                style={{ background: 'linear-gradient(140deg, #0a0a0f 0%, #0f0f14 100%)' }}>
-                <div className="flex flex-col items-center gap-2" style={{ opacity: 0.22 }}>
+                style={{ background: 'linear-gradient(140deg, #0a0a0f 0%, #111118 100%)' }}>
+                <div className="flex flex-col items-center gap-2" style={{ opacity: 0.2 }}>
                   {isMindmap
-                    ? <Map size={34} strokeWidth={0.8} style={{ color: '#fff' }} />
-                    : <FileText size={34} strokeWidth={0.8} style={{ color: '#fff' }} />}
-                  <span style={{
-                    color: '#fff', fontSize: '8px', letterSpacing: '0.22em',
-                    fontFamily: "'Cormorant Garamond', serif", textTransform: 'uppercase',
-                  }}>
-                    {isMindmap ? 'mapa cognitivo' : 'documento'}
-                  </span>
+                    ? <Map size={36} strokeWidth={0.8} style={{ color: '#fff' }} />
+                    : <FileText size={36} strokeWidth={0.8} style={{ color: '#fff' }} />}
                 </div>
               </div>
             )}
 
-            {/* Fade inferior — integra preview com info block */}
-            <div className="absolute bottom-0 left-0 right-0 h-10"
-              style={{ background: 'linear-gradient(to bottom, transparent, #08080c)' }} />
+            {/* Gradiente de fade no rodapé da preview — funde com o info abaixo */}
+            <div className="absolute bottom-0 left-0 right-0 h-14"
+              style={{ background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.88))' }} />
 
-            {/* Selo de lacre offline — canto inferior direito */}
+            {/* Nome e data sobrepostos no rodapé da preview */}
+            <div className="absolute bottom-0 left-0 right-0 px-2.5 pb-2 z-10">
+              <p className="truncate text-[12.5px] font-medium leading-snug"
+                style={{ color: 'rgba(255,255,255,0.92)', fontFamily: "'Inter', system-ui, sans-serif" }}>
+                {displayName}
+              </p>
+              {formattedDate && (
+                <p className="text-[10px] mt-0.5 tracking-wide"
+                  style={{ color: 'rgba(255,255,255,0.38)', fontFamily: "'Inter', system-ui, sans-serif" }}>
+                  {formattedDate}
+                </p>
+              )}
+            </div>
+
+            {/* Ícone offline — checkmark verde, canto superior direito */}
             {isOffline && (
-              <div className="absolute bottom-1.5 right-2"
+              <div className="absolute top-2 right-2 z-20"
                 title="Disponível offline"
-                style={{ filter: 'drop-shadow(0 2px 8px rgba(180,0,0,0.6))' }}>
-                <WaxSeal size={32} />
+                style={{ filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.7))' }}>
+                <OfflineCheck size={20} />
               </div>
             )}
-          </div>
 
-          {/* Info block — pedra polida */}
-          <div className="px-3 py-2.5"
-            style={{ background: 'linear-gradient(180deg, #08080c 0%, #060609 100%)' }}>
-            <p className="truncate text-[13px] font-medium"
-              style={{
-                color: 'rgba(255,255,255,0.90)',
-                fontFamily: "'Cormorant Garamond', serif",
-                fontWeight: 500,
-                letterSpacing: '0.01em',
-                lineHeight: 1.3,
-              }}>
-              {displayName}
-            </p>
-            {formattedDate && (
-              <p className="text-[10px] mt-0.5 tracking-wider"
-                style={{
-                  color: 'rgba(255,255,255,0.24)',
-                  fontFamily: "'Cormorant Garamond', serif",
-                  fontVariant: 'small-caps',
-                }}>
-                {formattedDate}
-              </p>
-            )}
             {isPinned && (
-              <div className="absolute bottom-2.5 right-2.5 w-1.5 h-1.5 rounded-full"
-                style={{ background: brandColor, boxShadow: `0 0 5px ${brandColor}90` }} />
+              <div className="absolute top-2 left-2 z-20 w-2 h-2 rounded-full"
+                style={{ background: brandColor, boxShadow: `0 0 6px ${brandColor}` }} />
             )}
           </div>
 
@@ -298,7 +261,7 @@ export const FileItem: React.FC<FileItemProps> = ({
           )}
         </button>
 
-        <div ref={menuRef} className="absolute top-2 right-2 z-20">
+        <div ref={menuRef} className="absolute top-7 right-2 z-20">
           <button
             onClick={(e) => { e.stopPropagation(); setActiveMenu(isActiveMenu ? null : file.id); }}
             className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
@@ -356,7 +319,7 @@ export const FileItem: React.FC<FileItemProps> = ({
         <div className="flex-shrink-0 w-11 flex flex-col items-center justify-center gap-0.5"
           style={{ background: 'rgba(0,0,0,0.45)', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
           <span className="silver-letter"
-            style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '20px', fontWeight: 600, lineHeight: 1 }}>
+            style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: '20px', fontWeight: 700, lineHeight: 1 }}>
             {letter}
           </span>
           <div className="w-4 h-px" style={{ background: 'rgba(255,255,255,0.1)' }} />
@@ -382,18 +345,19 @@ export const FileItem: React.FC<FileItemProps> = ({
           <BookOpen size={17} style={{ color: 'rgba(255,255,255,0.4)', flexShrink: 0 }} strokeWidth={1.5} />
 
           <div className="flex-1 min-w-0">
-            <p className="truncate text-[14px] leading-tight"
+            <p className="truncate leading-tight"
               style={{
-                color: 'rgba(255,255,255,0.91)',
+                color: 'rgba(255,255,255,0.93)',
                 fontWeight: 500,
-                fontFamily: "'Cormorant Garamond', serif",
-                letterSpacing: '0.015em',
+                fontFamily: "'Inter', system-ui, sans-serif",
+                fontSize: '16px',
+                letterSpacing: '-0.01em',
               }}>
               {file.name}
             </p>
             {formattedDate && (
               <p className="text-[10px] mt-0.5 tracking-wider"
-                style={{ color: 'rgba(255,255,255,0.2)', fontVariant: 'small-caps', fontFamily: "'Cormorant Garamond', serif" }}>
+                style={{ color: 'rgba(200,160,60,0.75)', fontFamily: "'Inter', system-ui, sans-serif" }}>
                 {formattedDate}
               </p>
             )}
@@ -404,8 +368,8 @@ export const FileItem: React.FC<FileItemProps> = ({
               <div className="w-1.5 h-1.5 rounded-full"
                 style={{ background: brandColor, boxShadow: `0 0 5px ${brandColor}80` }} />
             )}
-            {isOffline && <WaxSeal size={20} />}
-            <ChevronRight size={11} style={{ color: 'rgba(255,255,255,0.14)' }} />
+            {isOffline && <OfflineCheck size={18} />}
+            <ChevronRight size={13} style={{ color: 'rgba(200,160,60,0.85)' }} />
           </div>
         </div>
 
@@ -419,8 +383,8 @@ export const FileItem: React.FC<FileItemProps> = ({
       <div ref={menuRef} className="absolute right-2 top-1/2 -translate-y-1/2 z-20">
         <button
           onClick={(e) => { e.stopPropagation(); setActiveMenu(isActiveMenu ? null : file.id); }}
-          className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ color: 'rgba(255,255,255,0.3)', background: 'rgba(0,0,0,0.55)' }}>
+          className="p-1 rounded opacity-40 group-hover:opacity-100 transition-opacity"
+          style={{ color: 'rgba(200,160,60,0.9)', background: 'rgba(0,0,0,0.55)' }}>
           <MoreVertical size={13} />
         </button>
         {isActiveMenu && (
