@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { LayoutGrid, X, Workflow, FileText, Home, FolderOpen, Users, Database, Contrast, CheckCircle, Palette, ChevronDown, ChevronRight, Image as ImageIcon, Upload, Trash2, Loader2, DownloadCloud, Key, Scale, Minimize, Maximize, LogOut, LogIn } from 'lucide-react';
 import { Icon } from './shared/Icon';
@@ -215,7 +214,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Workflow size={20} /><span className="ml-3 text-[17px]">Mapas Mentais</span>
             </button>
             <button onClick={() => handleNavigation('operational-archive')} className={`w-full p-3 rounded-xl flex items-center px-4 transition-all duration-200 ${activeTab === 'operational-archive' ? 'bg-gradient-to-r from-brand/20 to-brand/5 text-brand font-bold border border-brand/20 shadow-[0_0_15px_-5px_rgba(74,222,128,0.1)]' : 'text-white/90 hover:bg-white/5 hover:text-white'}`}>
-              <Database size={20} className="shrink-0" /><span className="ml-3 text-[15px] whitespace-nowrap">Sintetizador Lexicográfico</span>
+              <Database size={20} className="shrink-0" /><span className="ml-3 text-[17px]">Sintetizador</span>
             </button>
           </div>
 
@@ -315,7 +314,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <OfflineDownloadModal isOpen={showOfflineModal} onClose={() => setShowOfflineModal(false)} onConfirm={handleStartDownload} onClear={handleClearCache} currentSize={downloadSize} isDownloading={cachingStatus === 'caching'} progress={cacheProgress} />
-  <ApiKeyModal isOpen={showKeyModal} onClose={() => setShowKeyModal(false)} />
+<ApiKeyModal isOpen={showKeyModal} onClose={() => setShowKeyModal(false)} />
     </>
   );
-}; 
+};
