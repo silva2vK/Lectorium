@@ -315,4 +315,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <OfflineDownloadModal isOpen={showOfflineModal} onClose={() => setShowOfflineModal(false)} onConfirm={handleStartDownload} onClear={handleClearCache} currentSize={downloadSize} isDownloading={cachingStatus === 'caching'} progress={cacheProgress} />
-   
+  <ApiKeyModal isOpen={showKeyModal} onClose={() => setShowKeyModal(false)} />
+    </>
+  );
+}; 
