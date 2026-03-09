@@ -1,10 +1,10 @@
 /**
- * FileItem — Variante 4: SCRIPTORIUM
- * Estética: Manuscritos medievais iluminados. Cada card é uma página de pergaminho
- * com inicial decorada, borda de vitral e texto em caligrafia gótica.
- * Pastas: capítulos com letras capitulares iluminadas.
- * Arquivos: fólios com rubricas vermelhas.
- * Fonte: UnifrakturMaguntia + IM Fell English
+ * FileItem — Variante 5: ANATOMIA SILENTE
+ * Estética: O consultório de Hannibal Lecter. Branco clínico sobre preto absoluto.
+ * Linhas arquitetônicas precisas. Vermelho carmesim como único acento de cor —
+ * discreto e perturbador. Cada card é uma placa de museu, uma peça de coleção.
+ * Refinamento psicótico: tudo no lugar, tudo com propósito.
+ * Fonte: Libre Caslon Display + Space Mono (para os metadados)
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -29,31 +29,21 @@ interface FileItemProps {
   childCount?: number;
 }
 
-// Cores de vitral medieval baseadas no id
-const STAINED_GLASS = [
-  { border: '#1a3a5c', glow: 'rgba(40,90,180,0.3)', accent: '#4a7fc4' },   // azul safira
-  { border: '#3a1a1a', glow: 'rgba(180,40,40,0.3)', accent: '#c44a4a' },   // vermelho rubi
-  { border: '#1a3a1a', glow: 'rgba(40,160,60,0.25)', accent: '#4ab464' },  // verde esmeralda
-  { border: '#3a2a0a', glow: 'rgba(200,150,20,0.3)', accent: '#c8a020' },  // âmbar
-  { border: '#2a1a3a', glow: 'rgba(130,40,180,0.3)', accent: '#9040c8' },  // ametista
-];
-
-function stainedGlass(id: string) {
+// Código de espécime anatômico
+function specimenCode(id: string): string {
   let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 11 + id.charCodeAt(i)) & 0xff;
-  return STAINED_GLASS[h % STAINED_GLASS.length];
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
+  const prefix = ['HBL','FBM','NAT','SPC','INS','LAC','OBS','SIL'][h % 8];
+  return `${prefix}·${String(h).slice(-4).padStart(4,'0')}`;
 }
 
-function capitalLetter(name: string): string {
-  return name.charAt(0).toUpperCase() || 'S';
-}
-
-// Símbolo medieval para tipo de arquivo
-function medievalSymbol(mimeType: string, name: string): string {
-  if (mimeType === MIME_TYPES.FOLDER) return '☩'; // Cruz
-  if (name.endsWith('.mindmap')) return '✦'; // Estrela
-  if (mimeType === MIME_TYPES.PDF) return '☽'; // Lua
-  return '✧'; // Estrela menor
+// Tipo de espécime
+function specimenType(mimeType: string, name: string): string {
+  if (mimeType === MIME_TYPES.FOLDER) return 'COLEÇÃO';
+  if (name.endsWith('.mindmap')) return 'MAPA COGNITIVO';
+  if (mimeType === MIME_TYPES.PDF) return 'DOCUMENTO';
+  if (mimeType?.includes('image')) return 'IMAGEM';
+  return 'ARQUIVO';
 }
 
 export const FileItem: React.FC<FileItemProps> = ({
@@ -63,10 +53,9 @@ export const FileItem: React.FC<FileItemProps> = ({
   const isFolder = file.mimeType === MIME_TYPES.FOLDER;
   const menuRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
-  const glass = stainedGlass(file.id);
-  const capital = capitalLetter(file.name);
-  const symbol = medievalSymbol(file.mimeType, file.name);
-  const displayName = file.name.length > 32 ? file.name.slice(0, 30) + '…' : file.name;
+  const code = specimenCode(file.id);
+  const type = specimenType(file.mimeType, file.name);
+  const displayName = file.name.length > 28 ? file.name.slice(0, 26) + '…' : file.name;
 
   useEffect(() => {
     if (!isActiveMenu) return;
@@ -84,128 +73,147 @@ export const FileItem: React.FC<FileItemProps> = ({
       onMouseLeave={() => setHovered(false)}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=UnifrakturMaguntia&family=MedievalSharp&display=swap');
-        .scriptorium-card {
-          transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), filter 0.3s ease;
+        @import url('https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Space+Mono:ital@0;1&family=Cormorant+SC:wght@400;500;600&display=swap');
+        .anatomia-card {
+          transition: transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94), box-shadow 0.25s ease;
         }
-        .scriptorium-card:hover {
-          transform: translateY(-5px);
-          filter: brightness(1.08);
+        .anatomia-card:hover {
+          transform: translateY(-3px);
         }
-        @keyframes scribe-flicker {
-          0%,95%,100% { opacity: 1 }
-          97% { opacity: 0.7 }
+        @keyframes crimson-pulse {
+          0%,100% { opacity: 0.7; }
+          50% { opacity: 1; }
         }
-        .capital-letter { animation: scribe-flicker 6s ease-in-out infinite; }
-        .vitral-corner {
-          position: absolute;
-          width: 12px;
-          height: 12px;
-          border-style: solid;
+        .crimson-pulse { animation: crimson-pulse 2s ease-in-out infinite; }
+        @keyframes scan-line {
+          from { transform: translateY(-100%); opacity: 0; }
+          10% { opacity: 0.4; }
+          90% { opacity: 0.4; }
+          to { transform: translateY(100%); opacity: 0; }
         }
+        .anatomia-card:hover .scan-effect { animation: scan-line 1.5s ease-in-out; }
       `}</style>
 
       <button
         onClick={() => onSelect(file)}
-        className="scriptorium-card w-full text-left overflow-hidden"
+        className="anatomia-card w-full text-left overflow-hidden"
         style={{
-          background: 'linear-gradient(160deg, #f5f0e8 0%, #ede5d0 40%, #e8dfc4 100%)',
-          border: `2px solid ${glass.border}`,
-          borderRadius: '2px',
+          background: '#000000',
+          border: `1px solid ${hovered ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.1)'}`,
+          borderTop: `2px solid ${hovered ? '#8B0000' : 'rgba(139,0,0,0.6)'}`,
+          borderRadius: '0',
           boxShadow: hovered
-            ? `0 10px 40px rgba(0,0,0,0.5), 0 0 20px ${glass.glow}, inset 0 0 30px rgba(0,0,0,0.04)`
-            : `0 4px 16px rgba(0,0,0,0.3), inset 0 0 20px rgba(0,0,0,0.03)`,
-          minHeight: '175px',
+            ? '0 8px 32px rgba(0,0,0,0.9), 0 -1px 0 rgba(139,0,0,0.4)'
+            : '0 2px 12px rgba(0,0,0,0.7)',
+          minHeight: '160px',
           position: 'relative',
         }}
       >
-        {/* Bordas de vitral coloridas nos cantos */}
-        {[
-          { style: { top: 0, left: 0, borderTopColor: glass.accent, borderLeftColor: glass.accent, borderRightColor: 'transparent', borderBottomColor: 'transparent', borderWidth: '3px' } },
-          { style: { top: 0, right: 0, borderTopColor: glass.accent, borderRightColor: glass.accent, borderLeftColor: 'transparent', borderBottomColor: 'transparent', borderWidth: '3px' } },
-          { style: { bottom: 0, left: 0, borderBottomColor: glass.accent, borderLeftColor: glass.accent, borderTopColor: 'transparent', borderRightColor: 'transparent', borderWidth: '3px' } },
-          { style: { bottom: 0, right: 0, borderBottomColor: glass.accent, borderRightColor: glass.accent, borderTopColor: 'transparent', borderLeftColor: 'transparent', borderWidth: '3px' } },
-        ].map((c, i) => (
-          <div key={i} className="vitral-corner" style={c.style as React.CSSProperties} />
-        ))}
-
-        {/* Textura de pergaminho */}
-        <div className="absolute inset-0 opacity-[0.15]"
+        {/* Scan line effect on hover */}
+        <div className="scan-effect absolute inset-0 pointer-events-none z-20"
           style={{
-            backgroundImage: `repeating-linear-gradient(
-              0deg, transparent, transparent 24px,
-              rgba(100,80,40,0.3) 24px, rgba(100,80,40,0.3) 25px
-            )`,
+            background: 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%)',
+            height: '30%',
           }}
         />
 
-        {/* Margem lateral vermelha (rubrica medieval) */}
-        <div className="absolute left-0 top-0 bottom-0 w-[1px]"
-          style={{ background: 'rgba(160,40,40,0.4)', marginLeft: '28px' }} />
-
-        <div className="relative z-10 p-4 pl-10">
-          {/* Letra capitular iluminada */}
-          <div className="float-left mr-2 mb-1">
-            <div className="capital-letter w-12 h-12 flex items-center justify-center"
+        <div className="relative z-10 p-4 flex flex-col gap-3">
+          {/* Header: código + tipo */}
+          <div className="flex items-center justify-between">
+            <span className="text-[9px] tracking-[0.2em]"
               style={{
-                background: `linear-gradient(135deg, ${glass.border}, ${glass.accent})`,
-                border: `1px solid ${glass.accent}`,
-                boxShadow: hovered ? `0 0 12px ${glass.glow}` : 'none',
-                transition: 'box-shadow 0.3s',
+                fontFamily: "'Space Mono', monospace",
+                color: 'rgba(139,0,0,0.9)',
               }}>
-              <span style={{
-                fontFamily: "'UnifrakturMaguntia', cursive",
-                color: '#f5f0e8',
-                fontSize: '26px',
-                lineHeight: 1,
-                textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-              }}>{capital}</span>
+              {code}
+            </span>
+            <span className="text-[8px] tracking-[0.15em]"
+              style={{
+                fontFamily: "'Space Mono', monospace",
+                color: 'rgba(255,255,255,0.2)',
+              }}>
+              {type}
+            </span>
+          </div>
+
+          {/* Linha divisória carmesim */}
+          <div className="h-px w-full" style={{ background: 'rgba(139,0,0,0.4)' }} />
+
+          {/* Ícone geométrico central */}
+          <div className="flex justify-center py-2">
+            <div className="relative"
+              style={{
+                width: '40px',
+                height: '40px',
+              }}>
+              {/* Quadrado rotacionado */}
+              <div className="absolute inset-0 rotate-45"
+                style={{
+                  border: `1px solid ${hovered ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'}`,
+                  transition: 'border-color 0.3s',
+                }}
+              />
+              {/* Centro */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-2 h-2"
+                  style={{
+                    background: isFolder ? 'rgba(139,0,0,0.9)' : 'rgba(255,255,255,0.4)',
+                    transform: 'rotate(45deg)',
+                  }}
+                />
+              </div>
+              {/* Pin indicator */}
+              {isPinned && (
+                <div className="absolute -top-1 -right-1 w-2 h-2 crimson-pulse"
+                  style={{ background: '#8B0000' }} />
+              )}
             </div>
           </div>
 
-          {/* Símbolo de tipo */}
-          <div className="absolute top-3 right-3 text-lg"
-            style={{ color: glass.accent, opacity: 0.7, fontFamily: 'serif' }}>
-            {symbol}
-          </div>
-
           {/* Nome do arquivo */}
-          <p className="text-[13px] leading-snug mb-1"
-            style={{
-              fontFamily: "'IM Fell English', 'Palatino Linotype', Georgia, serif",
-              color: '#2a1a0a',
-              fontWeight: isFolder ? 400 : 400,
-              fontStyle: isFolder ? 'normal' : 'italic',
-            }}>
-            {displayName}
-          </p>
-
-          {/* Linha de texto decorativa */}
-          <div className="clear-both mt-2 flex items-center gap-2">
-            <div className="h-px flex-1" style={{ background: 'rgba(100,70,30,0.25)' }} />
-            <span style={{ color: 'rgba(150,60,60,0.6)', fontSize: '10px', fontFamily: 'serif' }}>✦</span>
-            <div className="h-px flex-1" style={{ background: 'rgba(100,70,30,0.25)' }} />
+          <div>
+            <p className="text-[13px] leading-tight"
+              style={{
+                fontFamily: "'Cormorant SC', 'Libre Caslon Display', 'Didot', Georgia, serif",
+                color: hovered ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.75)',
+                fontWeight: isFolder ? 500 : 400,
+                letterSpacing: '0.04em',
+                transition: 'color 0.2s',
+              }}>
+              {displayName}
+            </p>
           </div>
 
-          {/* Data em estilo de colofão */}
-          {file.modifiedTime && (
-            <p className="text-[9px] mt-2 text-center italic"
-              style={{ fontFamily: "'IM Fell English', serif", color: 'rgba(140,60,60,0.7)', letterSpacing: '0.05em' }}>
-              Anno Domini {new Date(file.modifiedTime).getFullYear()} — {new Date(file.modifiedTime).toLocaleDateString('pt-BR', { month: 'long' })}
-            </p>
-          )}
-
-          {/* Indicadores */}
-          <div className="absolute bottom-2 right-2 flex gap-1">
-            {isPinned && <div className="w-2 h-2 rounded-full" style={{ background: glass.accent, boxShadow: `0 0 4px ${glass.glow}` }} />}
-            {isOffline && <div className="w-2 h-2 rounded-full" style={{ background: 'rgba(60,160,80,0.8)' }} />}
+          {/* Footer com metadados */}
+          <div className="flex items-center justify-between mt-auto pt-2"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <span className="text-[8px]"
+              style={{
+                fontFamily: "'Space Mono', monospace",
+                color: 'rgba(255,255,255,0.15)',
+              }}>
+              {file.modifiedTime
+                ? new Date(file.modifiedTime).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit' })
+                : '——'}
+            </span>
+            <div className="flex items-center gap-1">
+              {isOffline && (
+                <div className="w-1 h-1" style={{ background: 'rgba(80,200,80,0.8)' }} />
+              )}
+              {/* Indicador de pasta */}
+              {isFolder && (
+                <div className="text-[8px] tracking-widest"
+                  style={{ fontFamily: "'Space Mono', monospace", color: 'rgba(139,0,0,0.6)' }}>
+                  DIR
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {isExpanding && (
-          <div className="absolute inset-0 bg-[#f5f0e8]/80 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 rounded-full animate-spin"
-              style={{ borderColor: glass.accent, borderTopColor: 'transparent' }} />
+          <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
+            <div className="w-5 h-5 border border-[rgba(139,0,0,0.9)] border-t-transparent rounded-full animate-spin" />
           </div>
         )}
       </button>
@@ -214,34 +222,40 @@ export const FileItem: React.FC<FileItemProps> = ({
       <div ref={menuRef} className="absolute top-2 right-2 z-20">
         <button
           onClick={(e) => { e.stopPropagation(); setActiveMenu(isActiveMenu ? null : file.id); }}
-          className="p-1 opacity-0 group-hover:opacity-100 transition-opacity rounded"
-          style={{ color: glass.accent, background: 'rgba(240,230,210,0.8)' }}
+          className="p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ color: 'rgba(255,255,255,0.3)' }}
         >
-          <MoreVertical size={13} />
+          <MoreVertical size={12} />
         </button>
 
         {isActiveMenu && (
-          <div className="absolute right-0 top-7 w-44 z-50 animate-in fade-in duration-150"
+          <div className="absolute right-0 top-6 w-44 z-50 animate-in fade-in duration-150"
             style={{
-              background: '#f5f0e8',
-              border: `1px solid ${glass.border}`,
-              borderRadius: '1px',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-              fontFamily: "'IM Fell English', serif",
+              background: '#0a0a0a',
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderTop: '1px solid rgba(139,0,0,0.6)',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.95)',
+              fontFamily: "'Space Mono', monospace",
             }}>
             {[
-              { icon: <Pin size={12} />, label: isPinned ? 'Desafixar' : 'Fixar', action: () => onTogglePin(file) },
-              { icon: <Edit3 size={12} />, label: 'Renomear', action: () => onRename(file) },
-              { icon: <FolderInput size={12} />, label: 'Mover', action: () => onMove(file) },
-              { icon: <Share2 size={12} />, label: 'Compartilhar', action: () => onShare(file) },
-              { icon: <Trash2 size={12} />, label: 'Excluir', action: () => onDelete(file), danger: true },
+              { icon: <Pin size={11} />, label: isPinned ? 'DESAFIXAR' : 'FIXAR', action: () => onTogglePin(file) },
+              { icon: <Edit3 size={11} />, label: 'RENOMEAR', action: () => onRename(file) },
+              { icon: <FolderInput size={11} />, label: 'MOVER', action: () => onMove(file) },
+              { icon: <Share2 size={11} />, label: 'COMPARTILHAR', action: () => onShare(file) },
+              { icon: <Trash2 size={11} />, label: 'EXCLUIR', action: () => onDelete(file), danger: true },
             ].map(({ icon, label, action, danger }: any) => (
               <button key={label}
                 onClick={(e) => { e.stopPropagation(); action(); setActiveMenu(null); }}
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] transition-colors"
-                style={{ color: danger ? '#8B0000' : '#2a1a0a' }}
-                onMouseEnter={e => (e.currentTarget.style.background = `${glass.glow}`)}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-[9px] tracking-widest transition-colors"
+                style={{ color: danger ? '#8B0000' : 'rgba(255,255,255,0.5)' }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                  e.currentTarget.style.color = danger ? '#cc0000' : 'rgba(255,255,255,0.85)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = danger ? '#8B0000' : 'rgba(255,255,255,0.5)';
+                }}
               >
                 {icon}{label}
               </button>
