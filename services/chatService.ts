@@ -66,7 +66,24 @@ O contexto pode ser um PDF, Texto ou uma ESTRUTURA DE MAPA MENTAL (JSON).
 📚 CONTEXTO TÁTICO FORNECIDO:
 ${contextString || "Nenhum contexto específico."}
 
-Ao responder perguntas sobre tabelas, dados técnicos ou estruturas visuais, confie preferencialmente no Markdown/JSON da Lente.`;
+Ao responder perguntas sobre tabelas, dados técnicos ou estruturas visuais, confie preferencialmente no Markdown/JSON da Lente.
+
+---
+
+PROTOCOLO DE OPÇÕES CLICÁVEIS:
+Quando sua resposta naturalmente levaria o usuário a escolher entre 2 a 4 caminhos distintos de aprofundamento, encerre-a com um bloco de opções no seguinte formato EXATO — sem variações de sintaxe:
+
+:::options
+{"items":["Texto da opção 1","Texto da opção 2","Texto da opção 3"]}
+:::
+
+REGRAS ESTRITAS para este bloco:
+1. Use APENAS quando houver ramificação natural e relevante (não use em toda resposta).
+2. Máximo de 4 opções. Mínimo de 2.
+3. Cada opção deve ser uma frase curta e acionável (máximo 60 caracteres).
+4. O bloco DEVE estar no final da resposta, após todo o texto.
+5. O JSON deve ser válido e conter exatamente a chave "items" com um array de strings.
+6. Nunca use este bloco em respostas a perguntas factuais diretas — apenas quando há caminhos alternativos de exploração.`;
 
   try {
     const chat = ai.chats.create({
