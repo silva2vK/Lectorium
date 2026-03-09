@@ -1,10 +1,11 @@
 /**
- * FileItem — Variante 5: ANATOMIA SILENTE
- * Estética: O consultório de Hannibal Lecter. Branco clínico sobre preto absoluto.
- * Linhas arquitetônicas precisas. Vermelho carmesim como único acento de cor —
- * discreto e perturbador. Cada card é uma placa de museu, uma peça de coleção.
- * Refinamento psicótico: tudo no lugar, tudo com propósito.
- * Fonte: Libre Caslon Display + Space Mono (para os metadados)
+ * FileItem — Variante 6: CARTA MARINA
+ * Estética: Portulanos e mapas náuticos do séc. XV-XVI. Papel de pergaminho
+ * com linhas de rumo, rosa dos ventos e anotações cartográficas.
+ * Cada pasta é uma região não-mapeada ("hic sunt leones").
+ * Cada arquivo é um território documentado com coordenadas.
+ * Refinamento geográfico: Waldseemüller, Mercator, Fra Mauro.
+ * Fonte: Spectral + Philosopher
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -29,33 +30,73 @@ interface FileItemProps {
   childCount?: number;
 }
 
-// Código de espécime anatômico
-function specimenCode(id: string): string {
+// Coordenadas fictícias baseadas no id
+function coordinates(id: string): { lat: string; lon: string } {
   let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
-  const prefix = ['HBL','FBM','NAT','SPC','INS','LAC','OBS','SIL'][h % 8];
-  return `${prefix}·${String(h).slice(-4).padStart(4,'0')}`;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffffff;
+  const lat = ((h & 0xff) % 90).toString().padStart(2, '0');
+  const lon = (((h >> 8) & 0xff) % 180).toString().padStart(3, '0');
+  const latDir = h & 0x10000 ? 'N' : 'S';
+  const lonDir = h & 0x20000 ? 'E' : 'W';
+  return { lat: `${lat}°${latDir}`, lon: `${lon}°${lonDir}` };
 }
 
-// Tipo de espécime
-function specimenType(mimeType: string, name: string): string {
-  if (mimeType === MIME_TYPES.FOLDER) return 'COLEÇÃO';
-  if (name.endsWith('.mindmap')) return 'MAPA COGNITIVO';
-  if (mimeType === MIME_TYPES.PDF) return 'DOCUMENTO';
-  if (mimeType?.includes('image')) return 'IMAGEM';
-  return 'ARQUIVO';
+// Tom de pergaminho por id
+const PARCHMENT_TONES = [
+  { bg: '#f2e8d0', ink: '#2a1a08', aged: '#c8a870', rubriq: '#8B0000', lines: 'rgba(160,120,60,0.2)' },
+  { bg: '#ede3c8', ink: '#200e04', aged: '#b89860', rubriq: '#722F37', lines: 'rgba(140,100,50,0.2)' },
+  { bg: '#f0e8d5', ink: '#1a1208', aged: '#c4a060', rubriq: '#6B1A1A', lines: 'rgba(150,110,55,0.2)' },
+];
+
+function parchmentTone(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 7 + id.charCodeAt(i)) & 0xff;
+  return PARCHMENT_TONES[h % PARCHMENT_TONES.length];
 }
+
+// Rosa dos ventos minimalista (SVG inline)
+const WindRose = ({ color, size = 32 }: { color: string; size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+    {/* N */}
+    <polygon points="16,2 14,14 18,14" fill={color} opacity="0.9" />
+    {/* S */}
+    <polygon points="16,30 14,18 18,18" fill={color} opacity="0.5" />
+    {/* E */}
+    <polygon points="30,16 18,14 18,18" fill={color} opacity="0.5" />
+    {/* W */}
+    <polygon points="2,16 14,14 14,18" fill={color} opacity="0.5" />
+    {/* Círculo central */}
+    <circle cx="16" cy="16" r="2.5" fill={color} opacity="0.8" />
+    <circle cx="16" cy="16" r="4" stroke={color} strokeWidth="0.5" fill="none" opacity="0.4" />
+  </svg>
+);
+
+// Linhas de rumo (rhumb lines) radiando do centro
+const RhumbLines = ({ color }: { color: string }) => (
+  <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 200" fill="none" preserveAspectRatio="xMidYMid slice">
+    {[0, 30, 60, 90, 120, 150].map((angle, i) => (
+      <line
+        key={i}
+        x1="100" y1="100"
+        x2={100 + 120 * Math.cos((angle * Math.PI) / 180)}
+        y2={100 + 120 * Math.sin((angle * Math.PI) / 180)}
+        stroke={color} strokeWidth="0.4" opacity="0.3"
+      />
+    ))}
+  </svg>
+);
 
 export const FileItem: React.FC<FileItemProps> = ({
   file, onSelect, onTogglePin, onDelete, onShare, onMove, onRename,
   isOffline, isPinned, isActiveMenu, setActiveMenu, isExpanding
 }) => {
   const isFolder = file.mimeType === MIME_TYPES.FOLDER;
+  const isMindmap = file.name.endsWith('.mindmap');
   const menuRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
-  const code = specimenCode(file.id);
-  const type = specimenType(file.mimeType, file.name);
-  const displayName = file.name.length > 28 ? file.name.slice(0, 26) + '…' : file.name;
+  const tone = parchmentTone(file.id);
+  const coords = coordinates(file.id);
+  const displayName = file.name.length > 30 ? file.name.slice(0, 28) + '…' : file.name;
 
   useEffect(() => {
     if (!isActiveMenu) return;
@@ -73,147 +114,121 @@ export const FileItem: React.FC<FileItemProps> = ({
       onMouseLeave={() => setHovered(false)}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Space+Mono:ital@0;1&family=Cormorant+SC:wght@400;500;600&display=swap');
-        .anatomia-card {
-          transition: transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94), box-shadow 0.25s ease;
+        @import url('https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Philosopher:ital,wght@0,400;0,700;1,400&display=swap');
+        .carta-card {
+          transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s ease, filter 0.3s ease;
         }
-        .anatomia-card:hover {
-          transform: translateY(-3px);
+        .carta-card:hover {
+          transform: translateY(-6px) rotate(-0.5deg);
+          filter: sepia(0.1) contrast(1.02);
         }
-        @keyframes crimson-pulse {
-          0%,100% { opacity: 0.7; }
-          50% { opacity: 1; }
+        @keyframes carta-age {
+          0%,100% { opacity: 0.04; }
+          50% { opacity: 0.07; }
         }
-        .crimson-pulse { animation: crimson-pulse 2s ease-in-out infinite; }
-        @keyframes scan-line {
-          from { transform: translateY(-100%); opacity: 0; }
-          10% { opacity: 0.4; }
-          90% { opacity: 0.4; }
-          to { transform: translateY(100%); opacity: 0; }
-        }
-        .anatomia-card:hover .scan-effect { animation: scan-line 1.5s ease-in-out; }
+        .carta-vignette { animation: carta-age 8s ease-in-out infinite; }
       `}</style>
 
       <button
         onClick={() => onSelect(file)}
-        className="anatomia-card w-full text-left overflow-hidden"
+        className="carta-card w-full text-left overflow-hidden"
         style={{
-          background: '#000000',
-          border: `1px solid ${hovered ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.1)'}`,
-          borderTop: `2px solid ${hovered ? '#8B0000' : 'rgba(139,0,0,0.6)'}`,
-          borderRadius: '0',
+          background: tone.bg,
+          border: `1px solid ${tone.aged}`,
+          borderRadius: '1px',
           boxShadow: hovered
-            ? '0 8px 32px rgba(0,0,0,0.9), 0 -1px 0 rgba(139,0,0,0.4)'
-            : '0 2px 12px rgba(0,0,0,0.7)',
-          minHeight: '160px',
+            ? `0 12px 40px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.2), inset 0 0 40px rgba(0,0,0,0.06)`
+            : `0 3px 12px rgba(0,0,0,0.25), inset 0 0 30px rgba(0,0,0,0.04)`,
+          minHeight: '185px',
           position: 'relative',
         }}
       >
-        {/* Scan line effect on hover */}
-        <div className="scan-effect absolute inset-0 pointer-events-none z-20"
+        {/* Linhas de rumo sutis */}
+        <RhumbLines color={tone.aged} />
+
+        {/* Textura de envelhecimento — vinheta nas bordas */}
+        <div className="carta-vignette absolute inset-0 pointer-events-none"
           style={{
-            background: 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.03) 50%, transparent 100%)',
-            height: '30%',
+            background: `radial-gradient(ellipse at center, transparent 50%, rgba(100,70,30,0.3) 100%)`,
           }}
         />
 
-        <div className="relative z-10 p-4 flex flex-col gap-3">
-          {/* Header: código + tipo */}
-          <div className="flex items-center justify-between">
-            <span className="text-[9px] tracking-[0.2em]"
-              style={{
-                fontFamily: "'Space Mono', monospace",
-                color: 'rgba(139,0,0,0.9)',
-              }}>
-              {code}
-            </span>
-            <span className="text-[8px] tracking-[0.15em]"
-              style={{
-                fontFamily: "'Space Mono', monospace",
-                color: 'rgba(255,255,255,0.2)',
-              }}>
-              {type}
-            </span>
-          </div>
+        {/* Bordas de mapa desgastadas */}
+        <div className="absolute inset-[6px] pointer-events-none"
+          style={{
+            border: `1px solid ${tone.lines.replace('0.2)', '0.4)')}`,
+            borderRadius: '1px',
+          }}
+        />
 
-          {/* Linha divisória carmesim */}
-          <div className="h-px w-full" style={{ background: 'rgba(139,0,0,0.4)' }} />
+        <div className="relative z-10 p-4 flex flex-col gap-2">
+          {/* Cabeçalho cartográfico */}
+          <div className="flex items-start justify-between">
+            {/* Rosa dos ventos */}
+            <WindRose color={tone.aged} size={28} />
 
-          {/* Ícone geométrico central */}
-          <div className="flex justify-center py-2">
-            <div className="relative"
-              style={{
-                width: '40px',
-                height: '40px',
-              }}>
-              {/* Quadrado rotacionado */}
-              <div className="absolute inset-0 rotate-45"
-                style={{
-                  border: `1px solid ${hovered ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)'}`,
-                  transition: 'border-color 0.3s',
-                }}
-              />
-              {/* Centro */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-2 h-2"
-                  style={{
-                    background: isFolder ? 'rgba(139,0,0,0.9)' : 'rgba(255,255,255,0.4)',
-                    transform: 'rotate(45deg)',
-                  }}
-                />
-              </div>
-              {/* Pin indicator */}
+            {/* Coordenadas */}
+            <div className="text-right">
+              <p className="text-[8px] leading-tight"
+                style={{ fontFamily: "'Spectral', serif", color: tone.aged, fontStyle: 'italic' }}>
+                {coords.lat} / {coords.lon}
+              </p>
               {isPinned && (
-                <div className="absolute -top-1 -right-1 w-2 h-2 crimson-pulse"
-                  style={{ background: '#8B0000' }} />
+                <div className="inline-block w-2 h-2 rotate-45 mt-1"
+                  style={{ background: tone.rubriq }} />
               )}
             </div>
           </div>
 
-          {/* Nome do arquivo */}
-          <div>
-            <p className="text-[13px] leading-tight"
-              style={{
-                fontFamily: "'Cormorant SC', 'Libre Caslon Display', 'Didot', Georgia, serif",
-                color: hovered ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.75)',
-                fontWeight: isFolder ? 500 : 400,
-                letterSpacing: '0.04em',
-                transition: 'color 0.2s',
-              }}>
-              {displayName}
-            </p>
+          {/* Linha decorativa de separação cartográfica */}
+          <div className="flex items-center gap-1 my-1">
+            <div className="h-px flex-1" style={{ background: tone.aged, opacity: 0.3 }} />
+            <span style={{ color: tone.rubriq, fontSize: '10px', fontFamily: 'serif' }}>✦</span>
+            <div className="h-px flex-1" style={{ background: tone.aged, opacity: 0.3 }} />
           </div>
 
-          {/* Footer com metadados */}
-          <div className="flex items-center justify-between mt-auto pt-2"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-            <span className="text-[8px]"
-              style={{
-                fontFamily: "'Space Mono', monospace",
-                color: 'rgba(255,255,255,0.15)',
-              }}>
-              {file.modifiedTime
-                ? new Date(file.modifiedTime).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit' })
-                : '——'}
-            </span>
-            <div className="flex items-center gap-1">
-              {isOffline && (
-                <div className="w-1 h-1" style={{ background: 'rgba(80,200,80,0.8)' }} />
-              )}
-              {/* Indicador de pasta */}
-              {isFolder && (
-                <div className="text-[8px] tracking-widest"
-                  style={{ fontFamily: "'Space Mono', monospace", color: 'rgba(139,0,0,0.6)' }}>
-                  DIR
-                </div>
-              )}
-            </div>
+          {/* Rubrica vermelha para tipo */}
+          <p className="text-[8px] tracking-[0.2em] uppercase"
+            style={{ fontFamily: "'Spectral', serif", color: tone.rubriq, fontStyle: 'italic' }}>
+            {isFolder ? 'Terra Incognita' : isMindmap ? 'Carta Cognitiva' : 'Documentum'}
+          </p>
+
+          {/* Nome principal */}
+          <p className="text-[14px] leading-snug"
+            style={{
+              fontFamily: "'Philosopher', 'Palatino Linotype', Georgia, serif",
+              color: tone.ink,
+              fontWeight: isFolder ? 700 : 400,
+              fontStyle: isFolder ? 'normal' : 'italic',
+            }}>
+            {displayName}
+          </p>
+
+          {/* Footer: "hic sunt leones" para pastas, data para arquivos */}
+          <div className="mt-auto pt-2 flex items-end justify-between">
+            {isFolder ? (
+              <p className="text-[9px] italic"
+                style={{ fontFamily: "'Spectral', serif", color: `${tone.aged}`, opacity: 0.7 }}>
+                hic sunt leones
+              </p>
+            ) : file.modifiedTime ? (
+              <p className="text-[9px] italic"
+                style={{ fontFamily: "'Spectral', serif", color: tone.aged, opacity: 0.7 }}>
+                {new Date(file.modifiedTime).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+              </p>
+            ) : <div />}
+
+            {isOffline && (
+              <div className="w-2 h-2 rounded-full"
+                style={{ background: 'rgba(40,140,60,0.7)', boxShadow: '0 0 4px rgba(40,140,60,0.4)' }} />
+            )}
           </div>
         </div>
 
         {isExpanding && (
-          <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
-            <div className="w-5 h-5 border border-[rgba(139,0,0,0.9)] border-t-transparent rounded-full animate-spin" />
+          <div className="absolute inset-0 bg-[#f2e8d0]/70 flex items-center justify-center backdrop-blur-sm">
+            <div className="w-6 h-6 border-2 rounded-full animate-spin"
+              style={{ borderColor: tone.rubriq, borderTopColor: 'transparent' }} />
           </div>
         )}
       </button>
@@ -222,40 +237,34 @@ export const FileItem: React.FC<FileItemProps> = ({
       <div ref={menuRef} className="absolute top-2 right-2 z-20">
         <button
           onClick={(e) => { e.stopPropagation(); setActiveMenu(isActiveMenu ? null : file.id); }}
-          className="p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ color: 'rgba(255,255,255,0.3)' }}
+          className="p-1 opacity-0 group-hover:opacity-100 transition-opacity rounded"
+          style={{ color: tone.aged, background: `${tone.bg}cc` }}
         >
-          <MoreVertical size={12} />
+          <MoreVertical size={13} />
         </button>
 
         {isActiveMenu && (
-          <div className="absolute right-0 top-6 w-44 z-50 animate-in fade-in duration-150"
+          <div className="absolute right-0 top-7 w-44 z-50 animate-in fade-in duration-150"
             style={{
-              background: '#0a0a0a',
-              border: '1px solid rgba(255,255,255,0.12)',
-              borderTop: '1px solid rgba(139,0,0,0.6)',
-              boxShadow: '0 12px 40px rgba(0,0,0,0.95)',
-              fontFamily: "'Space Mono', monospace",
+              background: tone.bg,
+              border: `1px solid ${tone.aged}`,
+              borderRadius: '1px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+              fontFamily: "'Spectral', serif",
             }}>
             {[
-              { icon: <Pin size={11} />, label: isPinned ? 'DESAFIXAR' : 'FIXAR', action: () => onTogglePin(file) },
-              { icon: <Edit3 size={11} />, label: 'RENOMEAR', action: () => onRename(file) },
-              { icon: <FolderInput size={11} />, label: 'MOVER', action: () => onMove(file) },
-              { icon: <Share2 size={11} />, label: 'COMPARTILHAR', action: () => onShare(file) },
-              { icon: <Trash2 size={11} />, label: 'EXCLUIR', action: () => onDelete(file), danger: true },
+              { icon: <Pin size={12} />, label: isPinned ? 'Desafixar' : 'Fixar', action: () => onTogglePin(file) },
+              { icon: <Edit3 size={12} />, label: 'Renomear', action: () => onRename(file) },
+              { icon: <FolderInput size={12} />, label: 'Mover', action: () => onMove(file) },
+              { icon: <Share2 size={12} />, label: 'Compartilhar', action: () => onShare(file) },
+              { icon: <Trash2 size={12} />, label: 'Excluir', action: () => onDelete(file), danger: true },
             ].map(({ icon, label, action, danger }: any) => (
               <button key={label}
                 onClick={(e) => { e.stopPropagation(); action(); setActiveMenu(null); }}
-                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-[9px] tracking-widest transition-colors"
-                style={{ color: danger ? '#8B0000' : 'rgba(255,255,255,0.5)' }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                  e.currentTarget.style.color = danger ? '#cc0000' : 'rgba(255,255,255,0.85)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = danger ? '#8B0000' : 'rgba(255,255,255,0.5)';
-                }}
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] italic transition-colors"
+                style={{ color: danger ? tone.rubriq : tone.ink }}
+                onMouseEnter={e => (e.currentTarget.style.background = `${tone.aged}22`)}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
                 {icon}{label}
               </button>
