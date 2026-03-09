@@ -47,6 +47,17 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 1500,
       rollupOptions: {
         external: ['unrar-js'],
+        // Suprime warnings conhecidos e insolúveis de dependências legadas
+        onwarn(warning, warn) {
+          // daikon usa eval internamente (charLS WASM fallback) — insolúvel sem fork
+          if (warning.code === 'EVAL' && warning.id?.includes('daikon')) return;
+          // pdfjs-dist/web/pdf_viewer.css contém seletores CSS inválidos (-:|)
+          // que o esbuild não aceita — bug upstream do pdfjs v5
+          if (warning.code === 'PLUGIN_WARNING' && warning.message?.includes('-:|')) return;
+          // Módulos Node.js (fs, process) externalizados em dependências browser-only
+          if (warning.code === 'MISSING_NODE_BUILTINS') return;
+          warn(warning);
+        },
         output: {
           manualChunks(id) {
             // React core — carregado primeiro, sempre em cache
@@ -78,20 +89,22 @@ export default defineConfig(({ mode }) => {
               return 'vendor-ai-sdk';
             }
 
-            // *** CRÍTICO: y-prosemirror AQUI, antes da regra do editor ***
-            // Se ficar na regra do editor, cria ciclo com vendor-yjs
-            if (id.includes('node_modules/yjs') ||
-                id.includes('node_modules/y-webrtc') ||
-                id.includes('node_modules/y-prosemirror') ||
-                id.includes('node_modules/lib0')) {
-              return 'vendor-yjs';
-            }
-
-            // TipTap + ProseMirror — apenas no DocEditor (já é lazy)
+            // FIX CIRCULAR: y-prosemirror vai junto com o editor (ProseMirror)
+            // pois importa de @prosemirror/* que está neste chunk.
+            // Manter y-prosemirror em vendor-yjs criava ciclo:
+            //   vendor-yjs -> @prosemirror (vendor-editor) -> yjs (vendor-yjs)
             if (id.includes('node_modules/@tiptap') ||
                 id.includes('node_modules/prosemirror') ||
-                id.includes('node_modules/@prosemirror')) {
+                id.includes('node_modules/@prosemirror') ||
+                id.includes('node_modules/y-prosemirror')) {
               return 'vendor-editor';
+            }
+
+            // Yjs core + transporte — sem y-prosemirror (ver acima)
+            if (id.includes('node_modules/yjs') ||
+                id.includes('node_modules/y-webrtc') ||
+                id.includes('node_modules/lib0')) {
+              return 'vendor-yjs';
             }
 
             // PDF engine — já é worker, mas isolar o engine principal
@@ -111,24 +124,25 @@ export default defineConfig(({ mode }) => {
               return 'vendor-katex';
             }
 
-            // Daikon (DICOM) + UTIF (TIFF) — raramente usados
-            // Serão isolados para lazy load posterior
+            // Daikon (DICOM) + UTIF (TIFF) — dynamic import em mediaAdapterService,
+            // isolados aqui para não contaminar o bundle principal com eval/fs warnings
             if (id.includes('node_modules/daikon') ||
                 id.includes('node_modules/utif')) {
               return 'vendor-medical-formats';
             }
 
-            // Recharts
+            // FIX CIRCULAR: recharts importa clsx/tailwind-merge internamente.
+            // Manter clsx/tailwind-merge em vendor-utils-light criava ciclo:
+            //   vendor-charts -> vendor-utils-light -> vendor-charts
+            // Solução: clsx e tailwind-merge saem do chunk utils e ficam no index.
             if (id.includes('node_modules/recharts')) {
               return 'vendor-charts';
             }
 
-            // JSZip, uuid, idb e outras utils genéricas
+            // Utils genéricas leves — sem clsx/tailwind-merge (ver acima)
             if (id.includes('node_modules/jszip') ||
                 id.includes('node_modules/uuid') ||
-                id.includes('node_modules/idb') ||
-                id.includes('node_modules/clsx') ||
-                id.includes('node_modules/tailwind-merge')) {
+                id.includes('node_modules/idb')) {
               return 'vendor-utils-light';
             }
 
