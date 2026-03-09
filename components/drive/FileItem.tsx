@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { FolderOpen, MoreVertical, Pin, PinOff, Edit2, FolderInput, Share2, Trash2, FilePlus, CheckCircle, Workflow, BookOpen, FileText, Package, Image as ImageIcon, ChevronRight, ImageIcon } from 'lucide-react';
+import { FolderOpen, MoreVertical, Pin, PinOff, Edit2, FolderInput, Share2, Trash2, FilePlus, CheckCircle, Workflow, BookOpen, FileText, Package, Image as ImageIcon, ChevronRight } from 'lucide-react';
 import { DriveFile, MIME_TYPES } from '../../types';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import JSZip from 'jszip';
@@ -54,9 +54,10 @@ export interface FileItemProps {
     isLocalMode: boolean;
     accessToken?: string;
     isExpanding?: boolean;
+    childCount?: number;
 }
 
-export const FileItem = React.memo(({ file, onSelect, onTogglePin, onDelete, onShare, onMove, onRename, isOffline, isPinned, isActiveMenu, setActiveMenu, isLocalMode, accessToken, isExpanding }: FileItemProps) => {
+export const FileItem = React.memo(({ file, onSelect, onTogglePin, onDelete, onShare, onMove, onRename, isOffline, isPinned, isActiveMenu, setActiveMenu, isLocalMode, accessToken, isExpanding, childCount }: FileItemProps) => {
     const isFolder = file.mimeType === MIME_TYPES.FOLDER;
     const [imgError, setImgError] = useState(false);
     const [localThumbnail, setLocalThumbnail] = useState<string | null>(null);
@@ -104,6 +105,10 @@ export const FileItem = React.memo(({ file, onSelect, onTogglePin, onDelete, onS
 
     // --- RENDERIZADOR DE PASTA (ESTÉTICA XBOX/GITHUB) ---
     if (isFolder) {
+        const countLabel = childCount !== undefined
+            ? `${childCount} ${childCount === 1 ? 'item' : 'itens'}`
+            : null;
+
         return (
             <div 
                 onClick={() => onSelect(file)} 
@@ -126,9 +131,11 @@ export const FileItem = React.memo(({ file, onSelect, onTogglePin, onDelete, onS
                             <div className="text-brand bg-[#161b22] p-1 rounded border border-brand/30" title="Pasta Fixada">
                                 <Pin size={10} fill="currentColor" />
                             </div>
-                        ) : (
-                            <span className="text-[10px] font-mono font-bold text-[#8b949e] uppercase tracking-wider bg-[#161b22] px-1.5 py-0.5 rounded border border-[#30363d]">DIR</span>
-                        )}
+                        ) : countLabel ? (
+                            <span className="text-[10px] font-mono font-bold text-[#8b949e] uppercase tracking-wider bg-[#161b22] px-1.5 py-0.5 rounded border border-[#30363d]">
+                                {countLabel}
+                            </span>
+                        ) : null}
                     </div>
                     {!isLocalMode && (
                         <button 
