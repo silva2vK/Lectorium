@@ -1,13 +1,14 @@
 /**
- * FileItem — Variante 1: CODEX OBSCURA
- * Estética: Biblioteca vitoriana. Volumes encadernados em couro escuro.
- * Cada pasta é um tomo numerado em romano, com nervuras douradas na lombada.
- * Arquivos são manuscritos selados com lacre.
- * Fonte: Playfair Display + EB Garamond
+ * FileItem — Variante 2: CABINET DE CURIOSITÉS
+ * Estética: Gavetas de um armário de catalogação do séc. XIX.
+ * Cada item é uma gaveta com puxador de metal envelhecido e etiqueta escrita à mão.
+ * Pastas são gavetas maiores; arquivos são fichas deslizantes.
+ * Layout: lista horizontal (gavetas empilhadas), não grid.
+ * Fonte: Cormorant Garamond + Crimson Pro
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { MoreVertical, Pin, Trash2, Share2, FolderInput, Edit3, Download, BookOpen, ScrollText, FileText, Map } from 'lucide-react';
+import { MoreVertical, Pin, Trash2, Share2, FolderInput, Edit3, FileText, BookOpen, Map, ChevronRight } from 'lucide-react';
 import { DriveFile, MIME_TYPES } from '../../types';
 
 interface FileItemProps {
@@ -28,38 +29,31 @@ interface FileItemProps {
   childCount?: number;
 }
 
-const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV'];
-
-function toRoman(n: number): string {
-  return ROMAN[(n - 1) % ROMAN.length] || 'I';
+// Gera uma letra de catalogação a partir do nome
+function catalogLetter(name: string): string {
+  const upper = name.toUpperCase().replace(/[^A-Z]/g, '');
+  return upper.charAt(0) || '·';
 }
 
-// Pseudo-determinístico: índice baseado no id da pasta
-function folderIndex(id: string): number {
+// Código de referência interno
+function refCode(id: string): string {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
-  return (h % 15) + 1;
-}
-
-const SPINE_COLORS = [
-  '#1a0f0a','#0a1018','#0d1a0e','#1a0a14','#100a1a',
-  '#1a1208','#0a1414','#180e0a','#0e0a18','#141008',
-];
-
-function spineColor(id: string): string {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 17 + id.charCodeAt(i)) & 0xff;
-  return SPINE_COLORS[h % SPINE_COLORS.length];
+  const letters = 'ABCDEFGHJKLMNPQRSTVWXYZ';
+  const a = letters[h % letters.length];
+  const b = letters[(h >> 4) % letters.length];
+  const n = String(h % 999 + 1).padStart(3, '0');
+  return `${a}${b}·${n}`;
 }
 
 export const FileItem: React.FC<FileItemProps> = ({
   file, onSelect, onTogglePin, onDelete, onShare, onMove, onRename,
-  isOffline, isPinned, isActiveMenu, setActiveMenu, isLocalMode, isExpanding
+  isOffline, isPinned, isActiveMenu, setActiveMenu, isExpanding
 }) => {
   const isFolder = file.mimeType === MIME_TYPES.FOLDER;
   const isMindmap = file.name.endsWith('.mindmap') || file.mimeType === MIME_TYPES.MINDMAP;
   const menuRef = useRef<HTMLDivElement>(null);
-  const [hovered, setHovered] = useState(false);
+  const [pulled, setPulled] = useState(false);
 
   useEffect(() => {
     if (!isActiveMenu) return;
@@ -70,142 +64,137 @@ export const FileItem: React.FC<FileItemProps> = ({
     return () => document.removeEventListener('mousedown', handler);
   }, [isActiveMenu, setActiveMenu]);
 
-  const roman = toRoman(folderIndex(file.id));
-  const bgColor = spineColor(file.id);
-
-  // Truncar nome elegantemente
-  const displayName = file.name.length > 28 ? file.name.slice(0, 26) + '…' : file.name;
+  const letter = catalogLetter(file.name);
+  const ref = refCode(file.id);
 
   return (
     <div
-      className="relative group"
-      style={{ fontFamily: "'EB Garamond', 'Palatino Linotype', Georgia, serif" }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      className="relative w-full"
+      style={{ fontFamily: "'Crimson Pro', 'Crimson Text', 'Cormorant Garamond', Georgia, serif" }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Playfair+Display:wght@400;500;700&display=swap');
-        .codex-card { transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease; }
-        .codex-card:hover { transform: translateY(-4px) scale(1.01); }
-        .codex-spine-line { background: linear-gradient(90deg, transparent, rgba(184,148,76,0.6), transparent); }
-        .codex-gilded { background: linear-gradient(135deg, #b8944c 0%, #e8c97a 40%, #b8944c 60%, #f0d898 80%, #b8944c 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        @keyframes codex-breathe { 0%,100%{opacity:0.6} 50%{opacity:1} }
-        .codex-breathe { animation: codex-breathe 3s ease-in-out infinite; }
+        @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,600&display=swap');
+        .cabinet-drawer {
+          transition: transform 0.2s cubic-bezier(0.25,0.46,0.45,0.94), box-shadow 0.2s ease;
+        }
+        .cabinet-drawer:hover {
+          transform: translateX(6px);
+          box-shadow: -6px 4px 24px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04) !important;
+        }
+        .cabinet-drawer:hover .drawer-handle {
+          background: rgba(160,130,80,0.9) !important;
+          box-shadow: 0 0 8px rgba(160,130,80,0.4) !important;
+        }
+        @keyframes cabinet-slide { from{transform:translateX(0)} to{transform:translateX(8px)} }
       `}</style>
 
-      {/* Card principal */}
       <button
         onClick={() => onSelect(file)}
-        className="codex-card w-full text-left relative overflow-hidden rounded-sm"
+        className="cabinet-drawer w-full text-left relative overflow-hidden"
         style={{
-          background: `linear-gradient(160deg, ${bgColor} 0%, #0d0b09 100%)`,
-          border: '1px solid rgba(184,148,76,0.25)',
-          boxShadow: hovered
-            ? '0 12px 40px rgba(0,0,0,0.8), 0 0 20px rgba(184,148,76,0.12), inset 0 1px 0 rgba(184,148,76,0.15)'
-            : '0 4px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(184,148,76,0.08)',
-          minHeight: isFolder ? '160px' : '140px',
+          background: 'linear-gradient(90deg, #1c1409 0%, #120e07 60%, #0d0b08 100%)',
+          border: '1px solid rgba(120,90,40,0.3)',
+          borderLeft: '4px solid rgba(140,105,45,0.6)',
+          borderRadius: '2px',
+          boxShadow: '-2px 2px 12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03)',
+          padding: '0',
+          display: 'flex',
+          alignItems: 'stretch',
+          minHeight: isFolder ? '68px' : '56px',
         }}
       >
-        {/* Nervura esquerda (lombada) */}
-        <div className="absolute left-0 top-0 bottom-0 w-[3px]"
-          style={{ background: 'linear-gradient(180deg, rgba(184,148,76,0.8) 0%, rgba(184,148,76,0.3) 50%, rgba(184,148,76,0.8) 100%)' }}
+        {/* Faixa lateral de indexação */}
+        <div className="flex-shrink-0 w-10 flex flex-col items-center justify-center gap-0.5"
+          style={{ background: 'rgba(0,0,0,0.3)', borderRight: '1px solid rgba(120,90,40,0.2)' }}>
+          <span style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            color: 'rgba(180,145,65,0.9)',
+            fontSize: '18px',
+            fontWeight: 600,
+            lineHeight: 1,
+          }}>{letter}</span>
+          <div className="w-4 h-px" style={{ background: 'rgba(180,145,65,0.3)' }} />
+          <span style={{
+            color: 'rgba(180,145,65,0.35)',
+            fontSize: '7px',
+            letterSpacing: '0.05em',
+            transform: 'rotate(-90deg)',
+            whiteSpace: 'nowrap',
+            marginTop: '2px',
+          }}>{ref}</span>
+        </div>
+
+        {/* Puxador da gaveta */}
+        <div className="drawer-handle flex-shrink-0 w-2 self-stretch"
+          style={{
+            background: 'rgba(140,110,50,0.5)',
+            borderRight: '1px solid rgba(120,90,40,0.4)',
+            transition: 'background 0.2s, box-shadow 0.2s',
+          }}
         />
 
-        {/* Linhas de nervura horizontais */}
-        {isFolder && [20, 55, 90].map(top => (
-          <div key={top} className="codex-spine-line absolute left-0 right-0 h-px" style={{ top: `${top}%` }} />
-        ))}
-
-        {/* Textura de papel envelhecido */}
-        <div className="absolute inset-0 opacity-[0.03]"
-          style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 18px, rgba(255,255,255,0.5) 18px, rgba(255,255,255,0.5) 19px)' }}
-        />
-
-        <div className="relative z-10 p-4 flex flex-col gap-2">
-          {/* Ícone / Símbolo */}
-          <div className="flex items-start justify-between">
-            <div className="flex flex-col items-center">
-              {isFolder ? (
-                <>
-                  <BookOpen size={22} style={{ color: 'rgba(184,148,76,0.9)' }} strokeWidth={1.5} />
-                  <span className="codex-gilded text-[11px] font-bold mt-1 tracking-widest"
-                    style={{ fontFamily: "'Playfair Display', serif" }}>
-                    {roman}
-                  </span>
-                </>
-              ) : isMindmap ? (
-                <Map size={22} style={{ color: 'rgba(184,148,76,0.7)' }} strokeWidth={1.5} />
-              ) : (
-                <ScrollText size={22} style={{ color: 'rgba(184,148,76,0.7)' }} strokeWidth={1.5} />
-              )}
-            </div>
-
-            {/* Pin e indicadores */}
-            <div className="flex flex-col items-end gap-1">
-              {isPinned && (
-                <div className="w-1.5 h-1.5 rounded-full codex-breathe"
-                  style={{ background: 'rgba(184,148,76,0.9)' }} />
-              )}
-              {isOffline && (
-                <div className="w-1.5 h-1.5 rounded-full"
-                  style={{ background: 'rgba(100,200,100,0.7)' }} />
-              )}
-            </div>
+        {/* Conteúdo */}
+        <div className="flex-1 flex items-center px-3 py-2 gap-3">
+          <div className="flex-shrink-0">
+            {isFolder
+              ? <BookOpen size={18} style={{ color: 'rgba(180,145,65,0.8)' }} strokeWidth={1.5} />
+              : isMindmap
+              ? <Map size={18} style={{ color: 'rgba(180,145,65,0.7)' }} strokeWidth={1.5} />
+              : <FileText size={18} style={{ color: 'rgba(180,145,65,0.6)' }} strokeWidth={1.5} />
+            }
           </div>
 
-          {/* Divider ornamental */}
-          <div className="flex items-center gap-1 my-1">
-            <div className="h-px flex-1" style={{ background: 'rgba(184,148,76,0.2)' }} />
-            <div className="w-1 h-1 rotate-45" style={{ background: 'rgba(184,148,76,0.4)' }} />
-            <div className="h-px flex-1" style={{ background: 'rgba(184,148,76,0.2)' }} />
-          </div>
-
-          {/* Nome do arquivo/pasta */}
-          <div>
-            <p className="text-[13px] leading-snug"
+          <div className="flex-1 min-w-0">
+            <p className="truncate text-[14px] leading-tight"
               style={{
-                fontFamily: "'Playfair Display', serif",
-                color: 'rgba(230,210,170,0.95)',
+                color: isFolder ? 'rgba(230,205,155,0.95)' : 'rgba(200,185,150,0.85)',
                 fontWeight: isFolder ? 500 : 400,
-                letterSpacing: '0.01em',
+                fontStyle: isFolder ? 'normal' : 'italic',
               }}>
-              {displayName}
+              {file.name}
             </p>
             {file.modifiedTime && (
-              <p className="text-[10px] mt-1.5 tracking-wide"
-                style={{ color: 'rgba(184,148,76,0.45)', fontFamily: "'EB Garamond', serif" }}>
-                {new Date(file.modifiedTime).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase()}
+              <p className="text-[10px] mt-0.5 tracking-wider"
+                style={{ color: 'rgba(150,120,60,0.5)', fontVariant: 'small-caps' }}>
+                {new Date(file.modifiedTime).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
               </p>
             )}
           </div>
+
+          {/* Indicadores */}
+          <div className="flex-shrink-0 flex flex-col items-end gap-1">
+            {isPinned && <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'rgba(180,145,65,0.9)' }} />}
+            {isOffline && <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'rgba(80,180,100,0.8)' }} />}
+            {isFolder && <ChevronRight size={12} style={{ color: 'rgba(150,120,60,0.4)' }} />}
+          </div>
         </div>
 
-        {/* Expanding overlay */}
         {isExpanding && (
-          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 rounded-full animate-spin"
-              style={{ borderColor: 'rgba(184,148,76,0.8)', borderTopColor: 'transparent' }} />
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+            <div className="w-5 h-5 border-2 rounded-full animate-spin"
+              style={{ borderColor: 'rgba(180,145,65,0.8)', borderTopColor: 'transparent' }} />
           </div>
         )}
       </button>
 
-      {/* Menu contextual */}
-      <div ref={menuRef} className="absolute top-2 right-2 z-20">
+      {/* Menu */}
+      <div ref={menuRef} className="absolute right-2 top-1/2 -translate-y-1/2 z-20">
         <button
           onClick={(e) => { e.stopPropagation(); setActiveMenu(isActiveMenu ? null : file.id); }}
           className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ color: 'rgba(184,148,76,0.7)', background: 'rgba(0,0,0,0.5)' }}
+          style={{ color: 'rgba(180,145,65,0.6)', background: 'rgba(0,0,0,0.4)' }}
         >
-          <MoreVertical size={14} />
+          <MoreVertical size={13} />
         </button>
 
         {isActiveMenu && (
-          <div className="absolute right-0 top-7 w-44 rounded-sm overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+          <div className="absolute right-0 top-6 w-44 z-50 animate-in fade-in duration-150"
             style={{
-              background: '#0f0c09',
-              border: '1px solid rgba(184,148,76,0.3)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.8)',
-              fontFamily: "'EB Garamond', serif",
+              background: '#110e08',
+              border: '1px solid rgba(140,105,45,0.35)',
+              borderRadius: '2px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.9)',
+              fontFamily: "'Crimson Pro', serif",
             }}>
             {[
               { icon: <Pin size={12} />, label: isPinned ? 'Desafixar' : 'Fixar', action: () => onTogglePin(file) },
@@ -214,13 +203,11 @@ export const FileItem: React.FC<FileItemProps> = ({
               { icon: <Share2 size={12} />, label: 'Compartilhar', action: () => onShare(file) },
               { icon: <Trash2 size={12} />, label: 'Excluir', action: () => onDelete(file), danger: true },
             ].map(({ icon, label, action, danger }: any) => (
-              <button key={label} onClick={(e) => { e.stopPropagation(); action(); setActiveMenu(null); }}
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-[12px] transition-colors"
-                style={{
-                  color: danger ? 'rgba(220,100,100,0.9)' : 'rgba(210,190,150,0.85)',
-                  background: 'transparent',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(184,148,76,0.08)')}
+              <button key={label}
+                onClick={(e) => { e.stopPropagation(); action(); setActiveMenu(null); }}
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] transition-colors"
+                style={{ color: danger ? 'rgba(210,90,90,0.9)' : 'rgba(200,175,120,0.85)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(140,105,45,0.1)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
                 {icon}{label}
