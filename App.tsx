@@ -10,7 +10,7 @@ import { Dashboard } from './components/Dashboard';
 import { OperationalArchive } from './components/OperationalArchive';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CookieConsent } from './components/CookieConsent';
-import { StorageMode } from './types';
+import { StorageMode, MIME_TYPES } from './types';
 import { Loader2, Wifi, Sparkles, X, ScanLine, Maximize, Monitor } from 'lucide-react';
 import ReauthToast from './components/ReauthToast';
 import { LegalModal, LegalTab } from './components/modals/LegalModal';
@@ -242,7 +242,22 @@ const AppContent = () => {
     if (fileManager.activeTab === 'dashboard') return <Dashboard userName={user?.displayName} onOpenFile={fileManager.handleOpenFile} onUploadLocal={(e) => { const f = e.target.files?.[0]; if (f) fileManager.handleCreateFileFromBlob(f, f.name, f.type); }} onCreateMindMap={() => fileManager.handleCreateMindMap()} onCreateDocument={() => fileManager.handleCreateDocument()} onCreateFileFromBlob={fileManager.handleCreateFileFromBlob} onChangeView={(view) => fileManager.setActiveTab(view)} onToggleMenu={() => setIsSidebarOpen(true)} storageMode={storageMode} onToggleStorageMode={setStorageMode} onLogin={handleLogin} onOpenLocalFolder={handleOpenLocalFolder} savedLocalDirHandle={savedLocalDirHandle} onReconnectLocalFolder={handleReconnectLocalFolder} syncStrategy={syncStrategy} onToggleSyncStrategy={handleToggleSyncStrategy} />;
     
     if (fileManager.activeTab === 'operational-archive') {
-        return <OperationalArchive accessToken={accessToken || ''} uid={user?.uid || 'guest'} onToggleMenu={() => setIsSidebarOpen(true)} />;
+        const openDocxFiles = fileManager.openFiles.filter(
+            f => f.name.endsWith('.docx') || f.mimeType === MIME_TYPES.DOCX || f.mimeType === MIME_TYPES.GOOGLE_DOC
+        );
+        return (
+            <OperationalArchive
+                accessToken={accessToken || ''}
+                uid={user?.uid || 'guest'}
+                onToggleMenu={() => setIsSidebarOpen(true)}
+                openDocxFiles={openDocxFiles}
+                onInjectToDocx={(fileId, markdown) => {
+                    window.dispatchEvent(new CustomEvent('inject-markdown-to-doc', {
+                        detail: { fileId, markdown }
+                    }));
+                }}
+            />
+        );
     }
 
     if (fileManager.activeTab === 'browser' || fileManager.activeTab === 'mindmaps' || fileManager.activeTab === 'offline' || fileManager.activeTab === 'local-fs' || fileManager.activeTab === 'shared') {
