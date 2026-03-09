@@ -21,7 +21,12 @@ interface Props {
   storageKey?: string;
 }
 
-const MessageItem: React.FC<{ m: ChatMessage }> = ({ m }) => {
+interface MessageItemProps {
+  m: ChatMessage;
+  onOptionSelect: (option: string) => void;
+}
+
+const MessageItem: React.FC<MessageItemProps> = ({ m, onOptionSelect }) => {
     const [copied, setCopied] = useState(false);
 
     const onCopy = () => {
@@ -38,7 +43,10 @@ const MessageItem: React.FC<{ m: ChatMessage }> = ({ m }) => {
           </div>
           <div className={`max-w-[85%] rounded-2xl p-3 text-sm leading-relaxed shadow-lg ${m.role === 'user' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-surface/90 border border-border/50 text-text rounded-tl-none backdrop-blur-md'}`}>
               <div className="select-text selection:bg-brand/30 selection:text-white">
-                {m.role === 'model' ? <CustomMarkdown content={m.text || ''} /> : <div className="whitespace-pre-wrap">{m.text}</div>}
+                {m.role === 'model'
+                  ? <CustomMarkdown content={m.text || ''} onOptionSelect={onOptionSelect} />
+                  : <div className="whitespace-pre-wrap">{m.text}</div>
+                }
               </div>
               
               {m.role === 'model' && m.text && (
@@ -62,7 +70,6 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
-  // Carrega histórico persistido na montagem
   useEffect(() => {
       if (!storageKey) {
           setIsLoadingHistory(false);
@@ -77,14 +84,12 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
       });
   }, [storageKey]);
 
-  // Persiste histórico a cada mudança (exceto durante carregamento inicial)
   useEffect(() => {
       if (!storageKey || isLoadingHistory) return;
       if (messages.length === 0) {
           del(storageKey).catch(() => {});
           return;
       }
-      // Limita a 100 mensagens para não estourar o IDB
       const toStore = messages.slice(-100);
       set(storageKey, toStore).catch(() => {});
   }, [messages, storageKey, isLoadingHistory]);
@@ -138,7 +143,6 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
       setMessages(prev => [...prev, { role: 'user', text: "Gere um Briefing Tático deste documento, considerando a estrutura da Lente Semântica se disponível." }]);
       
       try {
-          // Combina texto básico com markdown da lente para o briefing
           const semanticContent = Object.values(lensData).map((d: SemanticLensData) => d.markdown).join("\n\n");
           const combinedContext = semanticContent || contextText;
           const summary = await generateDocumentBriefing(combinedContext);
@@ -163,7 +167,6 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
         let retrievalContext = "";
         let mode = "TEXT-MATCH";
 
-        // 1. INTENT CHECK: Page Specific Request
         const pageIntent = extractPageRangeFromQuery(userMessage);
         
         if (pageIntent) {
@@ -174,7 +177,6 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
             const max = Math.min(numPages || 1000, Math.max(start, end));
 
             for (let i = min; i <= max; i++) {
-                // PRIORIDADE: Markdown da Lente (Semântico) -> Depois OCR Words
                 if (lensData[i]?.markdown) {
                     pagesContent.push(`[ESTRUTURA SEMÂNTICA PÁGINA ${i}]:\n${lensData[i].markdown}`);
                 } else if (ocrMap && ocrMap[i]) {
@@ -188,7 +190,6 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
             }
         }
 
-        // 2. Semantic Search (Vector RAG)
         if (!retrievalContext && fileId && isRagActive) {
             try {
                 const results = await semanticSearch(fileId, userMessage);
@@ -201,13 +202,11 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
             }
         }
 
-        // 3. Fallback: Context Text + Semantic Lens Summary
         if (!retrievalContext) {
             const hasSemantic = Object.keys(lensData).length > 0;
             if (hasSemantic) {
-                // Injeta um resumo do que a lente capturou se não houver contexto específico
                 const semanticSample = Object.entries(lensData)
-                    .slice(0, 5) // Pega as primeiras 5 páginas processadas como amostra
+                    .slice(0, 5)
                     .map(([p, d]) => `[Pág ${p} - Estrutura]: ${(d as SemanticLensData).markdown.slice(0, 500)}...`)
                     .join("\n\n");
                 retrievalContext = `${contextText}\n\n--- DADOS ADICIONAIS DA LENTE SEMÂNTICA ---\n${semanticSample}`;
@@ -225,7 +224,7 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
             assistantText += chunk;
             setMessages(prev => {
                 const next = [...prev];
-                next[next.length - 1].text = assistantText;
+                next[next.length - 1] = { ...next[next.length - 1], text: assistantText };
                 return next;
             });
         }
@@ -235,6 +234,11 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
         setIsLoading(false);
     }
   };
+
+  // Callback estável para opções — evita re-render desnecessário
+  const handleOptionSelect = React.useCallback((option: string) => {
+    handleSend(option);
+  }, [isLoading, contextText, messages, fileId, isRagActive, numPages]);
 
   useEffect(() => {
     if (chatRequest && setChatRequest) {
@@ -316,7 +320,9 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
                   )}
               </div>
           )}
-          {messages.map((m, i) => <MessageItem key={i} m={m} />)}
+          {messages.map((m, i) => (
+            <MessageItem key={i} m={m} onOptionSelect={handleOptionSelect} />
+          ))}
           {isLoading && messages[messages.length-1]?.role === 'user' && (
               <div className="flex gap-3 animate-in fade-in">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border bg-brand/10 border-brand/30 text-brand backdrop-blur-sm">
