@@ -158,120 +158,117 @@ export const FileItem: React.FC<FileItemProps> = ({
     }
   `;
 
-  // ── ARQUIVO: card vertical com thumbnail — estilo original ────────────────
+  // ── ARQUIVO: card vertical — estilo clássico (preview grande + info block abaixo) ──
+  const fileTypeLabel = isMindmap ? 'MINDMAP'
+    : file.mimeType?.includes('document') || file.name.endsWith('.docx') ? 'DOCUMENT'
+    : file.name.toLowerCase().endsWith('.pdf') || file.mimeType?.includes('pdf') ? 'PDF'
+    : file.mimeType?.split('/')[1]?.toUpperCase().slice(0, 8) || 'FILE';
+
   if (!isFolder) {
     return (
       <div className="relative group">
         <style>{`
-          .file-card-noir {
-            transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease;
+          .file-card-classic {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
           }
-          .file-card-noir:hover {
-            transform: translateY(-5px) scale(1.015);
-            box-shadow: 0 18px 45px rgba(0,0,0,0.92), 0 0 0 1px rgba(255,255,255,0.07) !important;
-          }
-          .brand-reveal {
-            opacity: 0;
-            transform: scaleX(0.5);
-            transition: opacity 0.3s ease, transform 0.35s ease;
-          }
-          .file-card-noir:hover .brand-reveal {
-            opacity: 1;
-            transform: scaleX(1);
+          .file-card-classic:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.85) !important;
           }
         `}</style>
 
-        <button
-          onClick={() => onSelect(file)}
-          className="file-card-noir w-full text-left overflow-hidden"
+        <div
+          className="file-card-classic overflow-hidden"
           style={{
-            background: '#0a0a0d',
-            border: '1px solid rgba(255,255,255,0.07)',
-            borderRadius: '3px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.85)',
+            background: '#111',
+            border: '1px solid rgba(255,255,255,0.09)',
+            borderRadius: '6px',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.6)',
             position: 'relative',
-            minHeight: '180px',
           }}
         >
-          {/* Linha brand no topo — revela no hover */}
-          <div className="brand-reveal absolute top-0 left-0 right-0 h-[2px] z-10"
-            style={{ background: `linear-gradient(90deg, transparent 0%, ${brandColor} 50%, transparent 100%)` }}
-          />
-
-          {/* Preview / thumbnail — ocupa quase todo o card */}
-          <div className="relative overflow-hidden" style={{ height: '155px', background: '#060609' }}>
-            {file.thumbnailLink ? (
-              <>
-                <img src={file.thumbnailLink} alt="" loading="lazy"
+          {/* Preview — clicável, ocupa a maior parte do card */}
+          <button
+            onClick={() => onSelect(file)}
+            className="w-full text-left block"
+            style={{ padding: 0 }}
+          >
+            <div className="relative overflow-hidden" style={{ height: '240px', background: '#1a1a1a' }}>
+              {file.thumbnailLink ? (
+                <img
+                  src={file.thumbnailLink}
+                  alt=""
+                  loading="lazy"
                   className="w-full h-full object-cover"
-                  style={{ opacity: 0.92, filter: 'contrast(1.03) brightness(0.95)' }}
+                  style={{ opacity: 0.95 }}
                 />
-                <div className="absolute inset-0"
-                  style={{ background: 'radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.4) 100%)' }}
-                />
-              </>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center"
-                style={{ background: 'linear-gradient(140deg, #0a0a0f 0%, #111118 100%)' }}>
-                <div className="flex flex-col items-center gap-2" style={{ opacity: 0.2 }}>
-                  {isMindmap
-                    ? <Map size={36} strokeWidth={0.8} style={{ color: '#fff' }} />
-                    : <FileText size={36} strokeWidth={0.8} style={{ color: '#fff' }} />}
+              ) : (
+                <div className="w-full h-full flex items-center justify-center"
+                  style={{ background: '#1c1c1c' }}>
+                  <div style={{ opacity: 0.15 }}>
+                    {isMindmap
+                      ? <Map size={40} strokeWidth={0.8} style={{ color: '#fff' }} />
+                      : <FileText size={40} strokeWidth={0.8} style={{ color: '#fff' }} />}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Gradiente de fade no rodapé da preview — funde com o info abaixo */}
-            <div className="absolute bottom-0 left-0 right-0 h-14"
-              style={{ background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.88))' }} />
+              {/* Offline badge — canto superior esquerdo, checkmark verde */}
+              {isOffline && (
+                <div className="absolute top-2 left-2 z-20"
+                  title="Disponível offline"
+                  style={{ filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.7))' }}>
+                  <OfflineCheck size={22} />
+                </div>
+              )}
 
-            {/* Nome e data sobrepostos no rodapé da preview */}
-            <div className="absolute bottom-0 left-0 right-0 px-2.5 pb-2 z-10">
-              <p className="truncate text-[12.5px] font-medium leading-snug"
-                style={{ color: 'rgba(255,255,255,0.92)', fontFamily: "'Inter', system-ui, sans-serif" }}>
-                {displayName}
-              </p>
-              {formattedDate && (
-                <p className="text-[10px] mt-0.5 tracking-wide"
-                  style={{ color: 'rgba(255,255,255,0.38)', fontFamily: "'Inter', system-ui, sans-serif" }}>
-                  {formattedDate}
-                </p>
+              {isPinned && (
+                <div className="absolute top-2 right-2 z-20 w-2 h-2 rounded-full"
+                  style={{ background: brandColor, boxShadow: `0 0 6px ${brandColor}` }} />
               )}
             </div>
+          </button>
 
-            {/* Ícone offline — checkmark verde, canto superior direito */}
-            {isOffline && (
-              <div className="absolute top-2 right-2 z-20"
-                title="Disponível offline"
-                style={{ filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.7))' }}>
-                <OfflineCheck size={20} />
-              </div>
-            )}
+          {/* Info block — fora da imagem, abaixo */}
+          <div className="flex items-start justify-between px-2.5 pt-2 pb-2.5 gap-1"
+            style={{ background: '#111' }}>
 
-            {isPinned && (
-              <div className="absolute top-2 left-2 z-20 w-2 h-2 rounded-full"
-                style={{ background: brandColor, boxShadow: `0 0 6px ${brandColor}` }} />
-            )}
+            <button
+              onClick={() => onSelect(file)}
+              className="flex-1 min-w-0 text-left"
+            >
+              <p className="truncate text-[13px] font-medium leading-snug"
+                style={{ color: 'rgba(255,255,255,0.90)', fontFamily: "'Inter', system-ui, sans-serif" }}>
+                {displayName}
+              </p>
+              <p className="text-[10px] mt-0.5 tracking-wider font-medium"
+                style={{ color: 'rgba(255,255,255,0.30)', fontFamily: "'Inter', system-ui, sans-serif", letterSpacing: '0.08em' }}>
+                {fileTypeLabel}
+              </p>
+            </button>
+
+            {/* ··· sempre visível */}
+            <div ref={menuRef} className="flex-shrink-0 relative mt-0.5">
+              <button
+                onClick={(e) => { e.stopPropagation(); setActiveMenu(isActiveMenu ? null : file.id); }}
+                className="p-1 rounded transition-colors"
+                style={{ color: 'rgba(255,255,255,0.45)' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.85)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.45)')}>
+                <MoreVertical size={15} />
+              </button>
+              {isActiveMenu && (
+                <ContextMenu file={file} isPinned={isPinned} brandColor={brandColor}
+                  onTogglePin={onTogglePin} onRename={onRename} onMove={onMove}
+                  onShare={onShare} onDelete={onDelete} setActiveMenu={setActiveMenu} />
+              )}
+            </div>
           </div>
 
           {isExpanding && (
-            <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/70 flex items-center justify-center rounded-[6px]">
               <div className="w-5 h-5 border border-white/25 border-t-transparent rounded-full animate-spin" />
             </div>
-          )}
-        </button>
-
-        <div ref={menuRef} className="absolute top-7 right-2 z-20">
-          <button
-            onClick={(e) => { e.stopPropagation(); setActiveMenu(isActiveMenu ? null : file.id); }}
-            className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-            style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(0,0,0,0.65)' }}>
-            <MoreVertical size={13} />
-          </button>
-          {isActiveMenu && (
-            <ContextMenu file={file} isPinned={isPinned} brandColor={brandColor}
-              onTogglePin={onTogglePin} onRename={onRename} onMove={onMove}
-              onShare={onShare} onDelete={onDelete} setActiveMenu={setActiveMenu} />
           )}
         </div>
       </div>
