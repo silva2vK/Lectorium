@@ -1,239 +1,234 @@
+/**
+ * FileItem — Variante 1: CODEX OBSCURA
+ * Estética: Biblioteca vitoriana. Volumes encadernados em couro escuro.
+ * Cada pasta é um tomo numerado em romano, com nervuras douradas na lombada.
+ * Arquivos são manuscritos selados com lacre.
+ * Fonte: Playfair Display + EB Garamond
+ */
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { FolderOpen, MoreVertical, Pin, PinOff, Edit2, FolderInput, Share2, Trash2, FilePlus, CheckCircle, Workflow, BookOpen, FileText, Package, Image as ImageIcon, ChevronRight } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { MoreVertical, Pin, Trash2, Share2, FolderInput, Edit3, Download, BookOpen, ScrollText, FileText, Map } from 'lucide-react';
 import { DriveFile, MIME_TYPES } from '../../types';
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
-import JSZip from 'jszip';
 
-// Configuração do Worker - Importa configuração centralizada
-import '../../utils/pdfjsConfig';
-
-// --- Thumbnail Generator Helper ---
-async function generateLocalThumbnail(file: DriveFile): Promise<string | null> {
-    if (!file.blob) return null;
-    try {
-        if (file.mimeType === MIME_TYPES.PDF) {
-            const arrayBuffer = await file.blob.arrayBuffer();
-            const loadingTask = getDocument({ data: arrayBuffer });
-            const pdf = await loadingTask.promise;
-            const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: 0.5 }); 
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
-                await page.render({ canvasContext: ctx, viewport }).promise;
-                return canvas.toDataURL('image/jpeg', 0.8);
-            }
-        }
-        if (file.mimeType === MIME_TYPES.DOCX) {
-            const zip = await JSZip.loadAsync(file.blob);
-            const thumbFile = zip.file("docProps/thumbnail.jpeg") || zip.file("docProps/thumbnail.emf");
-            if (thumbFile) {
-                const blob = await thumbFile.async("blob");
-                return URL.createObjectURL(blob);
-            }
-        }
-    } catch (e) { console.warn("Falha ao gerar thumbnail local para", file.name, e); }
-    return null;
+interface FileItemProps {
+  file: DriveFile;
+  onSelect: (file: DriveFile) => void;
+  onTogglePin: (file: DriveFile) => void;
+  onDelete: (file: DriveFile) => void;
+  onShare: (file: DriveFile) => void;
+  onMove: (file: DriveFile) => void;
+  onRename: (file: DriveFile) => void;
+  isOffline?: boolean;
+  isPinned?: boolean;
+  isActiveMenu?: boolean;
+  setActiveMenu: (id: string | null) => void;
+  isLocalMode?: boolean;
+  accessToken?: string;
+  isExpanding?: boolean;
+  childCount?: number;
 }
 
-export interface FileItemProps {
-    file: DriveFile;
-    onSelect: (file: DriveFile, background?: boolean) => void;
-    onTogglePin: (file: DriveFile) => void;
-    onDelete: (file: DriveFile) => void;
-    onShare: (file: DriveFile) => void;
-    onMove: (file: DriveFile) => void;
-    onRename: (file: DriveFile) => void;
-    isOffline: boolean;
-    isPinned: boolean;
-    isActiveMenu: boolean;
-    setActiveMenu: (id: string | null) => void;
-    isLocalMode: boolean;
-    accessToken?: string;
-    isExpanding?: boolean;
-    childCount?: number;
+const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV'];
+
+function toRoman(n: number): string {
+  return ROMAN[(n - 1) % ROMAN.length] || 'I';
 }
 
-export const FileItem = React.memo(({ file, onSelect, onTogglePin, onDelete, onShare, onMove, onRename, isOffline, isPinned, isActiveMenu, setActiveMenu, isLocalMode, accessToken, isExpanding, childCount }: FileItemProps) => {
-    const isFolder = file.mimeType === MIME_TYPES.FOLDER;
-    const [imgError, setImgError] = useState(false);
-    const [localThumbnail, setLocalThumbnail] = useState<string | null>(null);
+// Pseudo-determinístico: índice baseado no id da pasta
+function folderIndex(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
+  return (h % 15) + 1;
+}
 
-    useEffect(() => {
-        let active = true;
-        let generatedUrl: string | null = null;
-        setImgError(false);
-        const loadThumbnail = async () => {
-            if (file.blob && file.mimeType.startsWith('image/')) {
-                generatedUrl = URL.createObjectURL(file.blob);
-                if (active) { setLocalThumbnail(generatedUrl); setImgError(false); }
-                return;
-            }
-            if (file.blob && (file.mimeType === MIME_TYPES.PDF || file.mimeType === MIME_TYPES.DOCX)) {
-                const url = await generateLocalThumbnail(file);
-                if (active && url) { generatedUrl = url; setLocalThumbnail(url); setImgError(false); }
-            }
-        };
-        if (file.blob || !file.thumbnailLink) loadThumbnail(); else setLocalThumbnail(null);
-        return () => { active = false; if (generatedUrl && !generatedUrl.startsWith('data:')) URL.revokeObjectURL(generatedUrl); };
-    }, [file.id, file.blob, file.mimeType, file.thumbnailLink]);
+const SPINE_COLORS = [
+  '#1a0f0a','#0a1018','#0d1a0e','#1a0a14','#100a1a',
+  '#1a1208','#0a1414','#180e0a','#0e0a18','#141008',
+];
 
-    const thumbnailSrc = useMemo(() => {
-        if (localThumbnail) return localThumbnail;
-        if (!file.thumbnailLink) return null;
-        let url = file.thumbnailLink;
-        if (url.includes('googleusercontent.com') || url.includes('=s')) url = url.replace(/=s\d+/, '=s400');
-        if (accessToken && !isLocalMode) {
-            const separator = url.includes('?') ? '&' : '?';
-            url = `${url}${separator}access_token=${accessToken}`;
-        }
-        return url;
-    }, [file.thumbnailLink, localThumbnail, accessToken, isLocalMode]);
-    
-    const getIcon = (f: DriveFile, size: number = 40) => {
-      if (f.name.endsWith('.mindmap')) return <Workflow size={size} className="text-purple-400" />;
-      if (f.mimeType === MIME_TYPES.PDF) return <BookOpen size={size} className="text-red-400" />;
-      if (f.mimeType === MIME_TYPES.DOCX || f.mimeType === MIME_TYPES.GOOGLE_DOC) return <FileText size={size} className="text-blue-400" />;
-      if (f.name.endsWith('.lect')) return <Package size={size} className="text-orange-400" />;
-      if (f.name.endsWith('.cbz') || f.name.endsWith('.cbr')) return <ImageIcon size={size} className="text-pink-400" />;
-      if (f.mimeType.startsWith('image/')) return <ImageIcon size={size} className="text-green-400" />;
-      return <FileText size={size} className="text-text-sec" />;
+function spineColor(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 17 + id.charCodeAt(i)) & 0xff;
+  return SPINE_COLORS[h % SPINE_COLORS.length];
+}
+
+export const FileItem: React.FC<FileItemProps> = ({
+  file, onSelect, onTogglePin, onDelete, onShare, onMove, onRename,
+  isOffline, isPinned, isActiveMenu, setActiveMenu, isLocalMode, isExpanding
+}) => {
+  const isFolder = file.mimeType === MIME_TYPES.FOLDER;
+  const isMindmap = file.name.endsWith('.mindmap') || file.mimeType === MIME_TYPES.MINDMAP;
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [hovered, setHovered] = useState(false);
+
+  useEffect(() => {
+    if (!isActiveMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setActiveMenu(null);
     };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isActiveMenu, setActiveMenu]);
 
-    // --- RENDERIZADOR DE PASTA (ESTÉTICA XBOX/GITHUB) ---
-    if (isFolder) {
-        const countLabel = childCount !== undefined
-            ? `${childCount} ${childCount === 1 ? 'item' : 'itens'}`
-            : null;
+  const roman = toRoman(folderIndex(file.id));
+  const bgColor = spineColor(file.id);
 
-        return (
-            <div 
-                onClick={() => onSelect(file)} 
-                className="group relative h-32 md:h-40 w-full bg-[#0d1117] border border-[#30363d] rounded-2xl p-4 flex flex-col justify-between cursor-pointer transition-all duration-300 hover:border-brand/50 hover:-translate-y-1 active:scale-95 overflow-hidden"
-                style={isExpanding ? { viewTransitionName: 'hero-expand', zIndex: 50 } : undefined}
-            >
-                {/* Background Grid Pattern */}
-                <div 
-                    className="absolute inset-0 opacity-10 pointer-events-none group-hover:opacity-20 transition-opacity" 
-                    style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '16px 16px' }}
-                />
-                
-                {/* Top Bar (Tab) */}
-                <div className="flex justify-between items-start relative z-10">
-                    <div className="flex items-center gap-2">
-                        <div className="p-1.5 bg-[#161b22] border border-[#30363d] rounded-lg text-brand">
-                            <FolderOpen size={16} />
-                        </div>
-                        {isPinned ? (
-                            <div className="text-brand bg-[#161b22] p-1 rounded border border-brand/30" title="Pasta Fixada">
-                                <Pin size={10} fill="currentColor" />
-                            </div>
-                        ) : countLabel ? (
-                            <span className="text-[10px] font-mono font-bold text-[#8b949e] uppercase tracking-wider bg-[#161b22] px-1.5 py-0.5 rounded border border-[#30363d]">
-                                {countLabel}
-                            </span>
-                        ) : null}
-                    </div>
-                    {!isLocalMode && (
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); setActiveMenu(isActiveMenu ? null : file.id); }} 
-                            className="text-[#8b949e] hover:text-white p-1 hover:bg-[#21262d] rounded transition-colors"
-                        >
-                            <MoreVertical size={16} />
-                        </button>
-                    )}
-                </div>
+  // Truncar nome elegantemente
+  const displayName = file.name.length > 28 ? file.name.slice(0, 26) + '…' : file.name;
 
-                {/* Big Icon Watermark */}
-                <div className="absolute right-[-10px] bottom-[-10px] text-[#21262d] group-hover:text-brand/10 transition-colors duration-300 rotate-[-10deg] pointer-events-none">
-                    <FolderOpen size={100} strokeWidth={1} />
-                </div>
+  return (
+    <div
+      className="relative group"
+      style={{ fontFamily: "'EB Garamond', 'Palatino Linotype', Georgia, serif" }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Playfair+Display:wght@400;500;700&display=swap');
+        .codex-card { transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease; }
+        .codex-card:hover { transform: translateY(-4px) scale(1.01); }
+        .codex-spine-line { background: linear-gradient(90deg, transparent, rgba(184,148,76,0.6), transparent); }
+        .codex-gilded { background: linear-gradient(135deg, #b8944c 0%, #e8c97a 40%, #b8944c 60%, #f0d898 80%, #b8944c 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        @keyframes codex-breathe { 0%,100%{opacity:0.6} 50%{opacity:1} }
+        .codex-breathe { animation: codex-breathe 3s ease-in-out infinite; }
+      `}</style>
 
-                {/* Label Area */}
-                <div className="relative z-10 mt-auto">
-                    <h3 className="font-bold text-[#e6edf3] text-sm md:text-base leading-tight line-clamp-2 mb-1 group-hover:text-brand transition-colors">
-                        {file.name}
-                    </h3>
-                    <div className="flex items-center gap-1 text-[10px] text-[#8b949e]">
-                       <span>Acessar</span> <ChevronRight size={10} />
-                    </div>
-                </div>
+      {/* Card principal */}
+      <button
+        onClick={() => onSelect(file)}
+        className="codex-card w-full text-left relative overflow-hidden rounded-sm"
+        style={{
+          background: `linear-gradient(160deg, ${bgColor} 0%, #0d0b09 100%)`,
+          border: '1px solid rgba(184,148,76,0.25)',
+          boxShadow: hovered
+            ? '0 12px 40px rgba(0,0,0,0.8), 0 0 20px rgba(184,148,76,0.12), inset 0 1px 0 rgba(184,148,76,0.15)'
+            : '0 4px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(184,148,76,0.08)',
+          minHeight: isFolder ? '160px' : '140px',
+        }}
+      >
+        {/* Nervura esquerda (lombada) */}
+        <div className="absolute left-0 top-0 bottom-0 w-[3px]"
+          style={{ background: 'linear-gradient(180deg, rgba(184,148,76,0.8) 0%, rgba(184,148,76,0.3) 50%, rgba(184,148,76,0.8) 100%)' }}
+        />
 
-                {/* Menu Dropdown */}
-                {isActiveMenu && !isLocalMode && (
-                    <div className="absolute top-10 right-2 w-48 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden z-30 animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => onTogglePin(file)} className="w-full text-left px-4 py-3 hover:bg-[#21262d] text-xs flex items-center gap-2 text-[#c9d1d9]">
-                            {isPinned ? <><PinOff size={14} /> Desafixar</> : <><Pin size={14} /> Fixar no Topo</>}
-                        </button>
-                        <button onClick={() => onRename(file)} className="w-full text-left px-4 py-3 hover:bg-[#21262d] text-xs flex items-center gap-2 text-[#c9d1d9]"><Edit2 size={14} /> Renomear</button>
-                        <button onClick={() => onMove(file)} className="w-full text-left px-4 py-3 hover:bg-[#21262d] text-xs flex items-center gap-2 text-[#c9d1d9]"><FolderInput size={14} /> Mover para...</button>
-                        <button onClick={() => onShare(file)} className="w-full text-left px-4 py-3 hover:bg-[#21262d] text-xs flex items-center gap-2 text-[#c9d1d9]"><Share2 size={14} /> Compartilhar</button>
-                        <button onClick={() => onDelete(file)} className="w-full text-left px-4 py-3 hover:bg-red-900/20 text-red-400 text-xs flex items-center gap-2 border-t border-[#30363d]"><Trash2 size={14} /> Excluir</button>
-                    </div>
-                )}
-            </div>
-        );
-    }
+        {/* Linhas de nervura horizontais */}
+        {isFolder && [20, 55, 90].map(top => (
+          <div key={top} className="codex-spine-line absolute left-0 right-0 h-px" style={{ top: `${top}%` }} />
+        ))}
 
-    // --- RENDERIZADOR DE ARQUIVO ---
-    return (
-        <div 
-            onClick={() => onSelect(file)} 
-            className="group relative bg-surface p-3 rounded-2xl border border-border hover:border-brand/50 transition-all cursor-pointer flex flex-col h-full active:scale-95"
-            style={isExpanding ? { viewTransitionName: 'hero-expand', zIndex: 50, contain: 'layout' } : undefined}
-        >
-            <div className="w-full aspect-[3/4] bg-black/20 rounded-xl mb-3 relative flex items-center justify-center overflow-hidden border border-white/5">
-                {isPinned && <div className="absolute top-2 left-2 text-brand bg-bg/80 p-1.5 rounded-full z-10 border border-brand/20"><Pin size={10} fill="currentColor"/></div>}
-                {isOffline && !isPinned && !isLocalMode && <div className="absolute top-2 right-2 text-green-500 z-10 bg-black/50 rounded-full p-1"><CheckCircle size={12}/></div>}
-                
-                {thumbnailSrc && !imgError ? (
-                    <img 
-                        src={thumbnailSrc} 
-                        alt={file.name} 
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-90 group-hover:opacity-100" 
-                        onError={() => setImgError(true)} 
-                        loading="lazy" 
-                        referrerPolicy="no-referrer" 
-                        crossOrigin="anonymous" 
-                    />
-                ) : (
-                    <div className="transition-transform duration-300 group-hover:scale-110 opacity-70 group-hover:opacity-100">
-                        {getIcon(file, 48)}
-                    </div>
-                )}
-            </div>
-            
-            <div className="flex items-start justify-between gap-2 mt-auto">
-                <div className="min-w-0 flex-1">
-                    <h3 className="font-medium truncate text-text text-xs mb-0.5 group-hover:text-brand transition-colors">{file.name}</h3>
-                    <p className="text-[9px] text-text-sec uppercase font-bold opacity-60 flex items-center gap-1">
-                        {file.mimeType.split('/').pop()?.split('.').pop() || 'Arquivo'}
-                    </p>
-                </div>
-                {!isLocalMode && (
-                    <button onClick={(e) => { e.stopPropagation(); setActiveMenu(isActiveMenu ? null : file.id); }} className="p-1 text-text-sec hover:text-text hover:bg-white/10 rounded transition-colors">
-                        <MoreVertical size={14} />
-                    </button>
-                )}
+        {/* Textura de papel envelhecido */}
+        <div className="absolute inset-0 opacity-[0.03]"
+          style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 18px, rgba(255,255,255,0.5) 18px, rgba(255,255,255,0.5) 19px)' }}
+        />
+
+        <div className="relative z-10 p-4 flex flex-col gap-2">
+          {/* Ícone / Símbolo */}
+          <div className="flex items-start justify-between">
+            <div className="flex flex-col items-center">
+              {isFolder ? (
+                <>
+                  <BookOpen size={22} style={{ color: 'rgba(184,148,76,0.9)' }} strokeWidth={1.5} />
+                  <span className="codex-gilded text-[11px] font-bold mt-1 tracking-widest"
+                    style={{ fontFamily: "'Playfair Display', serif" }}>
+                    {roman}
+                  </span>
+                </>
+              ) : isMindmap ? (
+                <Map size={22} style={{ color: 'rgba(184,148,76,0.7)' }} strokeWidth={1.5} />
+              ) : (
+                <ScrollText size={22} style={{ color: 'rgba(184,148,76,0.7)' }} strokeWidth={1.5} />
+              )}
             </div>
 
-            {isActiveMenu && !isLocalMode && (
-                <div className="absolute bottom-10 right-2 w-48 bg-[#161b22] border border-[#30363d] rounded-xl overflow-hidden z-30 animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => { onSelect(file, true); setActiveMenu(null); }} className="w-full text-left px-4 py-3 hover:bg-[#21262d] text-xs flex items-center gap-2 text-[#c9d1d9]">
-                        <FilePlus size={14} /> Abrir em 2º Plano
-                    </button>
-                    <button onClick={() => onTogglePin(file)} className="w-full text-left px-4 py-3 hover:bg-[#21262d] text-xs flex items-center gap-2 text-[#c9d1d9]">
-                        {isPinned ? <><PinOff size={14} /> Soltar do disco</> : <><Pin size={14} /> Manter Offline</>}
-                    </button>
-                    <button onClick={() => onRename(file)} className="w-full text-left px-4 py-3 hover:bg-[#21262d] text-xs flex items-center gap-2 text-[#c9d1d9]"><Edit2 size={14} /> Renomear</button>
-                    <button onClick={() => onMove(file)} className="w-full text-left px-4 py-3 hover:bg-[#21262d] text-xs flex items-center gap-2 text-[#c9d1d9]"><FolderInput size={14} /> Mover para...</button>
-                    <button onClick={() => onShare(file)} className="w-full text-left px-4 py-3 hover:bg-[#21262d] text-xs flex items-center gap-2 text-[#c9d1d9]"><Share2 size={14} /> Compartilhar</button>
-                    <button onClick={() => onDelete(file)} className="w-full text-left px-4 py-3 hover:bg-red-900/20 text-red-400 text-xs flex items-center gap-2 border-t border-[#30363d]"><Trash2 size={14} /> Excluir</button>
-                </div>
+            {/* Pin e indicadores */}
+            <div className="flex flex-col items-end gap-1">
+              {isPinned && (
+                <div className="w-1.5 h-1.5 rounded-full codex-breathe"
+                  style={{ background: 'rgba(184,148,76,0.9)' }} />
+              )}
+              {isOffline && (
+                <div className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: 'rgba(100,200,100,0.7)' }} />
+              )}
+            </div>
+          </div>
+
+          {/* Divider ornamental */}
+          <div className="flex items-center gap-1 my-1">
+            <div className="h-px flex-1" style={{ background: 'rgba(184,148,76,0.2)' }} />
+            <div className="w-1 h-1 rotate-45" style={{ background: 'rgba(184,148,76,0.4)' }} />
+            <div className="h-px flex-1" style={{ background: 'rgba(184,148,76,0.2)' }} />
+          </div>
+
+          {/* Nome do arquivo/pasta */}
+          <div>
+            <p className="text-[13px] leading-snug"
+              style={{
+                fontFamily: "'Playfair Display', serif",
+                color: 'rgba(230,210,170,0.95)',
+                fontWeight: isFolder ? 500 : 400,
+                letterSpacing: '0.01em',
+              }}>
+              {displayName}
+            </p>
+            {file.modifiedTime && (
+              <p className="text-[10px] mt-1.5 tracking-wide"
+                style={{ color: 'rgba(184,148,76,0.45)', fontFamily: "'EB Garamond', serif" }}>
+                {new Date(file.modifiedTime).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: '2-digit' }).toUpperCase()}
+              </p>
             )}
+          </div>
         </div>
-    );
-});
+
+        {/* Expanding overlay */}
+        {isExpanding && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+            <div className="w-6 h-6 border-2 rounded-full animate-spin"
+              style={{ borderColor: 'rgba(184,148,76,0.8)', borderTopColor: 'transparent' }} />
+          </div>
+        )}
+      </button>
+
+      {/* Menu contextual */}
+      <div ref={menuRef} className="absolute top-2 right-2 z-20">
+        <button
+          onClick={(e) => { e.stopPropagation(); setActiveMenu(isActiveMenu ? null : file.id); }}
+          className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ color: 'rgba(184,148,76,0.7)', background: 'rgba(0,0,0,0.5)' }}
+        >
+          <MoreVertical size={14} />
+        </button>
+
+        {isActiveMenu && (
+          <div className="absolute right-0 top-7 w-44 rounded-sm overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+            style={{
+              background: '#0f0c09',
+              border: '1px solid rgba(184,148,76,0.3)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.8)',
+              fontFamily: "'EB Garamond', serif",
+            }}>
+            {[
+              { icon: <Pin size={12} />, label: isPinned ? 'Desafixar' : 'Fixar', action: () => onTogglePin(file) },
+              { icon: <Edit3 size={12} />, label: 'Renomear', action: () => onRename(file) },
+              { icon: <FolderInput size={12} />, label: 'Mover', action: () => onMove(file) },
+              { icon: <Share2 size={12} />, label: 'Compartilhar', action: () => onShare(file) },
+              { icon: <Trash2 size={12} />, label: 'Excluir', action: () => onDelete(file), danger: true },
+            ].map(({ icon, label, action, danger }: any) => (
+              <button key={label} onClick={(e) => { e.stopPropagation(); action(); setActiveMenu(null); }}
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-[12px] transition-colors"
+                style={{
+                  color: danger ? 'rgba(220,100,100,0.9)' : 'rgba(210,190,150,0.85)',
+                  background: 'transparent',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(184,148,76,0.08)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                {icon}{label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
