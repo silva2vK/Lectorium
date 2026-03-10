@@ -1,4 +1,3 @@
-
 const CACHE_NAME = 'lectorium-offline-v6';
 
 // Categorias de Recursos Refinadas
@@ -21,18 +20,24 @@ export const AVAILABLE_RESOURCES: ResourceGroup[] = [
   {
     id: 'core',
     label: 'Núcleo do Sistema',
-    description: 'Interface, Fontes do Google e Lógica Principal.',
+    description: 'Interface, Fontes Self-Hosted e Lógica Principal.',
     required: true,
-    estimatedSize: 5.5 * 1024 * 1024, // Ajustado para refletir chunks do React/Firebase
-    keywords: ['react', 'firebase', 'lucide', 'tailwind', 'idb', 'zustand'], 
+    estimatedSize: 5.5 * 1024 * 1024,
+    keywords: ['react', 'firebase', 'lucide', 'idb', 'zustand'],
+    // Tailwind é build-time via PostCSS — sem CDN.
+    // Inter é self-hosted em /public/fonts/ — sem Google Fonts.
+    // Chunks JS/CSS do bundle são capturados automaticamente pelo service worker
+    // via intercepção de fetch no próprio origin (sw.js).
     urls: [
       '/',
       '/index.html',
       '/manifest.json',
       '/icons/icon.svg',
       '/icons/maskable-icon.svg',
-      'https://cdn.tailwindcss.com',
-      'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
+      '/fonts/inter-400.woff2',
+      '/fonts/inter-500.woff2',
+      '/fonts/inter-600.woff2',
+      '/fonts/inter-700.woff2',
     ]
   },
   {
@@ -40,12 +45,12 @@ export const AVAILABLE_RESOURCES: ResourceGroup[] = [
     label: 'Motores de Documentos',
     description: 'Renderização de PDF e editor de DOCX (Native Canvas).',
     required: true,
-    estimatedSize: 8.2 * 1024 * 1024, // Ajustado considerando Worker + Maps
+    estimatedSize: 8.2 * 1024 * 1024,
     keywords: ['pdfjs-dist', 'pdf-lib', 'docx', 'jszip'],
-    urls: [
-      'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/web/pdf_viewer.css',
-      'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs',
-    ]
+    // pdfjs-dist 5.5.x, pdf-lib e docx são bundled localmente via Vite.
+    // O worker do pdfjs é servido como asset estático do próprio origin.
+    // Não há URLs de CDN a cachear — o SW captura tudo via fetch do origin.
+    urls: []
   },
   {
     id: 'math_science',
@@ -54,13 +59,10 @@ export const AVAILABLE_RESOURCES: ResourceGroup[] = [
     required: false,
     estimatedSize: 4.8 * 1024 * 1024,
     keywords: ['katex', 'mermaid', 'qrcode'],
-    urls: [
-      'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css',
-      'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/fonts/KaTeX_Main-Regular.woff2',
-      'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/fonts/KaTeX_Math-Italic.woff2',
-      'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/fonts/KaTeX_Size1-Regular.woff2',
-      'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css',
-    ]
+    // katex 0.16.27 e highlight.js são bundled localmente via Vite/PostCSS.
+    // URLs de CDN com versões diferentes (ex: katex@0.16.9) causariam conflito
+    // com o bundle local em modo offline. Removidas intencionalmente.
+    urls: []
   },
   {
     id: 'ai_assets',
@@ -141,7 +143,7 @@ export async function cacheAppResources(
       const chunk = urlsArray.slice(i, i + CONCURRENCY);
       await Promise.all(chunk.map(async (url) => {
           try {
-              // Tenta fetch com CORS para garantir que o blob seja válido e mensurável
+              // Tenta fetch com CORS para garantir que o blob seja válido e mensurável.
               // Se falhar (alguns CDNs), tenta sem CORS (opaque), mas armazena igual.
               let res;
               try {
@@ -198,4 +200,4 @@ export async function getOfflineCacheSize(): Promise<string | null> {
     }
   }
   return totalBytes > 0 ? formatSize(totalBytes) : null;
-}
+  }
