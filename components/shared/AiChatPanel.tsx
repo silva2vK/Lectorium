@@ -108,7 +108,7 @@ export const AiChatPanel: React.FC<Props> = ({ contextText, documentName, classN
   const ocrMap = pdfContext?.ocrMap;
   const lensData = (pdfContext?.lensData || {}) as Record<number, SemanticLensData>;
 
-  const isDirectReadingAllowed = numPages < 17;
+  const isDirectReadingAllowed = numPages < 27;
 
   useEffect(() => {
     if (!isDirectReadingAllowed && fileId) {
