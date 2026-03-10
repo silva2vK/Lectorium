@@ -398,7 +398,60 @@ html.maker .tactical-puller:hover .puller-indicator {
    da UI. Quando o parser detectar lineHeight/fontFamily do DOCX, esses valores
    sobrescrevem via style inline — estas regras são apenas o fallback correto.
    ──────────────────────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────────────────────
+   DOC EDITOR — TABELAS
+   Bordas pretas por padrão. Sem estas regras o browser não desenha nenhuma borda.
+   ──────────────────────────────────────────────────────────────────────────── */
 
+.ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  table-layout: fixed;
+  margin: 0;
+  overflow: hidden;
+}
+
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid #000000;
+  padding: 4px 8px;
+  vertical-align: top;
+  position: relative;
+  min-width: 1em;
+  box-sizing: border-box;
+  word-wrap: break-word;
+}
+
+.ProseMirror table th {
+  font-weight: bold;
+  background-color: #f2f2f2;
+  text-align: left;
+}
+
+.ProseMirror table .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(66, 153, 225, 0.2);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ProseMirror table .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: #a8c7fa;
+  pointer-events: none;
+  cursor: col-resize;
+  z-index: 3;
+}
+
+.ProseMirror.resize-cursor {
+  cursor: col-resize;
+}
 /* Base tipográfica do editor — fallback ABNT quando DOCX não especifica */
 .ProseMirror {
   line-height: 1.5;
