@@ -68,6 +68,8 @@ export default defineConfig(({ mode }) => {
             }
 
             // Motor 3D pesado
+            // TODO: quando MindMapEditor migrar para THREE.InstancedMesh puro,
+            // eliminar @react-three/drei (~400kB gzip) e remover 'r3f-vendor'.
             if (id.includes('node_modules/three')) {
               return 'three-vendor';
             }
@@ -137,6 +139,12 @@ export default defineConfig(({ mode }) => {
             // Solução: clsx e tailwind-merge saem do chunk utils e ficam no index.
             if (id.includes('node_modules/recharts')) {
               return 'vendor-charts';
+            }
+
+            // Motion (framer-motion fork) — animações, isolado do bundle principal.
+            // Carregado apenas quando componentes animados são montados.
+            if (id.includes('node_modules/motion')) {
+              return 'vendor-motion';
             }
 
             // Utils genéricas leves — sem clsx/tailwind-merge (ver acima)
