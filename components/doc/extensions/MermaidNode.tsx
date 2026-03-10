@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { NodeViewProps } from '@tiptap/react';
 import { Icon } from '../../shared/Icon';
@@ -39,19 +38,39 @@ export default (props: NodeViewProps) => {
 
   useEffect(() => {
     let active = true;
+    let retries = 0;
+    const MAX_RETRIES = 10;
+
     const render = async () => {
-      if (!containerRef.current) return;
+      if (!active) return;
+
+      // Ref ainda não montado pelo LazyNodeView — retry com backoff leve
+      if (!containerRef.current) {
+        if (retries < MAX_RETRIES) {
+          retries++;
+          setTimeout(render, 100);
+        }
+        return;
+      }
+
       try {
         const mermaid = await getMermaid();
+        // Rotaciona ID a cada render — mermaid cacheia SVG pelo ID,
+        // reusar o mesmo ID retorna o cache antigo em vez de re-renderizar
+        idRef.current = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
         containerRef.current.innerHTML = '';
         const { svg } = await mermaid.render(idRef.current, chart);
         if (active && containerRef.current) {
-            containerRef.current.innerHTML = svg;
+          containerRef.current.innerHTML = svg;
         }
       } catch (e) {
-        if (containerRef.current) containerRef.current.innerHTML = '<div class="text-red-500 text-xs p-2 border border-red-200 bg-red-50 rounded">Erro na sintaxe do diagrama</div>';
+        if (active && containerRef.current) {
+          containerRef.current.innerHTML =
+            '<div class="text-red-500 text-xs p-2 border border-red-200 bg-red-50 rounded">Erro na sintaxe do diagrama</div>';
+        }
       }
     };
+
     render();
     return () => { active = false; };
   }, [chart]);
