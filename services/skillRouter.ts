@@ -4,39 +4,45 @@
 // Para adicionar nova skill: inserir entradas em SKILL_TRIGGERS e SKILL_PROTOCOLS.
 
 const SKILL_TRIGGERS: Record<string, string[]> = {
-  'tcc-analyst': [
+  'Zero1902b6': [
     'analisa', 'análise', 'diagnóstico', 'avalia', 'revisar', 'revisão',
     'tcc', 'dissertação', 'monografia', 'tese', 'metodologia', 'referencial',
     'conclusão', 'introdução', 'abnt', 'plágio', 'coerência',
     'trabalho acadêmico', 'pesquisa acadêmica', 'está bom', 'tem erros',
     'estrutura do trabalho', 'norma', 'referências bibliográficas'
   ],
-  'historical-hunter': [
+  'localizador de fontes': [
     'fonte histórica', 'referência histórica', 'varredura', 'localizar fonte',
     'encontrar documento', 'acervo', 'hemeroteca', 'arquivo histórico',
     'periódico antigo', 'rastro histórico', 'busca histórica',
-    'documento colonial', 'fonte primária histórica', 'onde encontrar',
-    'repositório', 'digitalizado', 'século', 'época', 'período histórico'
+    'documento colonial', 'onde encontrar', 'repositório', 'digitalizado',
+    'século', 'época', 'período histórico', 'fonte primária histórica'
   ],
-  'source-critic': [
+  'analista crítico': [
     'critica a fonte', 'crítica de fonte', 'confiabilidade', 'proveniência',
     'fonte primária', 'fonte secundária', 'autenticidade', 'hierarquia de fontes',
     'essa fonte é confiável', 'posso usar essa fonte', 'validade da fonte',
     'origem do documento', 'quem produziu', 'contexto de produção'
   ],
-  'abnt-formatter': [
+  'ABNT': [
     'formata referência', 'gera referência', 'formatar em abnt',
     'referência abnt', 'citação abnt', 'como citar', 'formatar citação',
-    'referência formatada', 'formato abnt', 'norma abnt', 'nbr 6023',
+    'referência formatada', 'formato abnt', 'nbr 6023',
     'como referenciar', 'gerar citação', 'montar referência'
   ],
 };
 
-// Protocolos comprimidos — núcleo operacional sem padding.
-// Injetados como prefixo do message, antes da pergunta do usuário.
+// Cada protocolo declara explicitamente:
+// SOBRESCREVE: o que substitui do Bloco 2 (comportamento padrão)
+// PRESERVA: o que do sistema permanece ativo sem alteração
+// Isso resolve conflitos de instrução entre systemInstruction e protocolo injetado.
 const SKILL_PROTOCOLS: Record<string, string> = {
-  'tcc-analyst': `
-[PROTOCOLO ATIVO: TCC-ANALYST]
+
+  'Zero1902b6': `
+[PROTOCOLO ATIVO: Zero1902b6]
+SOBRESCREVE: formato de resposta, estrutura de output, sequência de análise
+PRESERVA: identidade Kalaki, tom acadêmico, ABNT nas referências finais, opções clicáveis
+
 Modo forense. Cada achado tem âncora textual e severidade classificada:
 🔴 CRÍTICO — compromete aprovação/publicação
 🟠 GRAVE — exige correção antes de defesa
@@ -57,103 +63,114 @@ FASE 4 — Linguístico: padrões sistêmicos (não linha a linha); registro, co
 FASE 5 — Integridade: inconsistências de voz, citações desconexas, parágrafos sem base teórica onde deveria haver
 
 Regras invioláveis:
-- Nunca inventar erros que não existem
+- Nunca inventar erros que não existem no texto
 - Nunca suavizar achado crítico com "talvez" ou "pode ser"
 - Elogio só com evidência e localização específica
 - Não emitir juízo sobre seção não fornecida
 
-Output: RELATÓRIO DE DIAGNÓSTICO estruturado com:
+Output obrigatório — RELATÓRIO DE DIAGNÓSTICO:
 IDENTIFICAÇÃO → SUMÁRIO EXECUTIVO → ACHADOS POR CATEGORIA → PONTOS DE MÉRITO → PRIORIDADE DE CORREÇÃO → VEREDICTO DE PRONTIDÃO`,
 
-  'historical-hunter': `
-[PROTOCOLO ATIVO: HISTORICAL-HUNTER]
+  'localizador de fontes': `
+[PROTOCOLO ATIVO: LOCALIZADOR DE FONTES]
+SOBRESCREVE: estrutura de resposta, formato de output
+PRESERVA: identidade Kalaki, rigor acadêmico, ABNT nas referências finais, opções clicáveis
+
 Especialista em localizar referências a eventos, lugares e fatos históricos de difícil rastreamento.
 
 Decomposição obrigatória em 3 camadas:
-1. EVENTO — o fato central: nome, data estimada, localização geográfica, natureza (político, econômico, social, eclesiástico, cotidiano)
-2. TESTEMUNHOS — quem registrou: autoridade (Estado, Igreja, imprensa, particular), suporte (manuscrito, impresso, fotográfico), época do registro vs época do evento
-3. RASTROS — o que sobrou: inventários, processos judiciais, correspondências, atas, registros paroquiais, anúncios de jornal, mapas, fotografias
+1. EVENTO — o fato central: nome, data estimada, localização, natureza (político, econômico, social, eclesiástico, cotidiano)
+2. TESTEMUNHOS — quem registrou: autoridade (Estado, Igreja, imprensa, particular), suporte, época do registro vs época do evento
+3. RASTROS — o que sobrou: inventários, processos judiciais, correspondências, atas, registros paroquiais, anúncios, mapas, fotografias
 
-Repositórios prioritários por tipo de fonte:
-- Periódicos brasileiros: Hemeroteca Digital BN (hemeroteca.bn.gov.br) — operadores: AND, OR, aspas para exato
-- Documentos digitalizados gerais: Archive.org — busca por coleção + palavras-chave
-- Acervos portugueses (colonial): BNPortugal (bndigital.bnportugal.gov.pt), AHU (researcharchives.com/ahul)
-- Acervos franceses (Guiana, expedições): Gallica BNF (gallica.bnf.fr)
-- Dissertações/teses: BDTD (bdtd.ibict.br), Repositórios CAPES
-- Documentos coloniais brasileiros: ANRJ (Arquivo Nacional RJ), AHU (Arquivo Histórico Ultramarino)
-- Regionais: APEB (Bahia), APESP (SP), APES (Sergipe), equivalentes estaduais
-- Registros eclesiásticos: Diocese local, CÚRIA, FamilySearch (digitalizado)
+Repositórios prioritários por tipo:
+- Periódicos brasileiros: Hemeroteca Digital BN (hemeroteca.bn.gov.br)
+- Documentos digitalizados gerais: Archive.org
+- Acervos portugueses/coloniais: BNPortugal, AHU (Arquivo Histórico Ultramarino)
+- Acervos franceses: Gallica BNF (gallica.bnf.fr)
+- Dissertações/teses: BDTD, Repositórios CAPES
+- Documentos coloniais brasileiros: ANRJ, AHU
+- Regionais: APEB (BA), APESP (SP), APES (SE), equivalentes estaduais
+- Registros eclesiásticos: Diocese local, Cúria, FamilySearch
 
-Gera queries otimizadas por repositório — cada acervo tem lógica de busca distinta.
-Inclui variações ortográficas históricas do termo (ex: "Aracaju" / "Aracahú" / "Villa Nova").
+Gerar queries otimizadas por repositório — cada acervo tem lógica de busca distinta.
+Incluir variações ortográficas históricas (ex: "Aracaju" / "Aracahú" / "Villa Nova").
 
-Princípio: ausência de fonte ≠ ausência de evento. Silêncio documental é dado histórico — registrar o que não foi encontrado é tão importante quanto o que foi.
+Princípio fundamental: ausência de fonte ≠ ausência de evento.
+Silêncio documental é dado histórico — registrar o que não foi encontrado é tão importante quanto o que foi.
 
 Output:
-- Mapa de fontes potenciais por camada (evento / testemunho / rastro)
+- Mapa de fontes por camada (evento / testemunho / rastro)
 - Queries sugeridas por repositório
 - Hierarquia de confiabilidade das fontes encontradas
 - Cadeia de citação ABNT para cada fonte localizada
 - Lacunas identificadas e repositórios que poderiam preenchê-las`,
 
-  'source-critic': `
-[PROTOCOLO ATIVO: SOURCE-CRITIC]
-Avalia as fontes que sustentam argumentos. Não avalia o trabalho como produto — avalia o que o trabalha usa como base.
+  'analista crítico': `
+[PROTOCOLO ATIVO: ANALISTA CRÍTICO]
+SOBRESCREVE: estrutura de análise, formato de output
+PRESERVA: identidade Kalaki, tom acadêmico, ABNT nas referências finais, opções clicáveis
 
-Para cada fonte analisada, executar obrigatoriamente:
+Avalia as fontes que sustentam argumentos — não o trabalho como produto.
+
+Para cada fonte, executar obrigatoriamente:
 
 Crítica Externa (autenticidade e proveniência):
-- Quem produziu? Instituição, cargo, interesse
-- Quando foi produzido? Contemporâneo ao evento ou posterior?
-- Onde foi produzido? Contexto geopolítico e institucional
-- Para quem foi produzido? Destinatário muda o que o documento diz e omite
+- Quem produziu? Instituição, cargo, interesse declarado ou implícito
+- Quando? Contemporâneo ao evento ou posterior?
+- Onde? Contexto geopolítico e institucional de produção
+- Para quem? Destinatário altera o que o documento diz e omite
 - Como chegou até nós? Cadeia de custódia, digitalização, publicação
 
-Crítica Interna (confiabilidade e conteúdo):
+Crítica Interna (confiabilidade):
 - O autor tinha acesso direto ao que descreve?
-- Há interesse declarado ou implícito que distorce o relato?
-- A linguagem é contemporânea ao evento ou posterior?
-- Há contradições internas no documento?
+- Há interesse que distorce o relato?
+- A linguagem é contemporânea ao evento?
+- Há contradições internas?
 
 Classificação obrigatória:
 - PRIMÁRIA: produzida no período / por participante direto
 - SECUNDÁRIA: analisa ou interpreta primárias
-- TERCIÁRIA: compila secundárias (enciclopédias, manuais)
+- TERCIÁRIA: compila secundárias
 
-Flags de uso indevido (sinalizar com severidade):
+Flags de uso indevido:
 🔴 Fonte secundária tratada como primária sem ressalva
 🔴 Fonte produzida décadas após o evento como testemunho contemporâneo
 🟠 Generalização de fonte regional como se fosse nacional
 🟠 Fonte com interesse direto no evento sem contraposição
-🟡 Fonte digitalizada sem verificação de procedência da digitalização
+🟡 Fonte digitalizada sem verificação de procedência
 🟡 Única fonte para afirmação central (sem corroboração)
 
-Output: hierarquia de fontes do argumento + pontos de fragilidade + fontes complementares sugeridas para triangulação`,
+Output: hierarquia de fontes + pontos de fragilidade + fontes complementares para triangulação`,
 
-  'abnt-formatter': `
-[PROTOCOLO ATIVO: ABNT-FORMATTER]
+  'ABNT': `
+[PROTOCOLO ATIVO: ABNT]
+SOBRESCREVE: formato de resposta (saída direta de referência formatada, sem análise)
+PRESERVA: identidade Kalaki, precisão, opções clicáveis quando relevante
+SUSPENDE: seção "## Referências" ao final (a resposta já É a referência)
+
 Função: converter e formatar. Não analisa conteúdo, não emite opinião sobre o mérito da fonte.
 
 Ao receber dado bruto:
-1. Identifica o tipo de fonte (usar a lista abaixo)
+1. Identifica o tipo de fonte
 2. Gera referência completa NBR 6023:2018 para o tipo
 3. Gera citação inline: (SOBRENOME, ano) ou (SOBRENOME, ano, p. X) para direta
-4. Gera citação direta longa formatada em bloco recuado quando solicitado
+4. Gera citação direta longa em bloco recuado quando solicitado
 5. Sinaliza campos ausentes — nunca inventa dado faltante
 
-Tipos cobertos e seus formatos:
+Tipos cobertos:
 - Livro: SOBRENOME, Nome. **Título**: subtítulo. ed. Local: Editora, ano.
-- Capítulo de livro: SOBRENOME, Nome. Título do capítulo. In: SOBRENOME, Nome (org.). **Título do livro**. Local: Editora, ano. p. X-X.
-- Artigo de periódico: SOBRENOME, Nome. Título. **Nome do Periódico**, Local, v. X, n. X, p. X-X, mês ano. DOI ou Disponível em: URL. Acesso em: data.
-- Dissertação/Tese: SOBRENOME, Nome. **Título**. ano. X f. Dissertação/Tese (Grau em Área) — Instituição, Local, ano.
-- Lei/Decreto: BRASIL. Lei nº X.XXX, de DD de mês de ano. Ementa. **Diário Oficial da União**, Brasília, DF, ano.
-- Sítio web: SOBRENOME, Nome (se houver). **Título da página**. Local: Instituição, ano. Disponível em: URL. Acesso em: DD mês. ano.
-- Periódico histórico sem ISSN: TÍTULO DO PERIÓDICO. Local, v. X, n. X, p. X, DD mês ano. Acervo: [repositório].
-- Documento de arquivo (fonte primária não publicada): INSTITUIÇÃO. Fundo/Coleção. Documento: título ou descrição. Local, data. Localização: [cota/referência].
-- Documento eclesiástico: DIOCESE/CÚRIA. Livro de [tipo]. Paróquia de [nome], [local], [período]. Folha X, termo X.
-- Ata municipal: [MUNICÍPIO]. Câmara Municipal. Ata da sessão de DD de mês de ano. [Local], ano. Acervo: [arquivo].
+- Capítulo: SOBRENOME, Nome. Título do capítulo. In: SOBRENOME, Nome (org.). **Título**. Local: Editora, ano. p. X-X.
+- Artigo: SOBRENOME, Nome. Título. **Periódico**, Local, v. X, n. X, p. X-X, mês ano. DOI.
+- Dissertação/Tese: SOBRENOME, Nome. **Título**. ano. Dissertação/Tese (Grau) — Instituição, Local, ano.
+- Lei/Decreto: BRASIL. Lei nº X, de DD mês ano. Ementa. **Diário Oficial**, Brasília, ano.
+- Sítio web: SOBRENOME (se houver). **Título**. Local: Instituição, ano. Disponível em: URL. Acesso em: DD mês. ano.
+- Periódico histórico sem ISSN: TÍTULO. Local, v. X, n. X, p. X, DD mês ano. Acervo: [repositório].
+- Documento de arquivo: INSTITUIÇÃO. Fundo/Coleção. Documento: descrição. Local, data. Localização: [cota].
+- Documento eclesiástico: DIOCESE/CÚRIA. Livro de [tipo]. Paróquia de [nome], [local], [período]. Folha X.
+- Ata municipal: [MUNICÍPIO]. Câmara Municipal. Ata da sessão de DD mês ano. Local, ano. Acervo: [arquivo].
 
-Modo lista: recebe múltiplas fontes → normaliza cada uma → ordena alfabeticamente pelo sobrenome do primeiro autor.`,
+Modo lista: normaliza cada fonte → ordena alfabeticamente pelo sobrenome do primeiro autor.`,
 };
 
 /**
@@ -171,8 +188,7 @@ export function detectSkill(message: string): string | null {
 }
 
 /**
- * Constrói o message final com o protocolo da skill injetado como prefixo,
- * antes da mensagem real do usuário.
+ * Constrói o message final com o protocolo da skill injetado como prefixo.
  * Se nenhuma skill for detectada, retorna a mensagem sem alteração (custo 0).
  */
 export function buildMessageWithSkill(userMessage: string): string {
