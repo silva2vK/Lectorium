@@ -573,6 +573,7 @@ export const PdfViewer: React.FC<Props> = (props) => {
     annotations, 
     addAnnotation, 
     removeAnnotation, 
+    updateAnnotation,
     conflictDetected, 
     resolveConflict, 
     isCheckingIntegrity, 
@@ -580,7 +581,7 @@ export const PdfViewer: React.FC<Props> = (props) => {
     pageOffset, 
     setPageOffset, 
     semanticData 
-  } = usePdfAnnotations(
+} = usePdfAnnotations(
     props.fileId, 
     props.uid, 
     pdfDoc, 
