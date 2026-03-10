@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Shield, AlertTriangle, Scale, FileText, Gavel, CheckCircle } from 'lucide-react';
 import { Icon } from '../shared/Icon';
@@ -9,6 +8,7 @@ export type LegalTab = 'terms' | 'privacy';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  onAccept?: () => void; // chamado após aceite no modo isMandatory — usado para sequenciar fluxo pós-consentimento
   initialTab?: LegalTab;
   isMandatory?: boolean;
 }
@@ -24,7 +24,7 @@ const LegalSection = ({ title, children }: { title: string, children?: React.Rea
   </div>
 );
 
-export const LegalModal: React.FC<Props> = ({ isOpen, onClose, initialTab = 'privacy', isMandatory = false }) => {
+export const LegalModal: React.FC<Props> = ({ isOpen, onClose, onAccept, initialTab = 'privacy', isMandatory = false }) => {
   const [activeTab, setActiveTab] = useState<LegalTab>(initialTab);
   const contentRef = useRef<HTMLDivElement>(null);
   const [hasReadBottom, setHasReadBottom] = useState(!isMandatory);
@@ -170,7 +170,7 @@ export const LegalModal: React.FC<Props> = ({ isOpen, onClose, initialTab = 'pri
           <strong>7.1. Modificações.</strong> Reservamo-nos o direito de modificar estes Termos a qualquer momento. O uso continuado do Serviço após tais alterações constitui aceitação dos novos Termos.
         </p>
         <p>
-          <strong>7.2. Lei Aplicável e Foro.</strong> Estes Termos serão regidos e interpretados de acordo com as leis da República Federativa do Brasil, sem levar em conta seus conflitos de disposições legais. Fica eleito o Foro da Comarca da Capital do Estado de São Paulo para dirimir quaisquer litígios oriundos deste instrumento, com renúncia expressa a qualquer outro, por mais privilegiado que seja.
+          <strong>7.2. Lei Aplicável e Foro.</strong> Estes Termos serão regidos e interpretados de acordo com as leis da República Federativa do Brasil, sem levar em conta seus conflitos de disposições legais. Fica eleito o Foro da Comarca de Aracaju, Estado de Sergipe, domicílio do desenvolvedor, para dirimir quaisquer litígios oriundos deste instrumento, com renúncia expressa a qualquer outro, por mais privilegiado que seja.
         </p>
       </LegalSection>
     </div>
@@ -231,7 +231,7 @@ export const LegalModal: React.FC<Props> = ({ isOpen, onClose, initialTab = 'pri
           
           <div className="mt-12 pt-8 border-t border-[#333] text-center">
              <p className="text-[9px] text-gray-600 font-serif italic max-w-lg mx-auto">
-               Última atualização jurídica: Fevereiro de 2025. O uso continuado do software constitui aceitação irrevogável destes termos. A nulidade de qualquer cláusula não afeta a validade das demais.
+               Última atualização jurídica: Março de 2026. O uso continuado do software constitui aceitação irrevogável destes termos. A nulidade de qualquer cláusula não afeta a validade das demais.
              </p>
           </div>
         </div>
@@ -246,7 +246,7 @@ export const LegalModal: React.FC<Props> = ({ isOpen, onClose, initialTab = 'pri
                 </div>
               )}
               <button 
-                onClick={onClose} 
+                onClick={() => { onClose(); onAccept?.(); }} 
                 disabled={!hasReadBottom}
                 className={`w-full py-4 rounded-xl font-bold text-sm flex items-center justify-center gap-3 transition-all uppercase tracking-wider ${
                     hasReadBottom 
