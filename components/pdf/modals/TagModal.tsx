@@ -26,7 +26,7 @@ export const TagModal: React.FC<Props> = ({ isOpen, onClose, annotation, onSave 
 
   const handleAddTag = (e?: React.FormEvent) => {
     e?.preventDefault();
-    const newTag = tagInput.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+    const newTag = tagInput.trim().toLowerCase().replace(/[^\p{L}\p{N}_-]/gu, '');
     if (newTag && !tags.includes(newTag)) {
       setTags([...tags, newTag]);
     }
@@ -71,10 +71,12 @@ export const TagModal: React.FC<Props> = ({ isOpen, onClose, annotation, onSave 
               type="text"
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag(); } }}
               placeholder="Digite uma tag e aperte Enter..."
               className="w-full bg-black/50 border border-white/10 rounded-xl py-3 pl-8 pr-4 text-white text-sm focus:outline-none focus:border-brand transition-colors"
               autoFocus
             />
+            <button type="submit" className="hidden" aria-hidden="true" />
           </form>
 
           <div className="flex flex-wrap gap-2 min-h-[40px]">
