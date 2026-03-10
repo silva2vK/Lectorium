@@ -30,8 +30,11 @@ export function Editor({ content, onChange }: EditorProps) {
   });
 
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content);
+    // isDestroyed: guard contra crash se o componente desmontar durante ciclo assíncrono
+    // setContent(content, false): o segundo argumento suprime emitPluginTransaction,
+    // evitando que o setContent dispare onUpdate → onChange → re-render → useEffect → loop infinito
+    if (editor && !editor.isDestroyed && content !== editor.getHTML()) {
+      editor.commands.setContent(content, false);
     }
   }, [content, editor]);
 
