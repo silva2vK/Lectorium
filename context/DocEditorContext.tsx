@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Editor } from '@tiptap/react';
 import { useDocEditorConfig } from '../hooks/useDocEditorConfig';
@@ -115,15 +114,15 @@ export const DocEditorProvider: React.FC<ProviderProps> = ({
     fileId, 
     userInfo,
     onTableDoubleClick: () => ui.toggleModal('tableProperties', true),
-    onUpdate: () => {
-        // Update stats reactively
-        if (editor) {
-            const words = editor.storage.characterCount.words();
-            const chars = editor.storage.characterCount.characters();
+    onUpdate: ({ editor: e }) => {
+        // Update stats reactively — usar 'e' do argumento evita stale closure (editor pode ser null no closure externo)
+        if (e) {
+            const words = e.storage.characterCount.words();
+            const chars = e.storage.characterCount.characters();
             setStats({ 
                 words, 
                 chars, 
-                charsNoSpace: chars - (words - 1), // Aproximação simples ou usar lógica customizada
+                charsNoSpace: chars - (words - 1),
                 readTime: Math.ceil(words / 200) 
             });
         }
