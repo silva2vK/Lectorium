@@ -1,5 +1,5 @@
-
 import React, { useState, useRef, useEffect } from 'react';
+import { Editor } from '@tiptap/react';
 import { Icon } from '../shared/Icon';
 
 interface Props {
@@ -10,6 +10,8 @@ interface Props {
   currentPage: number;
   totalPages: number;
   onJumpToPage: (page: number) => void;
+  // E1: Stats
+  stats?: { words: number; chars: number };
 }
 
 // Lista de fontes
@@ -29,7 +31,7 @@ const FONTS = [
 
 export const DocToolbar: React.FC<Props> = ({ 
   editor, onInsertImage, onAddFootnote,
-  currentPage, totalPages, onJumpToPage
+  currentPage, totalPages, onJumpToPage, stats
 }) => {
   const [activeMenu, setActiveMenu] = useState<'align' | 'format' | 'spacing' | null>(null);
   const menuContainerRef = useRef<HTMLDivElement>(null);
@@ -78,7 +80,7 @@ export const DocToolbar: React.FC<Props> = ({
       onMouseDown={(e) => e.preventDefault()} // Previne perda de foco do editor
       className={`p-2 rounded-lg transition-all flex items-center justify-center shrink-0 active:scale-95 ${
         isActive 
-          ? 'bg-brand text-bg shadow-sm' 
+          ? 'bg-brand/20 text-brand ring-1 ring-brand/40' 
           : 'hover:bg-white/10 text-text-sec hover:text-text'
       } ${className || ''}`}
       title={title}
@@ -147,7 +149,7 @@ export const DocToolbar: React.FC<Props> = ({
   return (
     <div 
         ref={menuContainerRef}
-        className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 bg-black border border-border p-2 rounded-2xl shadow-2xl hidden md:flex items-center justify-center gap-1 animate-in slide-in-from-bottom-4 fade-in duration-500 print:hidden"
+        className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 bg-black/80 backdrop-blur-md border border-white/10 p-2 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] hidden md:flex items-center justify-center gap-1 animate-in slide-in-from-bottom-4 fade-in duration-500 print:hidden"
     >
       
       {/* Font Family & Size */}
@@ -291,7 +293,7 @@ export const DocToolbar: React.FC<Props> = ({
          )}
       </div>
 
-      <div className="w-px h-6 bg-border shrink-0 mx-1"></div>
+      <div className="w-px h-5 bg-white/10 shrink-0 mx-1"></div>
 
       {/* Advanced Format Menu */}
       <div className="relative">
@@ -317,7 +319,7 @@ export const DocToolbar: React.FC<Props> = ({
         )}
       </div>
 
-      <div className="w-px h-6 bg-border shrink-0 mx-1"></div>
+      <div className="w-px h-5 bg-white/10 shrink-0 mx-1"></div>
       
       {/* Color & Highlight */}
       <div className="flex items-center gap-1 shrink-0">
@@ -342,7 +344,7 @@ export const DocToolbar: React.FC<Props> = ({
          </div>
       </div>
 
-      <div className="w-px h-6 bg-border shrink-0 mx-1"></div>
+      <div className="w-px h-5 bg-white/10 shrink-0 mx-1"></div>
 
       {/* Alignment - Reimplemented as Standard Buttons for better click reliability */}
       <div className="relative">
@@ -368,49 +370,15 @@ export const DocToolbar: React.FC<Props> = ({
         )}
       </div>
 
-      <div className="w-px h-6 bg-border shrink-0 mx-1"></div>
+      <div className="w-px h-5 bg-white/10 shrink-0 mx-1"></div>
 
       {/* Block Elements */}
       <Button onClick={() => editor.chain().focus().toggleBlockquote().run()} isActive={editor.isActive('blockquote')} title="Citação (ABNT)"><Icon name="Quote" size={16} /></Button>
       <Button onClick={onAddFootnote} title="Nota de Rodapé"><Icon name="MessageSquareQuote" size={16} /></Button>
 
-      <div className="w-px h-6 bg-border shrink-0 mx-1"></div>
+      <div className="w-px h-5 bg-white/10 shrink-0 mx-1"></div>
 
       {/* Insertables */}
       <div className="flex items-center gap-0.5 bg-brand/5 p-1 rounded-lg shrink-0 border border-brand/20">
         <Button onClick={onInsertImage} title="Imagem"><Icon name="Image" size={16} className="text-brand" /></Button>
-        <Button onClick={addTable} title="Tabela"><Icon name="Table" size={16} className="text-brand" /></Button>
-        
-        {/* Page Counter & Jumper */}
-        <div className="flex items-center gap-2 px-2 bg-brand/10 rounded-lg ml-1 h-[32px] border border-brand/30">
-            {isEditingPage ? (
-              <form onSubmit={handlePageSubmit} className="flex items-center">
-                <input 
-                  autoFocus
-                  type="number"
-                  min="1"
-                  max={totalPages}
-                  value={tempPageInput}
-                  onChange={(e) => setTempPageInput(e.target.value)}
-                  onBlur={() => setIsEditingPage(false)}
-                  className="w-10 bg-transparent text-center font-mono text-base font-bold outline-none text-white p-0 m-0 border-b border-brand"
-                />
-              </form>
-            ) : (
-              <button 
-                onClick={() => {
-                  setTempPageInput((currentPage ?? 1).toString());
-                  setIsEditingPage(true);
-                }}
-                className="font-mono text-sm font-bold text-brand hover:text-white transition-colors"
-                title="Ir para página"
-              >
-                Pág {currentPage}
-              </button>
-            )}
-            <span className="text-text-sec text-xs">/ {totalPages}</span>
-        </div>
-      </div>
-    </div>
-  );
-};
+        <Button onClick={addTable} title="Tabela"><Icon name="Table" size={16} className="tex
