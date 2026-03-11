@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Icon } from '../../shared/Icon';
 import { DocVersion, getDocVersions, saveDocVersion } from '../../../services/storageService';
@@ -11,7 +10,7 @@ interface Props {
   onClose: () => void;
   fileId?: string;
   onRestore?: (content: any) => void;
-  currentContent?: any; // To allow manual snapshot creation
+  currentContent?: any;
 }
 
 export const VersionHistoryModal: React.FC<Props> = ({ isOpen, onClose, fileId, onRestore, currentContent }) => {
@@ -19,6 +18,13 @@ export const VersionHistoryModal: React.FC<Props> = ({ isOpen, onClose, fileId, 
   const [history, setHistory] = useState<DocVersion[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+
+  // Inline name input (substitui prompt())
+  const [showNameInput, setShowNameInput] = useState(false);
+  const [snapshotName, setSnapshotName] = useState('Versão Manual');
+
+  // Inline confirm de restauração (substitui confirm())
+  const [confirmRestore, setConfirmRestore] = useState<DocVersion | null>(null);
 
   useEffect(() => {
     if (isOpen && fileId) {
@@ -39,28 +45,40 @@ export const VersionHistoryModal: React.FC<Props> = ({ isOpen, onClose, fileId, 
     }
   };
 
-  const handleCreateSnapshot = async () => {
-      if (!fileId || !currentContent) return;
-      setCreating(true);
-      try {
-          const author = auth.currentUser?.displayName || 'Você';
-          const name = prompt("Nome da versão (opcional):", "Versão Manual") || "Versão Manual";
-          await saveDocVersion(fileId, currentContent, author, name);
-          await loadHistory();
-      } catch (e) {
-          addNotification("Erro ao criar versão.", "error");
-      } finally {
-          setCreating(false);
-      }
+  // Passo 1: abre o input inline
+  const handleCreateSnapshot = () => {
+    if (!fileId || !currentContent) return;
+    setSnapshotName('Versão Manual');
+    setShowNameInput(true);
   };
 
+  // Passo 2: confirma e salva
+  const handleConfirmSnapshot = async () => {
+    setShowNameInput(false);
+    setCreating(true);
+    try {
+      const author = auth.currentUser?.displayName || 'Você';
+      await saveDocVersion(fileId!, currentContent, author, snapshotName || 'Versão Manual');
+      await loadHistory();
+    } catch (e) {
+      addNotification("Erro ao criar versão.", "error");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // Passo 1: solicita confirmação inline
   const handleRestore = (version: DocVersion) => {
-      if (confirm(`Restaurar para a versão de ${new Date(version.timestamp).toLocaleString()}? O conteúdo atual será substituído.`)) {
-          if (onRestore) {
-              onRestore(version.content);
-              onClose();
-          }
-      }
+    setConfirmRestore(version);
+  };
+
+  // Passo 2: executa restauração
+  const handleConfirmRestore = () => {
+    if (confirmRestore && onRestore) {
+      onRestore(confirmRestore.content);
+      setConfirmRestore(null);
+      onClose();
+    }
   };
 
   if (!isOpen) return null;
@@ -83,7 +101,7 @@ export const VersionHistoryModal: React.FC<Props> = ({ isOpen, onClose, fileId, 
                  <div className="text-center py-10 text-gray-500 text-sm">Nenhuma versão salva ainda.</div>
              ) : (
                  history.map((item, index) => (
-                     <div key={item.id} className={`flex items-center justify-between p-3 rounded-lg border border-transparent hover:border-gray-600 bg-[#2c2c2c] group transition-all`}>
+                     <div key={item.id} className="flex items-center justify-between p-3 rounded-lg border border-transparent hover:border-gray-600 bg-[#2c2c2c] group transition-all">
                          <div>
                              <div className="font-bold text-sm text-white">{item.name || "Salvamento Automático"}</div>
                              <div className="text-xs text-gray-400 flex gap-2">
@@ -108,10 +126,64 @@ export const VersionHistoryModal: React.FC<Props> = ({ isOpen, onClose, fileId, 
           </div>
           
           <div className="mt-4 pt-4 border-t border-[#444] flex flex-col gap-2 shrink-0">
+
+              {/* Inline: confirmação de restauração (substitui confirm()) */}
+              {confirmRestore && (
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 animate-in fade-in">
+                      <p className="text-xs text-yellow-200 mb-2 leading-relaxed">
+                          Restaurar versão de <strong>{new Date(confirmRestore.timestamp).toLocaleString()}</strong>?<br/>
+                          O conteúdo atual será substituído.
+                      </p>
+                      <div className="flex gap-2 justify-end">
+                          <button
+                              onClick={() => setConfirmRestore(null)}
+                              className="px-3 py-1.5 bg-[#333] hover:bg-[#444] text-white rounded-lg text-xs transition-colors"
+                          >
+                              Cancelar
+                          </button>
+                          <button
+                              onClick={handleConfirmRestore}
+                              className="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-black rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
+                          >
+                              <RotateCcw size={12} /> Confirmar
+                          </button>
+                      </div>
+                  </div>
+              )}
+
+              {/* Inline: nome da versão (substitui prompt()) */}
+              {showNameInput && (
+                  <div className="flex gap-2 animate-in fade-in">
+                      <input
+                          autoFocus
+                          className="flex-1 bg-[#2c2c2c] border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-white focus:border-brand outline-none transition-colors"
+                          value={snapshotName}
+                          onChange={e => setSnapshotName(e.target.value)}
+                          onKeyDown={e => {
+                              if (e.key === 'Enter') handleConfirmSnapshot();
+                              if (e.key === 'Escape') setShowNameInput(false);
+                          }}
+                          placeholder="Nome da versão"
+                      />
+                      <button
+                          onClick={handleConfirmSnapshot}
+                          className="px-3 py-1.5 bg-brand text-[#0b141a] rounded-lg text-sm font-bold hover:brightness-110 transition-all"
+                      >
+                          OK
+                      </button>
+                      <button
+                          onClick={() => setShowNameInput(false)}
+                          className="px-3 py-1.5 bg-[#333] hover:bg-[#444] text-white rounded-lg text-sm transition-colors"
+                      >
+                          ×
+                      </button>
+                  </div>
+              )}
+
               <button 
                 onClick={handleCreateSnapshot}
-                disabled={creating}
-                className="w-full flex items-center justify-center gap-2 bg-brand/10 hover:bg-brand/20 text-brand border border-brand/30 py-2 rounded-xl text-sm font-bold transition-all"
+                disabled={creating || showNameInput}
+                className="w-full flex items-center justify-center gap-2 bg-brand/10 hover:bg-brand/20 text-brand border border-brand/30 py-2 rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                   {creating ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                   Salvar Versão Atual Agora
