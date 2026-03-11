@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Icon } from '../shared/Icon';
 import { Loader2, Cloud, Sparkles, Users, Share2, Menu, ChevronLeft, ChevronRight, Lock, Globe, FileText, MessageSquare, ArrowLeft } from 'lucide-react';
@@ -79,7 +78,7 @@ export const DocEditorLayout: React.FC = () => {
   return (
     <div 
       className={`flex flex-col h-full bg-bg relative overflow-hidden text-text ${ui.modes.lineNumbers ? 'show-line-numbers' : ''}`}
-      style={{ viewTransitionName: 'hero-expand' }}
+      ref={(el) => { if (el) el.style.viewTransitionName = 'hero-expand'; }}
     >
        {/* MOBILE PULLER (TACTICAL) - Z-Index 200 to stay on top of everything */}
        {isMobile && (
