@@ -95,16 +95,16 @@ export const DocEditorLayout: React.FC = () => {
 
        {/* HEADER CONTAINER - Z-Index aumentado para 60 para cobrir MobileDocToolbar (z-50) */}
        <div 
-         className={`bg-surface border-b border-border z-[60] shrink-0 transition-all duration-500 ease-in-out ${isMobile ? (isMobileHeaderVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 absolute w-full') : 'translate-y-0 opacity-100'}`}
+         className={`bg-surface border-b border-white/6 z-[60] shrink-0 transition-all duration-500 ease-in-out ${isMobile ? (isMobileHeaderVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 absolute w-full') : 'translate-y-0 opacity-100'}`}
        >
              <div className="flex items-center justify-between px-4 pt-3 pb-1">
                 <div className="flex items-start gap-4">
                     <button onClick={onBack} className="p-2 hover:bg-white/10 rounded-full text-text-sec mt-1"><ArrowLeft size={20} /></button>
-                    <div className="pt-2 text-blue-400"><FileText size={28} /></div>
+                    <div className="pt-2 text-brand/70"><FileText size={26} /></div>
                     <div className="flex flex-col">
-                        <input value={currentName} onChange={e => setCurrentName(e.target.value)} onBlur={fileHandler.handleRename} className="bg-transparent text-text font-medium text-lg outline-none px-2 rounded -ml-2 focus:border-brand transition-colors" />
+                        <input value={currentName} onChange={e => setCurrentName(e.target.value)} onBlur={fileHandler.handleRename} className="bg-transparent text-text font-semibold text-lg outline-none px-2 rounded -ml-2 focus:border-brand transition-colors cursor-pointer hover:underline decoration-white/20 underline-offset-2" title="Clique para renomear" />
                         <TopMenuBar 
-                            editor={editor} fileName={currentName} onSave={() => fileHandler.handleSave(layout.pageSettings, comments, references)}
+                            editor={editor} fileName={currentName} isSaving={fileHandler.isSaving} onSave={() => fileHandler.handleSave(layout.pageSettings, comments, references)}
                             onShare={handleNativeShare} onNew={onToggleMenu} onWordCount={() => ui.toggleModal('wordCount', true)}
                             onRename={fileHandler.handleRename}
                             onDownload={() => fileHandler.handleDownload(layout.pageSettings, comments, references)} onDownloadLect={() => fileHandler.handleDownloadLect(layout.pageSettings, comments)} onExportPdf={() => window.print()}
@@ -127,10 +127,11 @@ export const DocEditorLayout: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-4 mt-2">
-                    <div className="text-text-sec">{fileHandler.isSaving ? <Loader2 size={20} className="animate-spin" /> : <Cloud size={20} />}</div>
+                    <div className="text-text-sec">{fileHandler.isSaving ? <Loader2 size={20} className="animate-spin text-brand" /> : <Cloud size={20} />}</div>
                     <button onClick={() => ui.toggleSidebar('aiChat')} className={`p-2 rounded-full ${ui.sidebars.aiChat ? 'bg-brand/20 text-brand' : 'text-text-sec'}`}><Sparkles size={20} /></button>
                     <button onClick={() => ui.toggleSidebar('comments')} className={`p-2 rounded-full ${ui.sidebars.comments ? 'bg-brand/20 text-brand' : 'text-text-sec'}`}><Users size={20} /></button>
-                    <button onClick={() => ui.toggleModal('share', true)} className="flex items-center gap-2 bg-[#c2e7ff] text-[#0b141a] px-4 py-2 rounded-full font-medium text-sm hover:brightness-110 transition-all disabled:opacity-50">
+                    <div className="w-px h-5 bg-white/10 mx-1"></div>
+                    <button onClick={() => ui.toggleModal('share', true)} className="flex items-center gap-2 bg-transparent border border-brand/50 text-brand px-4 py-2 rounded-full font-medium text-sm hover:bg-brand/10 transition-all disabled:opacity-50">
                         {isSharing ? <Loader2 size={16} className="animate-spin"/> : <Share2 size={16} />}
                         <span>Compartilhar</span>
                     </button>
@@ -146,7 +147,8 @@ export const DocEditorLayout: React.FC = () => {
                onAddFootnote={() => ui.toggleModal('footnote', true)} 
                currentPage={currentPage} 
                totalPages={layout.totalPages} 
-               onJumpToPage={handleJumpToPage} 
+               onJumpToPage={handleJumpToPage}
+               stats={stats}
            />
        )}
 
