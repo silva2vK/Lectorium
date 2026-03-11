@@ -21,6 +21,7 @@ import { Placeholder } from '@tiptap/extension-placeholder';
 import { CharacterCount } from '@tiptap/extension-character-count';
 import { Typography } from '@tiptap/extension-typography';
 import { Dropcursor } from '@tiptap/extension-dropcursor';
+import { Focus } from '@tiptap/extension-focus';
 import { Gapcursor } from '@tiptap/extension-gapcursor';
 import { Collaboration } from '@tiptap/extension-collaboration';
 import { CollaborationCursor } from '@tiptap/extension-collaboration-cursor';
@@ -147,13 +148,32 @@ export const useDocEditorConfig = ({ onUpdate, fileId, userInfo, onTableDoubleCl
       FootnoteExtension,
       CommentExtension,
       Placeholder.configure({
-        placeholder: "Digite '/' para comandos ou comece a escrever...",
+        // E3: Placeholder por tipo de nó
+        placeholder: ({ node }) => {
+          if (node.type.name === 'heading') {
+            const level = node.attrs.level;
+            if (level === 1) return 'Título 1 — Seção primária (ABNT: maiúsculas)';
+            if (level === 2) return 'Título 2 — Seção secundária';
+            if (level === 3) return 'Título 3 — Seção terciária';
+            return 'Título';
+          }
+          if (node.type.name === 'blockquote') {
+            return 'Citação direta longa — recuo 4cm, fonte 10pt, espaçamento 1.0 (ABNT NBR 10520)';
+          }
+          return "Digite '/' para comandos ou comece a escrever...";
+        },
+        includeChildren: true,
       }),
       CharacterCount,
       Typography,
       Dropcursor.configure({
         color: 'var(--brand)',
         width: 2,
+      }),
+      // E4: Focus — adiciona classe 'has-focus' no nó ativo para destaque visual no tablet
+      Focus.configure({
+        className: 'has-focus',
+        mode: 'shallowest',
       }),
     ],
     editorProps: {
@@ -198,6 +218,30 @@ export const useDocEditorConfig = ({ onUpdate, fileId, userInfo, onTableDoubleCl
        editor.view.dom.setAttribute('lang', language);
     }
   }, [editor, spellCheck, language]);
+
+  // F1: Listener para injeção de conteúdo Markdown do Sintetizador Lexicográfico
+  // Disparo: OperationalArchive → window.dispatchEvent('inject-markdown-to-doc', { fileId, markdown })
+  useEffect(() => {
+    if (!editor || !fileId) return;
+
+    const handleInject = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || !detail.markdown) return;
+      // Só injeta se o evento for para este documento
+      if (detail.fileId && detail.fileId !== fileId) return;
+
+      // Insere no cursor atual; se nada selecionado, insere ao final
+      const { from } = editor.state.selection;
+      if (from > 0) {
+        editor.chain().focus().insertContentAt(from, detail.markdown).run();
+      } else {
+        editor.chain().focus().insertContent(detail.markdown).run();
+      }
+    };
+
+    window.addEventListener('inject-markdown-to-doc', handleInject);
+    return () => window.removeEventListener('inject-markdown-to-doc', handleInject);
+  }, [editor, fileId]);
 
   return {
     editor,
