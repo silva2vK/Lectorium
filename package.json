@@ -26,6 +26,7 @@
     "@tiptap/extension-collaboration-cursor": "^2.11.5",
     "@tiptap/extension-color": "^2.11.5",
     "@tiptap/extension-dropcursor": "^2.11.5",
+    "@tiptap/extension-focus": "^2.11.5",
     "@tiptap/extension-font-family": "^2.11.5",
     "@tiptap/extension-gapcursor": "^2.11.5",
     "@tiptap/extension-heading": "^2.11.5",
