@@ -137,7 +137,7 @@ export const DocCanvas: React.FC<DocCanvasProps> = ({
   };
 
   return (
-    <div className="flex-1 overflow-hidden relative flex bg-black">
+    <div className="flex-1 overflow-hidden relative flex bg-[#111111]">
       {/* UI Elements Fixed/Overlay */}
       <OutlineSidebar editor={editor} isOpen={sidebars.outline} onClose={() => toggleSidebar('outline', false)} />
       
@@ -159,12 +159,12 @@ export const DocCanvas: React.FC<DocCanvasProps> = ({
       {/* Main Scroll Container with Padding for Breathing Room */}
       <div 
         ref={docScrollerRef} 
-        className="flex-1 overflow-auto relative custom-scrollbar flex bg-[#0a0a0a]"
+        className="flex-1 overflow-auto relative custom-scrollbar flex bg-[#111111]"
       >
          {/* Centering Wrapper: m-auto centers content when smaller than viewport. 
              p-12 adds the critical breathing room at top/bottom/sides. 
              min-h-full ensures it stretches to allow centering vertically. */}
-         <div className="m-auto p-12 min-h-full flex flex-col justify-start items-center">
+         <div className="m-auto pt-12 px-12 pb-32 min-h-full flex flex-col justify-start items-center">
              
              {/* Sizing Wrapper: Reserves the exact scaled space in the flow. 
                  This forces the scroller to show scrollbars if the page + padding is larger than the viewport. */}
@@ -178,7 +178,7 @@ export const DocCanvas: React.FC<DocCanvasProps> = ({
                         width: pageLayout.currentPaper.widthPx,
                         height: pageLayout.currentPaper.heightPx, 
                         overflow: 'hidden', // CRITICAL: This enables the "Slide Mode" effect by hiding other pages
-                        boxShadow: '0 20px 50px -12px rgba(0,0,0,0.5)'
+                        boxShadow: '0 4px 40px rgba(0,0,0,0.65), 0 1px 0 rgba(255,255,255,0.04)'
                     }}
                  >
                     {/* Horizontal Ruler (Sticky to top of page context) */}
@@ -233,9 +233,15 @@ export const DocCanvas: React.FC<DocCanvasProps> = ({
                                         )}
 
                                         <div 
-                                            className={`bg-white shadow-lg w-full h-full border border-[#333] relative transition-opacity duration-300`} 
-                                            style={{ backgroundColor: pageLayout.pageSettings.pageColor }}
+                                            className={`w-full h-full relative transition-opacity duration-300`} 
+                                            style={{ backgroundColor: pageLayout.pageSettings.pageColor || '#fafaf8' }}
                                         >
+                                            {/* P6: Indicadores de margem ABNT */}
+                                            <div className="absolute inset-0 pointer-events-none z-[5]" style={{
+                                                backgroundImage: `linear-gradient(to right, transparent ${pageLayout.pageSettings.marginLeft}cm, transparent ${pageLayout.pageSettings.marginLeft}cm, transparent calc(100% - ${pageLayout.pageSettings.marginRight}cm), transparent calc(100% - ${pageLayout.pageSettings.marginRight}cm))`,
+                                                boxShadow: `inset ${pageLayout.pageSettings.marginLeft}cm 0 0 rgba(0,0,100,0.025), inset -${pageLayout.pageSettings.marginRight}cm 0 0 rgba(0,0,100,0.025), inset 0 ${pageLayout.pageSettings.marginTop}cm 0 rgba(0,0,100,0.025), inset 0 -${pageLayout.pageSettings.marginBottom}cm 0 rgba(0,0,100,0.025)`
+                                            }}/>
+
                                             {/* HEADER */}
                                             <div 
                                                 className="absolute left-0 right-0 pointer-events-auto cursor-pointer hover:bg-blue-50/50 transition-colors z-20 overflow-hidden"
