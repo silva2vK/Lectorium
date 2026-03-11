@@ -21,7 +21,6 @@ import { Placeholder } from '@tiptap/extension-placeholder';
 import { CharacterCount } from '@tiptap/extension-character-count';
 import { Typography } from '@tiptap/extension-typography';
 import { Dropcursor } from '@tiptap/extension-dropcursor';
-import { Focus } from '@tiptap/extension-focus';
 import { Gapcursor } from '@tiptap/extension-gapcursor';
 import { Collaboration } from '@tiptap/extension-collaboration';
 import { CollaborationCursor } from '@tiptap/extension-collaboration-cursor';
@@ -170,11 +169,7 @@ export const useDocEditorConfig = ({ onUpdate, fileId, userInfo, onTableDoubleCl
         color: 'var(--brand)',
         width: 2,
       }),
-      // E4: Focus — adiciona classe 'has-focus' no nó ativo para destaque visual no tablet
-      Focus.configure({
-        className: 'has-focus',
-        mode: 'shallowest',
-      }),
+
     ],
     editorProps: {
         attributes: {
