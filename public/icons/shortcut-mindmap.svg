@@ -1,10 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
-  <rect width="192" height="192" fill="#27272a" rx="48"/>
-  <line x1="96" y1="96" x2="96" y2="56" stroke="#a855f7" stroke-width="8" stroke-linecap="round"/>
-  <line x1="96" y1="96" x2="56" y2="136" stroke="#a855f7" stroke-width="8" stroke-linecap="round"/>
-  <line x1="96" y1="96" x2="136" y2="136" stroke="#a855f7" stroke-width="8" stroke-linecap="round"/>
-  <circle cx="96" cy="96" r="16" fill="#a855f7"/>
-  <circle cx="96" cy="56" r="10" fill="#ffffff"/>
-  <circle cx="56" cy="136" r="10" fill="#ffffff"/>
-  <circle cx="136" cy="136" r="10" fill="#ffffff"/>
+  <!-- Background -->
+  <rect width="192" height="192" fill="#18181b" rx="40"/>
+
+  <!-- Subtle radial glow behind root -->
+  <radialGradient id="glow" cx="50%" cy="50%" r="40%">
+    <stop offset="0%" stop-color="#a855f7" stop-opacity="0.18"/>
+    <stop offset="100%" stop-color="#a855f7" stop-opacity="0"/>
+  </radialGradient>
+  <rect width="192" height="192" rx="40" fill="url(#glow)"/>
+
+  <!-- Edges — root to children -->
+  <line x1="96" y1="96" x2="148" y2="58"  stroke="#a855f7" stroke-width="3.5" stroke-linecap="round" opacity="0.9"/>
+  <line x1="96" y1="96" x2="148" y2="134" stroke="#a855f7" stroke-width="3.5" stroke-linecap="round" opacity="0.9"/>
+  <line x1="96" y1="96" x2="44"  y2="62"  stroke="#a855f7" stroke-width="3.5" stroke-linecap="round" opacity="0.9"/>
+  <line x1="96" y1="96" x2="44"  y2="130" stroke="#a855f7" stroke-width="3.5" stroke-linecap="round" opacity="0.9"/>
+
+  <!-- Edge — right child to grandchild -->
+  <line x1="148" y1="58" x2="172" y2="40" stroke="#a855f7" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- Grandchild node (right-top) -->
+  <circle cx="172" cy="40" r="7" fill="#3f3f46" stroke="#a855f7" stroke-width="1.5" opacity="0.7"/>
+
+  <!-- Child nodes -->
+  <rect x="132" y="44" width="32" height="28" rx="8" fill="#3f3f46" stroke="#a855f7" stroke-width="2"/>
+  <rect x="132" y="120" width="32" height="28" rx="8" fill="#3f3f46" stroke="#7c3aed" stroke-width="2"/>
+  <rect x="28"  y="48" width="32" height="28" rx="8" fill="#3f3f46" stroke="#a855f7" stroke-width="2"/>
+  <rect x="28"  y="116" width="32" height="28" rx="8" fill="#3f3f46" stroke="#7c3aed" stroke-width="2"/>
+
+  <!-- Root node -->
+  <rect x="68" y="76" width="56" height="40" rx="12" fill="#a855f7"/>
+  <rect x="68" y="76" width="56" height="40" rx="12" fill="url(#rootShine)" opacity="0.3"/>
+
+  <!-- Root shine -->
+  <linearGradient id="rootShine" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.3"/>
+    <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+  </linearGradient>
+
+  <!-- Root dot indicator -->
+  <circle cx="96" cy="96" r="5" fill="#ffffff" opacity="0.9"/>
 </svg>
