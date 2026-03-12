@@ -196,7 +196,7 @@ export const DocCanvas: React.FC<DocCanvasProps> = ({
                     {/* --- TRANSLATION LAYER --- 
                         Moves the entire document (all pages) up so the current page aligns with the top of the Viewport. */}
                     <div 
-                        className="transition-transform duration-300 ease-out relative" 
+                        className="transition-transform duration-300 ease-out relative lectorium-translation-layer" 
                         style={{ 
                             transform: `translateY(${contentTranslateY}px)` 
                         }}
