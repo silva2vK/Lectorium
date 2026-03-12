@@ -86,7 +86,7 @@ async function convertHeicToPdf(blob: Blob): Promise<Blob> {
   });
 
   const pdfBytes = await pdfDoc.save();
-  return new Blob([pdfBytes as any], { type: 'application/pdf' });
+  return new Blob([pdfBytes], { type: 'application/pdf' });
 }
 
 /**
@@ -122,7 +122,7 @@ async function convertTiffToPdf(buffer: ArrayBuffer): Promise<Blob> {
   }
 
   const pdfBytes = await pdfDoc.save();
-  return new Blob([pdfBytes as any], { type: 'application/pdf' });
+  return new Blob([pdfBytes], { type: 'application/pdf' });
 }
 
 async function convertWebPToPdf(blob: Blob): Promise<Blob> {
@@ -137,7 +137,7 @@ async function convertWebPToPdf(blob: Blob): Promise<Blob> {
       page.drawImage(jpgImage, { x: 0, y: 0, width: jpgImage.width, height: jpgImage.height });
       
       const pdfBytes = await pdfDoc.save();
-      return new Blob([pdfBytes as any], { type: 'application/pdf' });
+      return new Blob([pdfBytes], { type: 'application/pdf' });
   } catch (e) {
       throw new Error("Falha ao converter imagem para PDF: " + (e as any).message);
   }
@@ -210,7 +210,7 @@ async function convertTextToPdf(text: string): Promise<Blob> {
   }
 
   const pdfBytes = await pdfDoc.save();
-  return new Blob([pdfBytes as any], { type: 'application/pdf' });
+  return new Blob([pdfBytes], { type: 'application/pdf' });
 }
 
 async function convertDicomToPdf(buffer: ArrayBuffer): Promise<Blob> {
@@ -222,8 +222,12 @@ async function convertDicomToPdf(buffer: ArrayBuffer): Promise<Blob> {
 
   const rawData = image.getInterpretedData();
   const numPixels = image.getRows() * image.getCols();
-  const min = Math.min(...rawData);
-  const max = Math.max(...rawData);
+  // Loop manual — Math.min/max(...rawData) estoura call stack no Android com arrays > 65k
+  let min = Infinity, max = -Infinity;
+  for (let i = 0; i < rawData.length; i++) {
+    if (rawData[i] < min) min = rawData[i];
+    if (rawData[i] > max) max = rawData[i];
+  }
   const range = max - min; 
 
   const canvas = createSmartCanvas(image.getCols(), image.getRows());
@@ -252,52 +256,12 @@ async function convertDicomToPdf(buffer: ArrayBuffer): Promise<Blob> {
   page.drawImage(pngImage, { x: 0, y: 0, width: image.getCols(), height: image.getRows() });
 
   const pdfBytes = await pdfDoc.save();
-  return new Blob([pdfBytes as any], { type: 'application/pdf' });
+  return new Blob([pdfBytes], { type: 'application/pdf' });
 }
 
-async function processCbr(data: Uint8Array): Promise<Blob> {
-  let createExtractorFromData;
-  try {
-    const module = await import('unrar-js');
-    createExtractorFromData = module.createExtractorFromData;
-  } catch (err) {
-    throw new Error("Falha ao carregar motor de extração RAR.");
-  }
-
-  const extractor = await createExtractorFromData({ data });
-  const list = extractor.getFileList();
-  const fileHeaders = [...list.fileHeaders];
-  
-  const imageHeaders = fileHeaders
-    .filter(h => /\.(jpg|jpeg|png|webp|bmp)$/i.test(h.name) && !h.flags.directory)
-    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-
-  if (imageHeaders.length === 0) throw new Error("O arquivo CBR não contém imagens suportadas.");
-
-  const pdfDoc = await PDFDocument.create();
-  const extracted = extractor.extract({ files: imageHeaders.map(h => h.name) });
-
-  for (const file of extracted.files) {
-      if (!file.extraction) continue;
-      
-      const ext = file.fileHeader.name.split('.').pop()?.toLowerCase();
-      let mimeType = 'image/jpeg';
-      if (ext === 'png') mimeType = 'image/png';
-      if (ext === 'webp') mimeType = 'image/webp';
-      if (ext === 'bmp') mimeType = 'image/bmp';
-
-      try {
-          const processedData = await processImage(file.extraction, mimeType);
-          const image = await pdfDoc.embedJpg(processedData);
-          const page = pdfDoc.addPage([image.width, image.height]);
-          page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
-      } catch (e) {
-          console.warn(`[CBR] Falha ao processar imagem ${file.fileHeader.name}, pulando...`, e);
-      }
-  }
-
-  const pdfBytes = await pdfDoc.save();
-  return new Blob([pdfBytes as any], { type: 'application/pdf' });
+// CBR (RAR): unrar-js ausente do package.json. Para habilitar: npm install unrar-js
+async function processCbr(_data: Uint8Array): Promise<Blob> {
+  throw new Error("Arquivos .cbr não são suportados. Converta para .cbz e tente novamente.");
 }
 
 async function convertCbzToPdf(blob: Blob): Promise<Blob> {
@@ -335,7 +299,7 @@ async function convertCbzToPdf(blob: Blob): Promise<Blob> {
   }
 
   const pdfBytes = await pdfDoc.save();
-  return new Blob([pdfBytes as any], { type: 'application/pdf' });
+  return new Blob([pdfBytes], { type: 'application/pdf' });
 }
 
 async function convertComicToPdf(blob: Blob): Promise<Blob> {
@@ -362,4 +326,4 @@ export async function universalConvertToPdf(blob: Blob, name: string): Promise<B
   }
 
   throw new Error("Formato de arquivo não suportado para conversão.");
-}
+    }
