@@ -1,24 +1,30 @@
-import { getAiClient } from "./aiService";
+import { GoogleGenAI } from "@google/genai";
 import { ChatMessage } from "../types";
 import { buildMessageWithSkill } from "./skillRouter";
+import { getStoredApiKey, getStoredApiKeys, rotateApiKey } from "../utils/apiKeyUtils";
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function* chatWithDocumentStream(contextString: string, history: ChatMessage[], message: string) {
-  const ai = getAiClient();
+const getFreshClient = (): GoogleGenAI => {
+  const key = getStoredApiKey();
+  if (!key) throw new Error("Chave de API não configurada. Adicione sua chave nas configurações.");
+  return new GoogleGenAI({ apiKey: key });
+};
 
+export async function* chatWithDocumentStream(
+  contextString: string,
+  history: ChatMessage[],
+  message: string
+) {
   // CORREÇÃO DO BUG DE HISTÓRICO DUPLICADO:
   // O AiChatPanel chama esta função ANTES do React processar o setMessages
   // que adiciona a mensagem do usuário. Portanto, history chega SEM a mensagem
   // atual — ela já está no parâmetro `message`. Não fazer slice.
-  // O .slice(0, -1) anterior cortava a última mensagem real do histórico,
-  // causando repetição a partir da segunda pergunta.
   const previousHistory = history.map(msg => ({
     role: msg.role === 'model' ? 'model' : 'user',
     parts: [{ text: msg.text }],
   }));
 
-  // Data injetada dinamicamente — Kalaki sabe o dia atual sem depender de treinamento
   const now = new Date();
   const dataAtual = now.toLocaleDateString('pt-BR', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
@@ -101,37 +107,54 @@ Regras estritas:
 3. JSON válido com exatamente a chave "items" e array de strings.
 4. Nunca em respostas a perguntas factuais diretas.`;
 
-  try {
-    const chat = ai.chats.create({
-      model: 'gemini-3-flash-preview',
-      history: previousHistory,
-      config: { systemInstruction, temperature: 0.3 }
-    });
+  // Tenta cada chave do pool antes de desistir
+  const totalKeys = getStoredApiKeys().length;
+  const maxAttempts = Math.max(totalKeys, 1);
+  let attempt = 0;
 
-    let stream;
-    let attempt = 0;
-    const maxRetries = 3;
+  while (attempt < maxAttempts) {
+    try {
+      // getFreshClient() chamado dentro do loop — pega a chave atual após cada rotação
+      const ai = getFreshClient();
 
-    while (true) {
-      try {
-        stream = await chat.sendMessageStream({ message: buildMessageWithSkill(message) });
-        break;
-      } catch (err: any) {
-        attempt++;
-        const isQuotaError = err.message?.includes('429') || err.message?.includes('quota');
-        if (attempt >= maxRetries) throw err;
-        const waitTime = isQuotaError ? Math.pow(3, attempt) * 1000 : 1000;
-        await sleep(waitTime);
-      }
-    }
+      const chat = ai.chats.create({
+        model: 'gemini-3-flash-preview',
+        history: previousHistory,
+        config: { systemInstruction, temperature: 0.3 }
+      });
 
-    if (stream) {
+      const stream = await chat.sendMessageStream({
+        message: buildMessageWithSkill(message)
+      });
+
       for await (const chunk of stream) {
         yield chunk.text || "";
       }
+
+      return; // sucesso — encerra o gerador
+
+    } catch (err: any) {
+      const isQuotaError =
+        err.message?.includes('429') ||
+        err.message?.includes('quota') ||
+        err.status === 429;
+
+      if (isQuotaError) {
+        attempt++;
+        if (attempt < maxAttempts) {
+          rotateApiKey(); // avança para a próxima chave
+          console.warn(`[Key Pool] Cota excedida no chat. Tentando chave ${attempt + 1}/${maxAttempts}...`);
+          await sleep(Math.pow(2, attempt) * 500);
+          continue;
+        }
+        // Todas as chaves esgotadas
+        yield `⚠️ Todas as ${totalKeys} chave(s) atingiram o limite de uso. Adicione novas chaves nas configurações ou aguarde a renovação da cota.`;
+        return;
+      }
+
+      // Erro não-quota — falha imediata
+      yield `Erro na conexão neural: ${err.message || String(err)}`;
+      return;
     }
-  } catch (e: any) {
-    const errorMessage = e.message || String(e);
-    yield `Erro na conexão neural: ${errorMessage}`;
   }
 }
