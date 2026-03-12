@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Editor, BubbleMenu } from '@tiptap/react';
 import { getAiClient } from '../../services/aiService';
 import { Icon } from '../shared/Icon';
-import { Loader2, RefreshCw, Scissors, Wand2, Bold, Italic, Link, Sparkles, ChevronRight } from 'lucide-react';
+import { Loader2, RefreshCw, Scissors, Wand2, Bold, Italic, Link, Sparkles, ChevronRight, Check, X } from 'lucide-react';
 import { useGlobalContext } from '../../context/GlobalContext';
 
 interface Props {
@@ -14,6 +14,8 @@ export const AiBubbleMenu: React.FC<Props> = ({ editor }) => {
   const { addNotification } = useGlobalContext();
   const [isLoading, setIsLoading] = useState(false);
   const [showAiSubmenu, setShowAiSubmenu] = useState(false);
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
 
   const processAi = async (promptType: 'rewrite' | 'summarize' | 'expand') => {
     const selection = editor.state.selection;
@@ -48,24 +50,24 @@ export const AiBubbleMenu: React.FC<Props> = ({ editor }) => {
     }
   };
 
-  const toggleLink = () => {
-    const previousUrl = editor.getAttributes('link').href;
-    const url = window.prompt('URL', previousUrl);
+  const openLinkInput = () => {
+    const previousUrl = editor.getAttributes('link').href || '';
+    setLinkUrl(previousUrl);
+    setShowLinkInput(true);
+  };
 
-    if (url === null) {
-      return;
-    }
-
+  const applyLink = (url: string) => {
+    setShowLinkInput(false);
+    setLinkUrl('');
     if (url === '') {
       editor.chain().focus().extendMarkRange('link').unsetLink().run();
       return;
     }
-
-    // Se já existe um link, estende a seleção para cobrir todo o link antes de atualizar
-    if (previousUrl) {
-      editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+    const href = url.startsWith('http') ? url : `https://${url}`;
+    if (editor.getAttributes('link').href) {
+      editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
     } else {
-      editor.chain().focus().setLink({ href: url }).run();
+      editor.chain().focus().setLink({ href }).run();
     }
   };
 
@@ -81,7 +83,33 @@ export const AiBubbleMenu: React.FC<Props> = ({ editor }) => {
       shouldShow={shouldShow}
       className="flex bg-[#262626] shadow-2xl border border-border rounded-xl overflow-hidden animate-in fade-in zoom-in duration-200"
     >
-      {isLoading ? (
+      {showLinkInput ? (
+        <div className="flex items-center gap-1 px-2 py-1.5 min-w-[260px]">
+          <input
+            autoFocus
+            type="url"
+            value={linkUrl}
+            onChange={e => setLinkUrl(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') applyLink(linkUrl);
+              if (e.key === 'Escape') { setShowLinkInput(false); setLinkUrl(''); }
+            }}
+            placeholder="https://"
+            className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/30 min-w-0"
+          />
+          <button onClick={() => applyLink(linkUrl)} className="p-1.5 hover:bg-white/10 rounded text-brand" title="Aplicar">
+            <Check size={14} />
+          </button>
+          <button onClick={() => { setShowLinkInput(false); setLinkUrl(''); }} className="p-1.5 hover:bg-white/10 rounded text-white/50" title="Cancelar">
+            <X size={14} />
+          </button>
+          {editor.isActive('link') && (
+            <button onClick={() => applyLink('')} className="p-1.5 hover:bg-red-500/20 rounded text-red-400 text-xs" title="Remover link">
+              Remover
+            </button>
+          )}
+        </div>
+      ) : isLoading ? (
         <div className="flex items-center gap-2 px-4 py-2 text-sm text-brand">
            <Loader2 size={16} className="animate-spin" />
            Processando...
@@ -134,7 +162,7 @@ export const AiBubbleMenu: React.FC<Props> = ({ editor }) => {
             <Italic size={16} />
           </button>
           <button 
-            onClick={toggleLink}
+            onClick={openLinkInput}
             className={`px-3 py-2 hover:bg-white/10 transition-colors ${editor.isActive('link') ? 'text-brand' : 'text-text'}`}
             title="Link"
           >
