@@ -74,11 +74,43 @@ export const DocEditorLayout: React.FC = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  const handleExportPdf = () => {
+    // Zera o translateY do slide-mode e oculta toda a UI antes de imprimir
+    const styleId = 'lectorium-print-css';
+    if (document.getElementById(styleId)) document.getElementById(styleId)!.remove();
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      @media print {
+        body > * { display: none !important; }
+        #lectorium-print-root { display: block !important; }
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Força o translateY para 0 temporariamente para revelar todas as páginas
+    const translationLayer = document.querySelector('.lectorium-translation-layer') as HTMLElement | null;
+    const savedTransform = translationLayer?.style.transform ?? '';
+    if (translationLayer) translationLayer.style.transform = 'translateY(0)';
+
+    // Marca o root para o CSS print identificar
+    const root = document.getElementById('root') || document.body;
+    root.id = 'lectorium-print-root';
+
+    window.print();
+
+    // Restaura após o print (pequeno delay para o diálogo abrir primeiro)
+    setTimeout(() => {
+      style.remove();
+      if (translationLayer) translationLayer.style.transform = savedTransform;
+    }, 500);
+  };
+
   if (!editor) return <ViewLoader />;
 
   return (
     <div 
-      className={`flex flex-col h-full bg-bg relative text-text ${ui.modes.lineNumbers ? 'show-line-numbers' : ''}`}
+      className={`flex flex-col h-full bg-bg relative overflow-hidden text-text ${ui.modes.lineNumbers ? 'show-line-numbers' : ''}`}
       ref={(el) => { if (el) el.style.viewTransitionName = 'hero-expand'; }}
     >
        {/* MOBILE PULLER (TACTICAL) - Z-Index 200 to stay on top of everything */}
@@ -108,7 +140,7 @@ export const DocEditorLayout: React.FC = () => {
                             editor={editor} fileName={currentName} isSaving={fileHandler.isSaving} onSave={() => fileHandler.handleSave(layout.pageSettings, comments, references)}
                             onShare={handleNativeShare} onNew={onToggleMenu} onWordCount={() => ui.toggleModal('wordCount', true)}
                             onRename={fileHandler.handleRename}
-                            onDownload={() => fileHandler.handleDownload(layout.pageSettings, comments, references)} onDownloadLect={() => fileHandler.handleDownloadLect(layout.pageSettings, comments)} onExportPdf={() => window.print()}
+                            onDownload={() => fileHandler.handleDownload(layout.pageSettings, comments, references)} onDownloadLect={() => fileHandler.handleDownloadLect(layout.pageSettings, comments)} onExportPdf={handleExportPdf}
                             onInsertImage={triggerImageUpload} onTrash={fileHandler.handleTrash} onPageSetup={() => ui.toggleModal('pageSetup', true)}
                             onPageNumber={() => ui.toggleModal('pageNumber', true)} 
                             currentPage={currentPage}
