@@ -7,7 +7,7 @@ import { DriveFile } from '../types';
 import { cacheAppResources, getOfflineCacheSize, ResourceCategory, deleteOfflineResources } from '../services/offlineService';
 import { OfflineDownloadModal } from './OfflineDownloadModal';
 import { VersionDebugModal } from './VersionDebugModal';
-import { ApiKeyModal } from './ApiKeyModal';
+import ApiKeyModal from './ApiKeyModal';
 import { getStoredApiKey } from '../utils/apiKeyUtils';
 import { BaseModal } from './shared/BaseModal';
 import { getWallpaper, saveWallpaper, removeWallpaper } from '../services/storageService';
