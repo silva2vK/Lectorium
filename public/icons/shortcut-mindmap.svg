@@ -1,42 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
-  <!-- Background -->
   <rect width="192" height="192" fill="#18181b" rx="40"/>
-
-  <!-- Subtle radial glow behind root -->
-  <radialGradient id="glow" cx="50%" cy="50%" r="40%">
-    <stop offset="0%" stop-color="#a855f7" stop-opacity="0.18"/>
-    <stop offset="100%" stop-color="#a855f7" stop-opacity="0"/>
-  </radialGradient>
-  <rect width="192" height="192" rx="40" fill="url(#glow)"/>
-
-  <!-- Edges — root to children -->
-  <line x1="96" y1="96" x2="148" y2="58"  stroke="#a855f7" stroke-width="3.5" stroke-linecap="round" opacity="0.9"/>
-  <line x1="96" y1="96" x2="148" y2="134" stroke="#a855f7" stroke-width="3.5" stroke-linecap="round" opacity="0.9"/>
-  <line x1="96" y1="96" x2="44"  y2="62"  stroke="#a855f7" stroke-width="3.5" stroke-linecap="round" opacity="0.9"/>
-  <line x1="96" y1="96" x2="44"  y2="130" stroke="#a855f7" stroke-width="3.5" stroke-linecap="round" opacity="0.9"/>
-
-  <!-- Edge — right child to grandchild -->
-  <line x1="148" y1="58" x2="172" y2="40" stroke="#a855f7" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
-
-  <!-- Grandchild node (right-top) -->
-  <circle cx="172" cy="40" r="7" fill="#3f3f46" stroke="#a855f7" stroke-width="1.5" opacity="0.7"/>
-
-  <!-- Child nodes -->
-  <rect x="132" y="44" width="32" height="28" rx="8" fill="#3f3f46" stroke="#a855f7" stroke-width="2"/>
-  <rect x="132" y="120" width="32" height="28" rx="8" fill="#3f3f46" stroke="#7c3aed" stroke-width="2"/>
-  <rect x="28"  y="48" width="32" height="28" rx="8" fill="#3f3f46" stroke="#a855f7" stroke-width="2"/>
-  <rect x="28"  y="116" width="32" height="28" rx="8" fill="#3f3f46" stroke="#7c3aed" stroke-width="2"/>
-
-  <!-- Root node -->
-  <rect x="68" y="76" width="56" height="40" rx="12" fill="#a855f7"/>
-  <rect x="68" y="76" width="56" height="40" rx="12" fill="url(#rootShine)" opacity="0.3"/>
-
-  <!-- Root shine -->
-  <linearGradient id="rootShine" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.3"/>
-    <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
-  </linearGradient>
-
-  <!-- Root dot indicator -->
-  <circle cx="96" cy="96" r="5" fill="#ffffff" opacity="0.9"/>
+  <g transform="translate(28, 28)">
+    <rect x="6" y="8" width="124" height="104" rx="6" fill="#000000" opacity="0.35"/>
+    <rect x="0" y="0" width="124" height="104" rx="6" fill="#d4c8a8"/>
+    <line x1="41" y1="0" x2="41" y2="104" stroke="#b8a880" stroke-width="1.5" opacity="0.7"/>
+    <line x1="83" y1="0" x2="83" y2="104" stroke="#b8a880" stroke-width="1.5" opacity="0.7"/>
+    <rect x="39" y="0" width="4" height="104" fill="#000" opacity="0.06" rx="1"/>
+    <rect x="81" y="0" width="4" height="104" fill="#000" opacity="0.06" rx="1"/>
+    <path d="M 10 30 Q 25 20 38 32 Q 50 42 55 30 Q 62 15 80 22 Q 95 28 110 18" fill="none" stroke="#8a7a5a" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+    <path d="M 8 50 Q 20 38 35 44 Q 50 52 60 44 Q 72 34 88 42 Q 100 50 114 44 L 116 80 Q 100 88 85 78 Q 68 68 55 78 Q 40 90 22 82 Q 10 76 8 62 Z" fill="#c8b87a" opacity="0.5"/>
+    <path d="M 30 55 Q 45 62 58 58 Q 72 54 82 65 Q 90 74 105 70" fill="none" stroke="#6b9fc4" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+    <g transform="translate(72, 28)">
+      <path d="M 0 18 Q -10 8 -10 0 A 10 10 0 1 1 10 0 Q 10 8 0 18 Z" fill="#a855f7"/>
+      <circle cx="0" cy="0" r="4" fill="#ffffff" opacity="0.9"/>
+      <ellipse cx="2" cy="20" rx="5" ry="2" fill="#000" opacity="0.18"/>
+    </g>
+    <rect x="8" y="90" width="30" height="4" rx="1" fill="#8a7a5a" opacity="0.6"/>
+    <rect x="8" y="90" width="15" height="4" rx="1" fill="#5a4a2a" opacity="0.6"/>
+    <g transform="translate(106, 12)" opacity="0.55">
+      <line x1="0" y1="-7" x2="0" y2="7" stroke="#5a4a2a" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="-7" y1="0" x2="7" y2="0" stroke="#5a4a2a" stroke-width="1.5" stroke-linecap="round"/>
+      <polygon points="0,-8 -3,-3 3,-3" fill="#a855f7"/>
+    </g>
+  </g>
 </svg>
