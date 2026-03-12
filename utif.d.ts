@@ -1,9 +1,11 @@
-
 declare module 'utif' {
   export interface IFD {
     width: number;
     height: number;
-    data: Uint8Array;
+    data?: Uint8Array;     // buffer raw comprimido (antes de decodeImage)
+    rgba?: Uint8Array;     // buffer RGBA decodificado (após decodeImage + toRGBA8)
+    t262?: number[];       // PhotometricInterpretation
+    t258?: number[];       // BitsPerSample
     [key: string]: any;
   }
 
