@@ -40,7 +40,7 @@ interface UserInfo {
 }
 
 interface UseDocEditorConfigProps {
-  onUpdate?: () => void;
+  onUpdate?: (props: { editor: import('@tiptap/react').Editor }) => void;
   fileId: string;
   userInfo: UserInfo;
   onTableDoubleClick?: () => void; // Nova prop
@@ -195,8 +195,8 @@ export const useDocEditorConfig = ({ onUpdate, fileId, userInfo, onTableDoubleCl
           }
         }
     },
-    onUpdate: () => {
-        if (onUpdate) onUpdate();
+    onUpdate: ({ editor: updatedEditor }) => {
+        if (onUpdate) onUpdate({ editor: updatedEditor });
     }
   }, [fileId, provider]); // Re-create if provider changes (e.g. going online/saved)
 
