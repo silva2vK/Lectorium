@@ -1,35 +1,36 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { MindMapData } from "../types";
-import { getStoredApiKey, rotateApiKey } from "../utils/apiKeyUtils";
+import { getStoredApiKey, rotateApiKey, getStoredApiKeys } from "../utils/apiKeyUtils";
 
 // --- CONFIG ---
-export const getAiClient = () => {
+export const getAiClient = (): GoogleGenAI => {
   const userKey = getStoredApiKey();
-  if (userKey) {
-    return new GoogleGenAI({ apiKey: userKey });
-  }
-  if (process.env.API_KEY) {
-    return new GoogleGenAI({ apiKey: process.env.API_KEY });
-  }
+  if (userKey) return new GoogleGenAI({ apiKey: userKey });
   throw new Error("Chave de API não configurada. Por favor, adicione sua chave nas configurações.");
 };
 
-// Utils
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Wrapper for Key Rotation Logic
-export async function withKeyRotation<T>(operation: () => Promise<T>, retryCount = 0): Promise<T> {
+// Wrapper de rotação — getAiClient() DEVE ser chamado dentro do callback `operation`
+export async function withKeyRotation<T>(
+  operation: () => Promise<T>,
+  retryCount = 0
+): Promise<T> {
   try {
     return await operation();
   } catch (e: any) {
-    const isRateLimit = e.message?.includes('429') || e.message?.includes('quota');
-    
-    if (isRateLimit) {
+    const isRateLimit =
+      e.message?.includes('429') ||
+      e.message?.includes('quota') ||
+      e.status === 429;
+
+    const totalKeys = getStoredApiKeys().length;
+
+    if (isRateLimit && retryCount < totalKeys) {
       const rotated = rotateApiKey();
-      if (rotated && retryCount < 3) {
-        console.warn(`[Key Pool] Cota excedida. Rotacionando chave e tentando novamente (Tentativa ${retryCount + 1})...`);
-        await sleep(1000); // Brief pause before retry
+      if (rotated) {
+        console.warn(`[Key Pool] Cota excedida. Rotacionando chave (tentativa ${retryCount + 1}/${totalKeys})...`);
+        await sleep(Math.pow(2, retryCount) * 500);
         return withKeyRotation(operation, retryCount + 1);
       }
     }
@@ -41,68 +42,65 @@ export async function withKeyRotation<T>(operation: () => Promise<T>, retryCount
 
 export async function generateEmbeddings(texts: string[]): Promise<Float32Array[]> {
   const model = "text-embedding-004";
-  
   const embeddings: Float32Array[] = new Array(texts.length).fill(new Float32Array(0));
-  
   const BATCH_SIZE = 2;
-  const BATCH_DELAY_MS = 2500; 
+  const BATCH_DELAY_MS = 2500;
 
   const processSingle = async (text: string, index: number, retryCount = 0): Promise<void> => {
-      if (!text || !text.trim()) return;
-
-      try {
-          await withKeyRotation(async () => {
-              const ai = getAiClient(); // Get fresh client inside rotation wrapper
-              const result = await ai.models.embedContent({
-                  model: model,
-                  content: { parts: [{ text: text.trim() }] }
-              });
-              
-              if (result.embedding && result.embedding.values) {
-                  embeddings[index] = new Float32Array(result.embedding.values);
-              }
-          });
-      } catch (e: any) {
-          const isRateLimit = e.message?.includes('429') || e.message?.includes('quota');
-          
-          if (isRateLimit && retryCount < 3) {
-              const backoff = Math.pow(2, retryCount + 1) * 2000;
-              await sleep(backoff);
-              return processSingle(text, index, retryCount + 1);
-          }
-          console.error(`[AI] Falha no embedding (Item ${index}):`, e.message);
+    if (!text || !text.trim()) return;
+    try {
+      await withKeyRotation(async () => {
+        const ai = getAiClient();
+        const result = await ai.models.embedContent({
+          model,
+          content: { parts: [{ text: text.trim() }] }
+        });
+        if (result.embedding?.values) {
+          embeddings[index] = new Float32Array(result.embedding.values);
+        }
+      });
+    } catch (e: any) {
+      const isRateLimit =
+        e.message?.includes('429') ||
+        e.message?.includes('quota') ||
+        e.status === 429;
+      if (isRateLimit && retryCount < 3) {
+        await sleep(Math.pow(2, retryCount + 1) * 2000);
+        return processSingle(text, index, retryCount + 1);
       }
+      console.error(`[AI] Falha no embedding (índice ${index}):`, e.message);
+    }
   };
 
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
-      const batchPromises = [];
-      for (let j = 0; j < BATCH_SIZE; j++) {
-          const idx = i + j;
-          if (idx < texts.length) {
-              batchPromises.push(processSingle(texts[idx], idx));
-          }
-      }
-      await Promise.all(batchPromises);
-      if (i + BATCH_SIZE < texts.length) {
-          await sleep(BATCH_DELAY_MS);
-      }
+    const batchPromises: Promise<void>[] = [];
+    for (let j = 0; j < BATCH_SIZE && i + j < texts.length; j++) {
+      batchPromises.push(processSingle(texts[i + j], i + j));
+    }
+    await Promise.all(batchPromises);
+    if (i + BATCH_SIZE < texts.length) await sleep(BATCH_DELAY_MS);
   }
 
   return embeddings;
 }
 
 export async function generateDocumentBriefing(fullText: string): Promise<string> {
-    let textToAnalyze = fullText;
-    if (fullText.length > 50000) {
-        const start = fullText.slice(0, 15000); 
-        const middle = fullText.slice(Math.floor(fullText.length / 2) - 10000, Math.floor(fullText.length / 2) + 10000);
-        const end = fullText.slice(fullText.length - 15000); 
-        textToAnalyze = `[INÍCIO DO DOCUMENTO]\n${start}\n...\n[MEIO DO DOCUMENTO]\n${middle}\n...\n[FIM DO DOCUMENTO]\n${end}`;
-    }
+  let textToAnalyze = fullText;
+  if (fullText.length > 50000) {
+    const mid = Math.floor(fullText.length / 2);
+    textToAnalyze = [
+      "[INÍCIO DO DOCUMENTO]",
+      fullText.slice(0, 15000),
+      "...",
+      "[MEIO DO DOCUMENTO]",
+      fullText.slice(mid - 10000, mid + 10000),
+      "...",
+      "[FIM DO DOCUMENTO]",
+      fullText.slice(fullText.length - 15000),
+    ].join("\n");
+  }
 
-    const prompt = `Você é A Cidade (Kalaki), infraestrutura
-cognitiva do Lectorium. Analise o documento acadêmico
-fornecido e gere um "Briefing Tático" estruturado.
+  const prompt = `Você é A Cidade (Kalaki), infraestrutura cognitiva do Lectorium. Analise o documento acadêmico fornecido e gere um "Briefing Tático" estruturado.
 
 PROTOCOLO DE EXTRAÇÃO (Estado do Conhecimento):
 - Identifique: Autor(es), Instituição, Ano, Programa
@@ -110,8 +108,7 @@ PROTOCOLO DE EXTRAÇÃO (Estado do Conhecimento):
 - Recorte Temporal: Qual período histórico analisado?
 - Problema de Pesquisa: Qual lacuna o trabalho endereça?
 - Resultados: Quais achados principais?
-- Contribuição para a Área: Como o trabalho avança o
-  campo do conhecimento em que se insere?
+- Contribuição para a Área: Como o trabalho avança o campo do conhecimento em que se insere?
 
 ESTRUTURE em Markdown com estas seções EXATAS:
 
@@ -128,46 +125,41 @@ ESTRUTURE em Markdown com estas seções EXATAS:
 [Tipo + justificativa em 2-3 linhas]
 
 ## Perguntas Estratégicas
-[3 perguntas complexas que o documento responde,
- formatadas para o usuário clicar e aprofundar]
+[3 perguntas complexas que o documento responde, formatadas para o usuário clicar e aprofundar]
 
 ## Conexões Possíveis
-[2-3 obras/autores relacionados que complementam
- a análise — cite em ABNT]
+[2-3 obras/autores relacionados que complementam a análise — cite em ABNT]
 
 DOCUMENTO A ANALISAR:
 ${textToAnalyze}`;
 
-    try {
-        return await withKeyRotation(async () => {
-            const ai = getAiClient();
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: prompt,
-                config: { temperature: 0.3 }
-            });
-            return response.text || "Não foi possível gerar o briefing.";
-        });
-    } catch (e: any) {
-        if (e.message?.includes('429')) return "Tráfego intenso. Tente gerar o briefing novamente em alguns instantes.";
-        throw e;
+  try {
+    return await withKeyRotation(async () => {
+      const ai = getAiClient();
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: { temperature: 0.3 }
+      });
+      return response.text || "Não foi possível gerar o briefing.";
+    });
+  } catch (e: any) {
+    if (e.message?.includes('429') || e.status === 429) {
+      return "Tráfego intenso. Tente gerar o briefing novamente em alguns instantes.";
     }
+    throw e;
+  }
 }
 
 export async function refineOcrWords(words: string[]): Promise<string[]> {
   if (words.length > 500) {
-      const chunks = [];
-      for (let i = 0; i < words.length; i += 500) {
-          chunks.push(words.slice(i, i + 500));
-      }
-      
-      const results = [];
-      for (const chunk of chunks) {
-          const refinedChunk = await refineOcrWords(chunk);
-          results.push(...refinedChunk);
-          await sleep(1000); 
-      }
-      return results;
+    const results: string[] = [];
+    for (let i = 0; i < words.length; i += 500) {
+      const refined = await refineOcrWords(words.slice(i, i + 500));
+      results.push(...refined);
+      await sleep(1000);
+    }
+    return results;
   }
 
   const prompt = `Aja como um revisor editorial.
@@ -189,152 +181,136 @@ ${JSON.stringify(words)}`;
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              correctedWords: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING }
-              }
+              correctedWords: { type: Type.ARRAY, items: { type: Type.STRING } }
             },
             required: ["correctedWords"]
           }
         }
       });
-      const result = JSON.parse(response.text || '{"correctedWords": []}');
-      const corrected = result.correctedWords || [];
-      
-      if (Math.abs(corrected.length - words.length) > 5) {
-          return words;
-      }
-      
-      return corrected;
+      const result = JSON.parse(response.text || '{"correctedWords":[]}');
+      const corrected: string[] = result.correctedWords || [];
+      return Math.abs(corrected.length - words.length) > 5 ? words : corrected;
     });
-  } catch (e) {
+  } catch {
     return words;
   }
 }
 
 export async function refineTranscript(rawText: string): Promise<string> {
-    const prompt = `Você é um Editor Sênior especialista em restauração de textos antigos e jornais.
-    Sua tarefa é reorganizar a transcrição crua abaixo (OCR) que está fragmentada ou misturada.
+  const prompt = `Você é um Editor Sênior especialista em restauração de textos antigos e jornais.
+Sua tarefa é reorganizar a transcrição crua abaixo (OCR) que está fragmentada ou misturada.
 
-    DIRETRIZES:
-    1. Agrupe o texto em Artigos ou Seções lógicas usando Títulos em Markdown (## Título).
-    2. Corrija quebras de linha indevidas no meio de frases.
-    3. Mantenha o conteúdo INTEGRAL. Não resuma. Apenas organize.
-    4. Se houver anúncios ou textos desconexos, coloque-os em uma seção separada "Anúncios/Diversos".
-    5. Melhore a pontuação e corrija erros óbvios de OCR (ex: "rn" -> "m", "1" -> "l").
+DIRETRIZES:
+1. Agrupe o texto em Artigos ou Seções lógicas usando Títulos em Markdown (## Título).
+2. Corrija quebras de linha indevidas no meio de frases.
+3. Mantenha o conteúdo INTEGRAL. Não resuma. Apenas organize.
+4. Se houver anúncios ou textos desconexos, coloque-os em uma seção separada "Anúncios/Diversos".
+5. Melhore a pontuação e corrija erros óbvios de OCR (ex: "rn" -> "m", "1" -> "l").
 
-    TRANSCRICAO CRUA:
-    ${rawText.slice(0, 30000)} (Truncado por segurança)`;
+TRANSCRIÇÃO CRUA:
+${rawText.slice(0, 30000)}`;
 
-    try {
-        return await withKeyRotation(async () => {
-            const ai = getAiClient();
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: prompt,
-                config: { temperature: 0.2 }
-            });
-            return response.text || rawText;
-        });
-    } catch (e: any) {
-        console.error("AI Refinement failed", e);
-        throw new Error("Falha ao refinar texto com IA.");
-    }
+  try {
+    return await withKeyRotation(async () => {
+      const ai = getAiClient();
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: { temperature: 0.2 }
+      });
+      return response.text || rawText;
+    });
+  } catch (e: any) {
+    console.error("[AI] Falha ao refinar transcrição:", e);
+    throw new Error("Falha ao refinar texto com IA.");
+  }
 }
 
 export async function generateMindMapAi(topic: string): Promise<MindMapData> {
-    const prompt = `Crie uma estrutura inicial de mapa mental para o assunto: "${topic}".
-    Retorne um JSON seguindo exatamente esta interface:
-    interface MindMapNode {
-      id: string; text: string; x: number; y: number; width: number; height: number; color: string; parentId?: string; isRoot?: boolean; shape?: 'rectangle' | 'circle' | 'pill';
-    }
-    interface MindMapEdge { id: string; from: string; to: string; }
-    interface MindMapData { nodes: MindMapNode[]; edges: MindMapEdge[]; viewport: {x: number, y: number, zoom: number}; }
-    
-    Regras:
-    1. O nó raiz (isRoot: true) deve estar em x:0, y:0.
-    2. Crie de 4 a 7 sub-nós distribuídos ao redor.
-    3. Use cores vibrantes acadêmicas.
-    4. O JSON deve ser o único retorno.`;
+  const prompt = `Crie uma estrutura inicial de mapa mental para o assunto: "${topic}".
+Retorne um JSON seguindo exatamente esta interface:
+interface MindMapNode {
+  id: string; text: string; x: number; y: number; width: number; height: number; color: string; parentId?: string; isRoot?: boolean; shape?: 'rectangle' | 'circle' | 'pill';
+}
+interface MindMapEdge { id: string; from: string; to: string; }
+interface MindMapData { nodes: MindMapNode[]; edges: MindMapEdge[]; viewport: {x: number, y: number, zoom: number}; }
 
-    try {
-        return await withKeyRotation(async () => {
-            const ai = getAiClient();
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-pro-preview',
-                contents: prompt,
-                config: { responseMimeType: "application/json" }
-            });
-            return JSON.parse(response.text || "{}");
-        });
-    } catch (e) {
-        console.error("AI MindMap generation failed", e);
-        throw new Error("Falha ao gerar mapa com IA.");
-    }
+Regras:
+1. O nó raiz (isRoot: true) deve estar em x:0, y:0.
+2. Crie de 4 a 7 sub-nós distribuídos ao redor.
+3. Use cores vibrantes acadêmicas.
+4. O JSON deve ser o único retorno.`;
+
+  try {
+    return await withKeyRotation(async () => {
+      const ai = getAiClient();
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: prompt,
+        config: { responseMimeType: "application/json" }
+      });
+      return JSON.parse(response.text || "{}");
+    });
+  } catch (e: any) {
+    console.error("[AI] Falha ao gerar mapa mental:", e);
+    throw new Error("Falha ao gerar mapa com IA.");
+  }
 }
 
-export async function generateChartData(prompt: string): Promise<{ type: string, data: any[] }> {
-    const systemPrompt = `Você é Kalaki (A Cidade), a Cientista de Dados da Estrutura.
-    
-    Sua tarefa é analisar a requisição orgânica do usuário e gerar DOIS outputs em um único JSON, com exatidão matemática:
-    1. 'type': O melhor tipo de gráfico para os dados ('bar', 'line', 'area', 'pie', 'radar', 'composed').
-    2. 'data': Um array JSON de objetos para popular o gráfico (Recharts).
-    
-    Regras para 'data':
-    - Cada objeto deve ter 'name' (rótulo Eixo X).
-    - Outras chaves devem ser numéricas para as séries.
-    
-    Regras para 'type':
-    - Comparação entre categorias: 'bar'.
-    - Tendência ao longo do tempo: 'line' ou 'area'.
-    - Distribuição de partes de um todo: 'pie'.
-    - Comparação multivariada (atributos): 'radar'.
-    - Dados complexos mistos: 'composed'.
+export async function generateChartData(prompt: string): Promise<{ type: string; data: any[] }> {
+  const systemPrompt = `Você é Kalaki (A Cidade), a Cientista de Dados da Estrutura.
 
-    Exemplo de saída:
-    {
-      "type": "bar",
-      "data": [
-        { "name": "2020", "Receita": 5000, "Despesa": 3000 },
-        { "name": "2021", "Receita": 6200, "Despesa": 3200 }
-      ]
-    }
-    
-    Seja implacável e realista com os números. Retorne APENAS o JSON.`;
+Sua tarefa é analisar a requisição do usuário e gerar DOIS outputs em um único JSON:
+1. 'type': O melhor tipo de gráfico ('bar', 'line', 'area', 'pie', 'radar', 'composed').
+2. 'data': Array JSON de objetos para o Recharts.
 
-    try {
-        return await withKeyRotation(async () => {
-            const ai = getAiClient();
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: prompt,
-                config: { 
-                    systemInstruction: systemPrompt,
-                    responseMimeType: "application/json" 
-                }
-            });
-            return JSON.parse(response.text || '{"type": "bar", "data": []}');
-        });
-    } catch (e: any) {
-        throw new Error("Falha ao gerar dados do gráfico: " + e.message);
-    }
+Regras para 'data':
+- Cada objeto deve ter 'name' (rótulo Eixo X).
+- Outras chaves devem ser numéricas para as séries.
+
+Regras para 'type':
+- Comparação entre categorias: 'bar'.
+- Tendência ao longo do tempo: 'line' ou 'area'.
+- Distribuição de partes de um todo: 'pie'.
+- Comparação multivariada: 'radar'.
+- Dados complexos mistos: 'composed'.
+
+Retorne APENAS o JSON.`;
+
+  try {
+    return await withKeyRotation(async () => {
+      const ai = getAiClient();
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: {
+          systemInstruction: systemPrompt,
+          responseMimeType: "application/json"
+        }
+      });
+      return JSON.parse(response.text || '{"type":"bar","data":[]}');
+    });
+  } catch (e: any) {
+    throw new Error("Falha ao gerar dados do gráfico: " + e.message);
+  }
 }
 
 export async function analyzeChartData(data: any[]): Promise<string> {
-    const prompt = `Analise os seguintes dados de um gráfico e forneça um insight analítico curto (máx 2 frases) para usar como legenda/conclusão. Foque em tendências, picos ou anomalias.
-    
-    DADOS: ${JSON.stringify(data.slice(0, 10))}`; // Slice para economizar tokens se for grande
+  const prompt = `Analise os dados abaixo e forneça um insight analítico curto (máx 2 frases) para usar como legenda/conclusão. Foque em tendências, picos ou anomalias.
 
-    try {
-        return await withKeyRotation(async () => {
-            const ai = getAiClient();
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: prompt
-            });
-            return response.text || "";
-        });
-    } catch (e) {
-        return "";
-    }
-}
+DADOS: ${JSON.stringify(data.slice(0, 10))}`;
+
+  try {
+    return await withKeyRotation(async () => {
+      const ai = getAiClient();
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt
+      });
+      return response.text || "";
+    });
+  } catch {
+    return "";
+  }
+                    }
+
