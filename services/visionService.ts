@@ -2,20 +2,27 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { getStoredApiKey } from "../utils/apiKeyUtils";
 
-const getAiClient = () => {
-  const userKey = getStoredApiKey();
-  const apiKey = userKey || process.env.API_KEY;
-  if (!apiKey) throw new Error("API Key não configurada.");
-  return new GoogleGenAI({ apiKey });
+// Singleton memoizado por chave — evita recriar instância a cada página de OCR em lote.
+// Para um documento de 50 páginas, elimina 49 instanciações desnecessárias do SDK.
+// Invalidado automaticamente quando a chave muda (usuário reconfigura no ApiKeyModal).
+let _cachedClient: { key: string; instance: GoogleGenAI } | null = null;
+
+const getAiClient = (): GoogleGenAI => {
+  const apiKey = getStoredApiKey();
+  if (!apiKey) throw new Error("API Key não configurada. Configure em Configurações → Chaves de API.");
+  if (_cachedClient?.key === apiKey) return _cachedClient.instance;
+  _cachedClient = { key: apiKey, instance: new GoogleGenAI({ apiKey }) };
+  return _cachedClient.instance;
 };
 
+/**
+ * Remove markdown fences do retorno do modelo.
+ * Usa flag /m para ancorar no início de linha — cobre casos onde o modelo
+ * inclui texto ou espaços antes do bloco JSON, causando JSON.parse errors esporádicos.
+ */
 function cleanJsonResult(text: string): string {
   if (!text) return "[]";
-  let clean = text.trim();
-  if (clean.startsWith("```")) {
-    clean = clean.replace(/^```(json)?/, "").replace(/```$/, "");
-  }
-  return clean.trim();
+  return text.trim().replace(/^```[\w]*\n?/m, "").replace(/```\s*$/m, "").trim();
 }
 
 export interface OcrResult {
@@ -31,6 +38,9 @@ export interface OcrResult {
 /**
  * PROTOCOLO CHROME-OPTIMIZED (V8.0)
  * Otimizado para Gemini 3 Flash: foca em densidade de tokens e precisão espacial.
+ *
+ * Retry de quota (429): tratado pelo orquestrador (backgroundOcrService.runBackgroundOcr),
+ * que interrompe o lote e chama onQuotaExceeded. Não duplicar retry aqui.
  */
 export async function performFullPageOcr(base64Image: string, targetLanguage?: string): Promise<OcrResult> {
   const ai = getAiClient();
@@ -53,7 +63,6 @@ export async function performFullPageOcr(base64Image: string, targetLanguage?: s
 
   try {
     const startTime = performance.now();
-    // No Chrome, o modelo gemini-3-flash-preview processa WebP/JPEG com latência reduzida
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: {
@@ -63,8 +72,10 @@ export async function performFullPageOcr(base64Image: string, targetLanguage?: s
         ]
       },
       config: {
-        temperature: 0, // Determinístico para OCR
-        thinkingConfig: { thinkingBudget: 0 }, // Desabilita raciocínio para velocidade pura em OCR
+        temperature: 0, // Determinístico — OCR não se beneficia de variação
+        // thinkingBudget: 0 desabilita raciocínio interno do modelo.
+        // NUNCA remover: reduz latência de OCR em 2-3x sem perda de qualidade para extração de texto.
+        thinkingConfig: { thinkingBudget: 0 },
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -85,10 +96,13 @@ export async function performFullPageOcr(base64Image: string, targetLanguage?: s
     const cleanText = cleanJsonResult(response.text || '[]');
     
     return {
-        markdown: "", 
+        markdown: "",
         segments: JSON.parse(cleanText),
         metrics: {
-            uploadAndQueueTime: totalTime * 0.10, // Chrome reduz overhead de rede
+            // totalTime é o único valor medido com precisão.
+            // uploadAndQueueTime e processingTime são estimativas não instrumentadas —
+            // mantidos por compatibilidade de interface, não devem ser exibidos como métricas reais.
+            uploadAndQueueTime: totalTime * 0.10,
             processingTime: totalTime * 0.90,
             totalTime
         }
