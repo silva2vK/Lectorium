@@ -5,6 +5,7 @@ import { computeSparseHash } from "../utils/hashUtils";
 import { EmbeddingChunk, SearchResult, VectorIndex } from "../types";
 
 const MAX_CHUNK_LENGTH = 1000; // Caracteres por chunk
+const MAX_CHUNKS = 300;        // Limite de chunks por documento — evita explosão de custo em docs grandes
 const EMBEDDING_MODEL = 'text-embedding-004';
 
 // --- MATH UTILS (Bare Metal JS) ---
@@ -33,20 +34,18 @@ function cosineSimilarity(a: Float32Array, b: Float32Array): number {
 
 /**
  * Divide o texto em chunks inteligentes respeitando sentenças.
+ * Limita a MAX_CHUNKS chunks por documento via amostragem uniforme —
+ * preserva cobertura de início, meio e fim mesmo em documentos muito longos.
  */
 function smartChunking(fullText: string): string[] {
     const chunks: string[] = [];
-    // Normaliza quebras de linha
     const text = fullText.replace(/\r\n/g, '\n');
-    
-    // Divide primeiro por parágrafos duplos
     const rawBlocks = text.split(/\n\s*\n/);
     
     for (const block of rawBlocks) {
         if (block.length <= MAX_CHUNK_LENGTH) {
             if (block.trim().length > 20) chunks.push(block.trim());
         } else {
-            // Se o bloco for muito grande, divide por sentenças
             const sentences = block.match(/[^.!?]+[.!?]+[\])'"]*/g) || [block];
             let currentChunk = "";
             
@@ -61,6 +60,14 @@ function smartChunking(fullText: string): string[] {
             if (currentChunk.trim().length > 0) chunks.push(currentChunk.trim());
         }
     }
+
+    // Amostragem uniforme para documentos com muitos chunks
+    // 300 chunks × ~1000 chars = ~220 páginas A4 de cobertura efetiva
+    if (chunks.length > MAX_CHUNKS) {
+        const step = chunks.length / MAX_CHUNKS;
+        return Array.from({ length: MAX_CHUNKS }, (_, i) => chunks[Math.floor(i * step)]);
+    }
+
     return chunks;
 }
 
@@ -69,7 +76,7 @@ function smartChunking(fullText: string): string[] {
 /**
  * Indexa um documento para busca semântica.
  * Verifica integridade via Hash antes de reprocessar.
- * 
+ *
  * Otimização: Usa hash do texto extraído (textHash) além do hash do arquivo (contentHash).
  * Se apenas o binário mudou (anotações), mas o texto é igual, evita reprocessamento.
  */
@@ -80,7 +87,6 @@ export async function indexDocumentForSearch(
 ): Promise<void> {
     const currentFileHash = await computeSparseHash(blob);
     
-    // Calcular hash do texto (Otimização Semântica)
     const textBuffer = new TextEncoder().encode(extractedText);
     const hashBuffer = await crypto.subtle.digest('SHA-256', textBuffer);
     const currentTextHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -89,16 +95,12 @@ export async function indexDocumentForSearch(
     const existingIndex = await getVectorIndex(fileId);
     
     if (existingIndex && existingIndex.model === EMBEDDING_MODEL) {
-        // Validação Nível 1: Arquivo idêntico
         if (existingIndex.contentHash === currentFileHash) {
             console.log(`[RAG] Índice válido (Arquivo Intacto) para ${fileId}`);
             return;
         }
-        // Validação Nível 2: Texto idêntico (ignorando metadados/anotações)
         if (existingIndex.textHash === currentTextHash) {
             console.log(`[RAG] Índice válido (Texto Intacto) para ${fileId}. Apenas metadados mudaram.`);
-            
-            // Atualiza apenas o contentHash para evitar check futuro, mantendo os vetores
             const updatedIndex = { ...existingIndex, contentHash: currentFileHash, updatedAt: Date.now() };
             await saveVectorIndex(updatedIndex);
             return;
@@ -108,19 +110,21 @@ export async function indexDocumentForSearch(
     // 2. Process New Index
     console.log(`[RAG] Gerando novos embeddings para ${fileId}...`);
     
-    // A. Chunking
     const textChunks = smartChunking(extractedText);
     if (textChunks.length === 0) return;
 
-    // B. Generate Embeddings (Batch API Calls)
     const vectors = await generateEmbeddings(textChunks);
 
-    // C. Build Record
-    const chunks: EmbeddingChunk[] = textChunks.map((text, i) => ({
-        text,
-        vector: vectors[i],
-        id: `${fileId}-${i}`
-    }));
+    // Guard: vectors pode ser menor que textChunks em falha parcial da API Gemini.
+    // Filtra chunks sem vetor válido em vez de persistir undefined no índice.
+    const chunks: EmbeddingChunk[] = textChunks
+        .map((text, i) => ({ text, vector: vectors[i], id: `${fileId}-${i}` }))
+        .filter(c => c.vector instanceof Float32Array && c.vector.length > 0);
+
+    if (chunks.length === 0) {
+        console.warn(`[RAG] Nenhum embedding válido gerado para ${fileId}. Indexação abortada.`);
+        return;
+    }
 
     const index: VectorIndex = {
         fileId,
@@ -131,41 +135,47 @@ export async function indexDocumentForSearch(
         chunks
     };
 
-    // D. Save Atomic
     await saveVectorIndex(index);
     console.log(`[RAG] Indexação concluída: ${chunks.length} chunks.`);
 }
 
 /**
  * Realiza busca semântica no documento.
+ * Fallback: se threshold 0.4 eliminar todos os resultados, retorna os topK mais
+ * relevantes sem filtro — garante que o Kalaki sempre receba contexto do documento.
  */
 export async function semanticSearch(
     fileId: string, 
     query: string, 
     topK: number = 5
 ): Promise<SearchResult[]> {
-    // 1. Load Index
     const index = await getVectorIndex(fileId);
     if (!index || !index.chunks.length) {
         console.warn("[RAG] Índice não encontrado ou vazio.");
         return [];
     }
 
-    // 2. Embed Query
     const [queryVector] = await generateEmbeddings([query]);
     if (!queryVector) return [];
 
-    // 3. Compute Similarities (Linear Scan - Fast for <10k vectors)
-    // Para datasets maiores, usaríamos WebWorker ou HNSW
+    // Linear scan — rápido para < 10k vetores, adequado para escopo do Lectorium
     const results = index.chunks.map(chunk => ({
         text: chunk.text,
         score: cosineSimilarity(queryVector, chunk.vector),
         page: chunk.page
     }));
 
-    // 4. Sort & Filter
-    return results
-        .filter(r => r.score > 0.4) // Threshold mínimo de relevância
+    const filtered = results
+        .filter(r => r.score > 0.4)
         .sort((a, b) => b.score - a.score)
         .slice(0, topK);
+
+    // Fallback: threshold eliminou tudo — retorna os mais relevantes sem filtro de score
+    if (filtered.length === 0) {
+        return results
+            .sort((a, b) => b.score - a.score)
+            .slice(0, topK);
+    }
+
+    return filtered;
 }
