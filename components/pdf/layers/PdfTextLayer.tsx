@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useCallback } from 'react';
 import { PDFPageProxy } from 'pdfjs-dist';
 import { renderCustomTextLayer } from '../../../utils/pdfRenderUtils';
@@ -19,15 +18,15 @@ interface PdfTextLayerProps {
     spreadSide?: 'left' | 'right';
     isSplitActive: boolean;
     anchorData: AnchorData | null;
-    selection?: ExtendedSelectionState | null; 
+    selection?: ExtendedSelectionState | null;
     onHasText: (hasText: boolean) => void;
-    highlightColor: string; // Nova prop
+    highlightColor: string;
 }
 
 export const PdfTextLayer: React.FC<PdfTextLayerProps> = React.memo(({
     pageProxy, scale, isVisible, pageNumber, ocrData, isTranslationMode,
     rendered, activeTool, detectColumns, width, height, spreadSide, isSplitActive, anchorData, selection, onHasText,
-    highlightColor // Recebida aqui
+    highlightColor
 }) => {
     const textLayerRef = useRef<HTMLDivElement>(null);
     const lastInjectedOcrRef = useRef<string>("");
@@ -38,26 +37,25 @@ export const PdfTextLayer: React.FC<PdfTextLayerProps> = React.memo(({
         const container = textLayerRef.current;
         if (!container) return;
 
-        // Limpa marcadores antigos E estilos inline DE SELEÇÃO APENAS
+        // Limpa marcadores antigos E estilos inline de seleção apenas
         // Preserva o background original se for tradução
         container.querySelectorAll('.selection-anchor, .selection-end, .selection-preview').forEach(el => {
             el.classList.remove('selection-anchor', 'selection-end', 'selection-preview');
             const span = el as HTMLElement;
-            // Se estiver em modo tradução, NÃO removemos o background preto
             if (!isTranslationMode) {
                 span.style.backgroundColor = '';
             } else {
-                // Em modo tradução, removemos apenas a borda de seleção
+                // Em modo tradução, remove apenas a borda de seleção
                 span.style.borderColor = 'transparent';
                 span.style.borderWidth = '0';
             }
             span.style.borderBottomColor = '';
-            span.style.opacity = ''; // Reset
+            span.style.opacity = '';
         });
 
         const allSpans = container.querySelectorAll('span');
 
-        // Se já existe uma seleção completa (Início e Fim definidos), pintamos o intervalo.
+        // Se existe seleção completa (início e fim definidos), pinta o intervalo
         if (selection && selection.page === pageNumber && selection.startIndex !== undefined && selection.endIndex !== undefined) {
             const start = Math.min(selection.startIndex, selection.endIndex);
             const end = Math.max(selection.startIndex, selection.endIndex);
@@ -66,15 +64,14 @@ export const PdfTextLayer: React.FC<PdfTextLayerProps> = React.memo(({
                 const span = allSpans[i];
                 if (span) {
                     span.classList.add('selection-preview');
-                    
+
                     if (isTranslationMode) {
-                        // Em modo tradução, usamos borda colorida para não matar o fundo preto
+                        // Borda colorida para não encobrir o fundo escuro da figurinha
                         span.style.borderColor = highlightColor;
                         span.style.borderWidth = '2px';
                         span.style.borderStyle = 'solid';
                         span.style.boxSizing = 'border-box';
                     } else {
-                        // Aplica a cor do marcador escolhida pelo usuário (fundo tradicional)
                         span.style.backgroundColor = highlightColor;
                     }
                 }
@@ -82,24 +79,21 @@ export const PdfTextLayer: React.FC<PdfTextLayerProps> = React.memo(({
             return;
         }
 
-        // Se não há seleção completa, desenha apenas a âncora (Primeiro Clique do Smart Tap)
+        // Sem seleção completa — desenha apenas a âncora (primeiro clique do Smart Tap)
         if (anchorData && anchorData.page === pageNumber) {
             const startSpan = allSpans[anchorData.index];
             if (startSpan) {
                 startSpan.classList.add('selection-anchor');
-                // Aplica a cor do marcador à borda e fundo da âncora
                 startSpan.style.borderBottomColor = highlightColor;
-                
+
                 if (!isTranslationMode) {
                     startSpan.style.backgroundColor = highlightColor;
                 } else {
-                    // No modo tradução, apenas borda inferior forte
                     startSpan.style.borderBottomWidth = '4px';
                 }
-                // A opacidade é controlada pelo CSS para dar o efeito visual correto
             }
         }
-    }, [anchorData, selection, pageNumber, highlightColor, isTranslationMode]); 
+    }, [anchorData, selection, pageNumber, highlightColor, isTranslationMode]);
 
     // Sincroniza marcadores quando o estado muda
     useEffect(() => {
@@ -108,10 +102,10 @@ export const PdfTextLayer: React.FC<PdfTextLayerProps> = React.memo(({
 
     useEffect(() => {
         if (!rendered || !isVisible || !pageProxy || !textLayerRef.current) return;
-        
+
         if (ocrData && ocrData.length > 0) {
             onHasText(false);
-            return; 
+            return;
         }
 
         let active = true;
@@ -120,7 +114,7 @@ export const PdfTextLayer: React.FC<PdfTextLayerProps> = React.memo(({
                 const viewport = pageProxy.getViewport({ scale });
                 const textContent = await pageProxy.getTextContent();
                 if (!active) return;
-                
+
                 const fullText = textContent.items.map((i: any) => i.str).join('');
                 onHasText(fullText.length > 10);
 
@@ -144,7 +138,7 @@ export const PdfTextLayer: React.FC<PdfTextLayerProps> = React.memo(({
         if (ocrData && ocrData.length > 0 && textLayerRef.current && rendered) {
             const sideKey = isSplitActive ? spreadSide : 'full';
             const dataHash = `v21-${isTranslationMode}-${pageNumber}-${ocrData.length}-${scale}-${sideKey}`;
-            
+
             if (lastInjectedOcrRef.current === dataHash) {
                 updateVisualMarkers();
                 return;
@@ -152,7 +146,7 @@ export const PdfTextLayer: React.FC<PdfTextLayerProps> = React.memo(({
 
             const container = textLayerRef.current;
             container.innerHTML = '';
-            
+
             const visibleWords = (isSplitActive && !isTranslationMode)
                 ? ocrData.filter(w => w.column === (spreadSide === 'right' ? 1 : 0))
                 : ocrData;
@@ -173,32 +167,28 @@ export const PdfTextLayer: React.FC<PdfTextLayerProps> = React.memo(({
                     const heightPx = (w.bbox.y1 - w.bbox.y0) * scale;
 
                     let st = `left:${x}px;top:${y}px;width:${widthPx}px;height:${heightPx}px;`;
-                    
+
                     if (isTranslationMode) {
                         const text = w.text || '';
-                        // Lógica "Lens": Cálculo dinâmico de fonte para caber no bloco
                         const area = widthPx * heightPx;
                         const len = text.length || 1;
-                        
+
                         // Heurística de Área: FontSize ~= sqrt(Area / (Chars * 0.6))
-                        // 0.6 é uma constante de aspecto média de fontes (Width/Height)
                         const areaFontSize = Math.sqrt(area / (len * 0.6));
-                        
-                        // Heurística de Altura: Considera quebras de linha
+
+                        // Heurística de Altura: considera quebras de linha
                         const lines = text.split('\n').length;
-                        // Se não tem quebras explícitas, estima wrapping
                         const estimatedLines = lines > 1 ? lines : Math.max(1, Math.ceil((text.length * areaFontSize * 0.6) / widthPx));
-                        
                         const heightFontSize = (heightPx / estimatedLines) * 0.85;
-                        
-                        // Escolhe o menor (Fit Inside) e aplica clamps
+
+                        // Fit Inside com clamps
                         let finalFontSize = Math.min(areaFontSize, heightFontSize);
-                        finalFontSize = Math.max(9, Math.min(finalFontSize, 48)); // Min 9px, Max 48px para não explodir
+                        finalFontSize = Math.max(9, Math.min(finalFontSize, 48));
 
                         st += `
                             position: absolute;
                             color: #ffffff;
-                            background-color: rgba(20, 20, 20, 0.92) !important; /* Blindagem contra override */
+                            background-color: rgba(20, 20, 20, 0.92) !important;
                             backdrop-filter: blur(2px);
                             border-radius: 3px;
                             display: flex;
@@ -215,14 +205,29 @@ export const PdfTextLayer: React.FC<PdfTextLayerProps> = React.memo(({
                             z-index: 50;
                             font-size: ${finalFontSize}px;
                             box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                            -webkit-tap-highlight-color: transparent; /* Remove flash azul no mobile */
-                            user-select: text; /* Garante que o texto dentro seja selecionável */
+                            -webkit-tap-highlight-color: transparent;
+                            user-select: text;
                         `;
-                    } else {
-                        st += `position:absolute;color:transparent;font-size:${heightPx*0.8}px;`;
-                    }
 
-                    html += `<span class="ocr-word-span" style="${st}" data-pdf-x="${x}" data-pdf-top="${y}" data-pdf-width="${widthPx}" data-pdf-height="${heightPx}">${w.text || ''}</span>`;
+                        // Acessibilidade: escapa atributos para evitar quebra por aspas no texto traduzido
+                        const safeText = text.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+                        html += `<span
+                            class="ocr-word-span"
+                            style="${st}"
+                            data-pdf-x="${x}"
+                            data-pdf-top="${y}"
+                            data-pdf-width="${widthPx}"
+                            data-pdf-height="${heightPx}"
+                            role="text"
+                            aria-label="${safeText}"
+                            lang="pt-BR"
+                            tabindex="0"
+                        >${text}</span>`;
+                    } else {
+                        st += `position:absolute;color:transparent;font-size:${heightPx * 0.8}px;`;
+                        html += `<span class="ocr-word-span" style="${st}" data-pdf-x="${x}" data-pdf-top="${y}" data-pdf-width="${widthPx}" data-pdf-height="${heightPx}">${w.text || ''}</span>`;
+                    }
                 }
 
                 container.insertAdjacentHTML('beforeend', html);
@@ -243,16 +248,16 @@ export const PdfTextLayer: React.FC<PdfTextLayerProps> = React.memo(({
     useEffect(() => () => { if (renderRequestRef.current) cancelAnimationFrame(renderRequestRef.current); }, []);
 
     return (
-        <div 
-            ref={textLayerRef} 
-            className="textLayer notranslate" 
-            style={{ 
-                zIndex: isTranslationMode ? 45 : 30, 
-                pointerEvents: activeTool === 'cursor' ? 'auto' : 'none', 
+        <div
+            ref={textLayerRef}
+            className="textLayer notranslate"
+            style={{
+                zIndex: isTranslationMode ? 45 : 30,
+                pointerEvents: activeTool === 'cursor' ? 'auto' : 'none',
                 visibility: isVisible ? 'visible' : 'hidden',
                 width: `${width}px`,
                 height: `${height}px`
-            }} 
+            }}
         />
     );
 });
