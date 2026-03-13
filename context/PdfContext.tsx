@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Annotation, SemanticLensData, OcrMetrics } from '../types';
@@ -38,7 +37,7 @@ interface PdfContextState {
   removeAnnotation: (ann: Annotation) => void;
   updateAnnotation: (ann: Annotation) => void;
   ocrMap: Record<number, any[]>;
-  nativeTextMap: Record<number, string>; 
+  nativeTextMap: Record<number, string>;
   setPageOcrData: (page: number, words: any[]) => void;
   showOcrModal: boolean;
   setShowOcrModal: (v: boolean) => void;
@@ -61,13 +60,13 @@ interface PdfContextState {
   anchorData: AnchorData | null;
   lensData: Record<number, SemanticLensData>;
   isLensLoading: boolean;
-  lastOcrMetrics: OcrMetrics | null; 
+  lastOcrMetrics: OcrMetrics | null;
   triggerSemanticLens: (page: number) => void;
   translationMap: Record<number, any[]>;
   triggerTranslation: (page: number) => void;
   isTranslationMode: boolean;
   toggleTranslationMode: () => void;
-  setTranslationMode: (value: boolean) => void; // Added setter explicitamente
+  setTranslationMode: (value: boolean) => void;
   numPages: number;
   generateSearchIndex: (text: string) => Promise<void>;
   ocrStatusMap: Record<number, string>;
@@ -88,11 +87,11 @@ export const useOptionalPdfContext = () => useContext(PdfContext);
 
 const DEFAULT_SETTINGS: PdfSettings = {
   pageOffset: 1, disableColorFilter: false, detectColumns: false, showConfidenceOverlay: false,
-  pageColor: "#ffffff", textColor: "#000000", highlightColor: "#4ade80", highlightOpacity: 0.4, 
+  pageColor: "#ffffff", textColor: "#000000", highlightColor: "#4ade80", highlightOpacity: 0.4,
   inkColor: "#a855f7", inkStrokeWidth: 42, inkOpacity: 0.35, toolbarScale: 1, toolbarYOffset: 0
 };
 
-export const PdfProvider: React.FC<any> = ({ 
+export const PdfProvider: React.FC<any> = ({
   children, numPages, annotations, onAddAnnotation, onRemoveAnnotation, onUpdateAnnotation, accessToken, fileId, pdfDoc,
   onUpdateSourceBlob, currentBlob, initialPageOffset, onSetPageOffset, initialScale, initialSemanticData
 }) => {
@@ -101,7 +100,7 @@ export const PdfProvider: React.FC<any> = ({
   const setScale = usePdfStore(s => s.setScale);
 
   const [ocrMap, setOcrMap] = useState<Record<number, any[]>>({});
-  const [nativeTextMap] = useState<Record<number, string>>({}); 
+  const [nativeTextMap] = useState<Record<number, string>>({});
   const [hasUnsavedOcr, setHasUnsavedOcr] = useState(false);
   const [ocrNotification, setOcrNotificationState] = useState<string | null>(null);
   const notificationTimeoutRef = useRef<any>(null);
@@ -111,12 +110,16 @@ export const PdfProvider: React.FC<any> = ({
   const [lastOcrMetrics, setLastOcrMetrics] = useState<OcrMetrics | null>(null);
   const [translationMap, setTranslationMap] = useState<Record<number, any[]>>({});
   const [isTranslationMode, setIsTranslationMode] = useState(false);
+  // Ref para evitar closure stale no handler de eventos (ocr-page-ready useEffect)
+  const isTranslationModeRef = useRef(false);
   const [ocrStatusMap, setOcrStatusMap] = useState<Record<number, string>>({});
-  
+
   const currentBlobRef = useRef<Blob | null>(currentBlob);
   useEffect(() => { currentBlobRef.current = currentBlob; }, [currentBlob]);
 
   // Listener para OCR em Segundo Plano (Real-time Sync)
+  // Quando modo tradução está ativo e chega markdown de lote,
+  // dispara translationMutation automaticamente — fecha o gap do fluxo "Traduzir em Lote"
   useEffect(() => {
     const handleOcrReady = (e: any) => {
         const { fileId: eventFileId, page, words, markdown, metrics } = e.detail;
@@ -124,6 +127,11 @@ export const PdfProvider: React.FC<any> = ({
             setOcrMap(prev => ({ ...prev, [page]: words }));
             if (markdown) {
                 setLensData(prev => ({ ...prev, [page]: { markdown, processedAt: Date.now() } }));
+                // isTranslationModeRef.current evita closure stale —
+                // isTranslationMode lido diretamente aqui seria sempre false
+                if (isTranslationModeRef.current) {
+                    translationMutation.mutate(page);
+                }
             }
             if (metrics) {
                 setLastOcrMetrics({ ...metrics, timestamp: Date.now() });
@@ -132,7 +140,7 @@ export const PdfProvider: React.FC<any> = ({
     };
     window.addEventListener('ocr-page-ready', handleOcrReady);
     return () => window.removeEventListener('ocr-page-ready', handleOcrReady);
-  }, [fileId]);
+  }, [fileId]); // translationMutation intencionalmente fora — é estável via useMutation
 
   useEffect(() => {
     if (initialScale && initialScale > 0) setScale(initialScale);
@@ -150,8 +158,7 @@ export const PdfProvider: React.FC<any> = ({
 
   const [settings, setSettings] = useState<PdfSettings>(() => {
     let defaults = { ...DEFAULT_SETTINGS };
-    
-    // Check for active theme to set defaults
+
     try {
         if (typeof window !== 'undefined' && localStorage.getItem('app-theme') === 'maker') {
             defaults.highlightColor = '#3b82f6';
@@ -194,30 +201,30 @@ export const PdfProvider: React.FC<any> = ({
   const semanticLensMutation = useMutation({
     mutationFn: async (pageNumber: number) => {
         if (!pdfDoc) throw new Error("Documento não carregado");
-        
+
         const page = await pdfDoc.getPage(pageNumber);
         const baseViewport = page.getViewport({ scale: 1.0 });
-        
+
         // IA-FRIENDLY RESOLUTION: 1536px largura é ideal para Gemini 3 Flash
-        const TARGET_WIDTH = 1536; 
+        const TARGET_WIDTH = 1536;
         const renderScale = TARGET_WIDTH / baseViewport.width;
-        
+
         const viewport = page.getViewport({ scale: renderScale });
         const canvas = createSmartCanvas(viewport.width, viewport.height);
         const ctx = canvas.getContext('2d', { alpha: false }) as any;
-        
+
         // "Clean Slate" Filter
         ctx.filter = 'grayscale(1) contrast(1.4) brightness(1.1)';
-        
+
         await page.render({ canvasContext: ctx, viewport }).promise;
 
-        const blob = await smartCanvasToBlob(canvas, 'image/jpeg', 0.7); 
-        const base64 = await new Promise<string>(r => { 
-          const reader = new FileReader(); 
-          reader.onloadend = () => r((reader.result as string).split(',')[1]); 
-          reader.readAsDataURL(blob); 
+        const blob = await smartCanvasToBlob(canvas, 'image/jpeg', 0.7);
+        const base64 = await new Promise<string>(r => {
+          const reader = new FileReader();
+          reader.onloadend = () => r((reader.result as string).split(',')[1]);
+          reader.readAsDataURL(blob);
         });
-        
+
         const { segments, metrics } = await performFullPageOcr(base64);
         const { data: mappedWords, markdown: reconstructedMarkdown } = await mapSegmentsToWords(segments, viewport.width, viewport.height, renderScale);
 
@@ -230,8 +237,7 @@ export const PdfProvider: React.FC<any> = ({
         if (data.metrics) {
             setLastOcrMetrics({ ...data.metrics, timestamp: Date.now() });
         }
-        
-        // Side Effect: Save to IDB
+
         saveOcrData(fileId, data.pageNumber, data.mappedWords, data.reconstructedMarkdown);
         showOcrNotification("Processamento cirúrgico concluído.", 2000);
     },
@@ -244,15 +250,14 @@ export const PdfProvider: React.FC<any> = ({
     mutationFn: async (pageNumber: number) => {
         const currentMarkdown = lensData[pageNumber]?.markdown;
         if (!currentMarkdown) throw new Error("Sem dados para refinar.");
-        
+
         const refined = await refineTranscript(currentMarkdown);
         return { pageNumber, refined };
     },
     onSuccess: (data) => {
         setLensData(prev => ({ ...prev, [data.pageNumber]: { markdown: data.refined, processedAt: Date.now() } }));
         setHasUnsavedOcr(true);
-        // Persistir a versão refinada
-        // Mantemos os words originais (coordenadas) pois o refinamento é apenas textual
+        // Mantém words originais (coordenadas) — refinamento é apenas textual
         saveOcrData(fileId, data.pageNumber, ocrMap[data.pageNumber] || [], data.refined);
         showOcrNotification("Texto reorganizado com sucesso!", 3000);
     },
@@ -269,20 +274,20 @@ export const PdfProvider: React.FC<any> = ({
         const baseViewport = page.getViewport({ scale: 1.0 });
         const TARGET_WIDTH = 1536;
         const renderScale = TARGET_WIDTH / baseViewport.width;
-        
+
         const viewport = page.getViewport({ scale: renderScale });
         const canvas = createSmartCanvas(viewport.width, viewport.height);
         const ctx = canvas.getContext('2d', { alpha: false }) as any;
-        
+
         ctx.filter = 'contrast(1.2) brightness(1.05)';
-        
+
         await page.render({ canvasContext: ctx, viewport }).promise;
 
         const blob = await smartCanvasToBlob(canvas, 'image/jpeg', 0.7);
-        const base64 = await new Promise<string>(r => { 
-          const reader = new FileReader(); 
-          reader.onloadend = () => r((reader.result as string).split(',')[1]); 
-          reader.readAsDataURL(blob); 
+        const base64 = await new Promise<string>(r => {
+          const reader = new FileReader();
+          reader.onloadend = () => r((reader.result as string).split(',')[1]);
+          reader.readAsDataURL(blob);
         });
 
         const { markdown, segments } = await translatePageImage(base64, "Portuguese");
@@ -293,6 +298,8 @@ export const PdfProvider: React.FC<any> = ({
     onSuccess: (data) => {
         setTranslationMap(prev => ({ ...prev, [data.pageNumber]: data.translatedBlocks }));
         setLensData(prev => ({ ...prev, [data.pageNumber]: { markdown: data.markdown, processedAt: Date.now() } }));
+        // Garante modo tradução ativo — pode ter sido chamado via lote sem interação manual
+        isTranslationModeRef.current = true;
         setIsTranslationMode(true);
     },
     onError: (err: any) => {
@@ -310,29 +317,35 @@ export const PdfProvider: React.FC<any> = ({
   const isLensLoading = semanticLensMutation.isPending || translationMutation.isPending || ragIndexMutation.isPending || refinementMutation.isPending;
 
   const value = useMemo(() => ({
-    settings, updateSettings: (s: any) => setSettings(p => ({ ...p, ...s })), 
+    settings, updateSettings: (s: any) => setSettings(p => ({ ...p, ...s })),
     annotations, addAnnotation: onAddAnnotation, removeAnnotation: onRemoveAnnotation, updateAnnotation: onUpdateAnnotation,
     ocrMap, nativeTextMap, setPageOcrData: (p: any, w: any) => setOcrMap(prev => ({ ...prev, [p]: w })),
     showOcrModal, setShowOcrModal, hasUnsavedOcr, setHasUnsavedOcr, ocrNotification,
-    accessToken, fileId, updateSourceBlob: onUpdateSourceBlob, currentBlobRef, 
+    accessToken, fileId, updateSourceBlob: onUpdateSourceBlob, currentBlobRef,
     markOcrAsSaved: () => setHasUnsavedOcr(false), getUnburntOcrMap: () => ocrMap,
     chatRequest, setChatRequest, docPageOffset: initialPageOffset, setDocPageOffset: onSetPageOffset,
     selection, setSelection, onSmartTap, anchorData,
-    lensData, isLensLoading, 
-    triggerSemanticLens: semanticLensMutation.mutate, 
+    lensData, isLensLoading,
+    triggerSemanticLens: semanticLensMutation.mutate,
     triggerRefinement: refinementMutation.mutate,
     lastOcrMetrics,
-    translationMap, 
-    triggerTranslation: translationMutation.mutate, 
-    isTranslationMode, 
-    toggleTranslationMode: () => setIsTranslationMode(!isTranslationMode),
-    setTranslationMode: (val: boolean) => setIsTranslationMode(val),
-    numPages, 
+    translationMap,
+    triggerTranslation: translationMutation.mutate,
+    isTranslationMode,
+    toggleTranslationMode: () => {
+      const next = !isTranslationMode;
+      isTranslationModeRef.current = next;
+      setIsTranslationMode(next);
+    },
+    setTranslationMode: (val: boolean) => {
+      isTranslationModeRef.current = val;
+      setIsTranslationMode(val);
+    },
+    numPages,
     generateSearchIndex: async (text: string) => { await ragIndexMutation.mutateAsync(text); },
-    ocrStatusMap, 
+    ocrStatusMap,
     triggerOcr: async (p: number) => {
         setOcrStatusMap(v => ({...v, [p]: 'processing'}));
-        // We use mutateAsync here to wait for completion inside this helper
         await semanticLensMutation.mutateAsync(p);
         setOcrStatusMap(v => ({...v, [p]: 'done'}));
     },
