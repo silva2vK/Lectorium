@@ -5,6 +5,9 @@ import { getValidDriveToken, signInWithGoogleDrive, saveDriveToken, refreshDrive
 const LIST_PARAMS = "&supportsAllDrives=true&includeItemsFromAllDrives=true";
 const WRITE_PARAMS = "&supportsAllDrives=true";
 
+// Timeout de 30s — adequado para uploads médios no Android com rede instável
+const DRIVE_REQUEST_TIMEOUT_MS = 30_000;
+
 // Constantes de tipos suportados para reutilização em listagem e busca
 const SUPPORTED_EXTENSIONS = [
     MIME_TYPES.LEGACY_MINDMAP_EXT, 
@@ -47,10 +50,13 @@ function buildBaseConstraints() {
 }
 
 /**
- * Interceptador Centralizado de Requisições (Protocolo Auto-Retry v2)
- * 1. Tenta usar o token atual.
+ * Interceptador Centralizado de Requisições (Protocolo Auto-Retry v3)
+ * 1. Aplica AbortSignal.timeout() em todo request (30s) — sem polling, sem cleanup manual.
  * 2. Se 401, tenta refresh silencioso via GSI (Sessão do Chrome).
- * 3. Se falhar, lança erro para UI disparar popup manual.
+ * 3. Se o retry também retornar 401, lança DRIVE_TOKEN_EXPIRED imediatamente.
+ * 4. Se falhar sem renovação, lança erro para UI disparar popup manual.
+ *
+ * Callers que precisam de timeout customizado podem passar options.signal — tem precedência.
  */
 async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
   let token = getValidDriveToken();
@@ -60,22 +66,26 @@ async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Re
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  let response = await fetch(url, { ...options, headers });
+  // AbortSignal.timeout nativo — disponível desde Chrome 103.
+  // options.signal de caller tem precedência (ex: upload com timeout customizado).
+  const signal = options.signal ?? AbortSignal.timeout(DRIVE_REQUEST_TIMEOUT_MS);
+
+  let response = await fetch(url, { ...options, headers, signal });
 
   // Se receber 401 (Unauthorized), tenta renovação invisível
   if (response.status === 401) {
     console.warn("[Auto-Retry] Token expirado. Tentando renovação silenciosa via Chrome...");
     
     try {
-      // Recurso Pro: Tenta atualizar sem interromper o fluxo de trabalho do usuário
       const newToken = await refreshDriveTokenSilently();
       
       if (newToken) {
         console.log("[Auto-Retry] Token renovado silenciosamente. Retentando...");
         headers.set('Authorization', `Bearer ${newToken}`);
-        response = await fetch(url, { ...options, headers });
+        response = await fetch(url, { ...options, headers, signal });
+        // 401 persistente após renovação = sessão Google revogada externamente
+        if (response.status === 401) throw new Error("DRIVE_TOKEN_EXPIRED");
       } else {
-        // Se o silencioso falhar, precisamos de interação humana
         throw new Error("DRIVE_TOKEN_EXPIRED");
       }
     } catch (renewError) {
@@ -87,6 +97,10 @@ async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Re
   return response;
 }
 
+/**
+ * Lista conteúdo de uma pasta do Drive com paginação real (nextPageToken).
+ * Garante completude mesmo em pastas com >1000 itens.
+ */
 export async function listDriveContents(accessToken: string, folderId: string = 'root'): Promise<DriveFile[]> {
   let query = "";
   const baseConstraints = buildBaseConstraints();
@@ -99,33 +113,37 @@ export async function listDriveContents(accessToken: string, folderId: string = 
     query = `'${folderId}' in parents and ${baseConstraints}`;
   }
 
-  const fields = "files(id, name, mimeType, thumbnailLink, parents, starred, size, modifiedTime)";
-  
-  const response = await fetchWithAuth(
-    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent(fields)}&pageSize=1000&orderBy=folder,name${LIST_PARAMS}`
-  );
+  // nextPageToken incluído nos fields para suportar paginação
+  const fields = "nextPageToken,files(id,name,mimeType,thumbnailLink,parents,starred,size,modifiedTime)";
+  const allFiles: DriveFile[] = [];
+  let pageToken: string | undefined;
 
-  if (!response.ok) {
-    if (response.status === 401) throw new Error("DRIVE_TOKEN_EXPIRED");
-    const errorData = await response.json();
-    throw new Error(errorData.error?.message || "Erro na API do Drive");
-  }
+  do {
+    const pageParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
+    const response = await fetchWithAuth(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent(fields)}&pageSize=1000&orderBy=folder,name${LIST_PARAMS}${pageParam}`
+    );
 
-  const data = await response.json();
-  return data.files || [];
+    if (!response.ok) {
+      if (response.status === 401) throw new Error("DRIVE_TOKEN_EXPIRED");
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || "Erro na API do Drive");
+    }
+
+    const data = await response.json();
+    allFiles.push(...(data.files || []));
+    pageToken = data.nextPageToken;
+  } while (pageToken);
+
+  return allFiles;
 }
 
 export async function searchDriveFiles(accessToken: string, queryTerm: string): Promise<DriveFile[]> {
-  // Limpeza básica para evitar injeção ou erros na query do Drive
   const safeQuery = queryTerm.replace(/'/g, "\\'");
   const baseConstraints = buildBaseConstraints();
-  
-  // Busca global por nome contendo o termo
   const query = `name contains '${safeQuery}' and ${baseConstraints}`;
+  const fields = "files(id,name,mimeType,thumbnailLink,parents,starred,size,modifiedTime)";
   
-  const fields = "files(id, name, mimeType, thumbnailLink, parents, starred, size, modifiedTime)";
-  
-  // Nota: orderBy 'folder' não funciona bem com busca global, usamos modifiedTime desc para relevância recente
   const response = await fetchWithAuth(
     `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent(fields)}&pageSize=50&orderBy=modifiedTime desc${LIST_PARAMS}`
   );
@@ -141,7 +159,7 @@ export async function searchDriveFiles(accessToken: string, queryTerm: string): 
 
 export async function listDriveFolders(accessToken: string, parentId: string = 'root'): Promise<DriveFile[]> {
   const query = `'${parentId}' in parents and mimeType='${MIME_TYPES.FOLDER}' and trashed=false`;
-  const fields = "files(id, name, mimeType, parents)";
+  const fields = "files(id,name,mimeType,parents)";
   
   const response = await fetchWithAuth(
     `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent(fields)}&pageSize=1000&orderBy=name${LIST_PARAMS}`
@@ -158,7 +176,7 @@ export async function listDriveFolders(accessToken: string, parentId: string = '
 
 export async function searchMindMaps(accessToken: string): Promise<DriveFile[]> {
   const query = `name contains '${MIME_TYPES.LEGACY_MINDMAP_EXT}' and trashed=false`;
-  const fields = "files(id, name, mimeType, thumbnailLink, parents, starred, modifiedTime)";
+  const fields = "files(id,name,mimeType,thumbnailLink,parents,starred,modifiedTime)";
   
   const response = await fetchWithAuth(
     `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent(fields)}&pageSize=1000&orderBy=modifiedTime desc${LIST_PARAMS}`
@@ -272,6 +290,8 @@ export async function deleteDriveFile(accessToken: string, fileId: string): Prom
   
   if (!res.ok) {
     if (res.status === 401) throw new Error("DRIVE_TOKEN_EXPIRED");
+    if (res.status === 404) return; // Já foi deletado — idempotente, estado desejado já atingido
+    throw new Error(`Falha ao deletar arquivo (${res.status})`);
   }
 }
 
@@ -286,5 +306,6 @@ export async function renameDriveFile(accessToken: string, fileId: string, newNa
 
   if (!res.ok) {
     if (res.status === 401) throw new Error("DRIVE_TOKEN_EXPIRED");
+    throw new Error(`Falha ao renomear arquivo (${res.status})`);
   }
 }
