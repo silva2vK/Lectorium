@@ -20,8 +20,6 @@ const SUPPORTED_EXTENSIONS = new Set([
   '.tiff',
   '.tif',
   '.dcm',
-  '.cbz',
-  '.cbr'
 ]);
 
 // Mapa para converter extensão em MIME type aproximado para a UI
@@ -39,10 +37,9 @@ const EXT_TO_MIME: Record<string, string> = {
   '.png': 'image/png',
   '.webp': 'image/webp',
   '.heic': 'image/heic',
+  '.heif': 'image/heif',
   '.tiff': 'image/tiff',
-  '.dcm': 'application/dicom',
-  '.cbz': MIME_TYPES.CBZ,
-  '.cbr': MIME_TYPES.CBR
+  '.dcm': 'application/dicom'
 };
 
 /**
@@ -55,11 +52,9 @@ export function createVirtualDirectoryHandle(fileList: FileList) {
   
   for (let i = 0; i < fileList.length; i++) {
     const file = fileList[i];
-    // Emula a estrutura de um FileSystemFileHandle
     entries.push({
       kind: 'file',
       name: file.name,
-      // webkitRelativePath contém o caminho relativo se necessário no futuro
       getFile: async () => file
     });
   }
@@ -67,13 +62,11 @@ export function createVirtualDirectoryHandle(fileList: FileList) {
   return {
     kind: 'directory',
     name: 'Pasta Local (Upload)',
-    // Emula o iterador .values()
     values: async function* () {
       for (const entry of entries) {
         yield entry;
       }
     },
-    // Métodos stub para compatibilidade (não funcionam em modo virtual)
     queryPermission: async () => 'granted',
     requestPermission: async () => 'granted'
   };
@@ -94,16 +87,13 @@ export async function openDirectoryPicker(): Promise<any> {
     });
     return handle;
   } catch (e: any) {
-    // CORREÇÃO CRÍTICA: Em WebViews Android, o cancelamento ou falta de permissão
-    // pode vir com mensagens variadas. Normalizamos tudo para AbortError.
-    // Isso impede que o App.tsx exiba o alert("Seleção cancelada").
+    // Em WebViews Android, cancelamento ou falta de permissão pode vir com mensagens variadas.
+    // Normalizamos tudo para AbortError — App.tsx ignora AbortError silenciosamente.
     if (e.name === 'AbortError' || e.message?.includes('user aborted') || e.message?.includes('The user aborted a request')) {
         const silentError = new Error("Seleção cancelada pelo usuário.");
-        silentError.name = 'AbortError'; // A flag mágica que o App.tsx ignora
+        silentError.name = 'AbortError';
         throw silentError;
     }
-    
-    // Se for outro erro (ex: SecurityError), repassa
     throw e;
   }
 }
@@ -111,31 +101,34 @@ export async function openDirectoryPicker(): Promise<any> {
 /**
  * Lista arquivos do diretório, filtrando apenas os suportados.
  * Retorna objetos compatíveis com a interface DriveFile.
+ *
+ * Performance: getFile() é chamado apenas para obter metadados de listagem (size, lastModified).
+ * O blob NÃO é retido em memória — carregado on-demand pelo useFileManager via handle.getFile()
+ * quando o arquivo for efetivamente aberto. Em pastas com 200+ PDFs, isso reduz o heap inicial
+ * de potencial ~1GB para < 1MB de metadados.
  */
 export async function listLocalFiles(dirHandle: any): Promise<DriveFile[]> {
   const files: DriveFile[] = [];
   
   try {
-    // Itera sobre as entradas do diretório
     for await (const entry of dirHandle.values()) {
       if (entry.kind === 'file') {
         const name = entry.name;
         const ext = name.substring(name.lastIndexOf('.')).toLowerCase();
         
         if (SUPPORTED_EXTENSIONS.has(ext)) {
-          // Precisamos obter o arquivo real para metadados básicos (data, tamanho)
-          // Nota: Isso pode ser lento em pastas gigantes, então pegamos sob demanda se possível.
-          // Aqui pegamos o File para exibir stats corretos.
+          // getFile() apenas para metadados — size, lastModified, mimeType fallback.
+          // blob intencionalmente ausente: useFileManager lê via handle.getFile() on-demand.
           const fileData = await entry.getFile();
           
           files.push({
-            id: `native-${name}-${fileData.lastModified}`, // ID virtual estável
+            id: `native-${name}-${fileData.lastModified}`,
             name: name,
             mimeType: EXT_TO_MIME[ext] || fileData.type || 'application/octet-stream',
             size: fileData.size.toString(),
             modifiedTime: new Date(fileData.lastModified).toISOString(),
-            handle: entry, // Guardamos o handle para leitura/escrita futura
-            blob: fileData // Guardamos o blob inicial (cacheado)
+            handle: entry,
+            // blob ausente intencionalmente — carregado on-demand
           });
         }
       }
@@ -161,12 +154,10 @@ export async function verifyPermission(fileHandle: any, withWrite = false): Prom
     options.mode = 'readwrite';
   }
   
-  // Check if permission was already granted. If so, return true.
   if ((await fileHandle.queryPermission(options)) === 'granted') {
     return true;
   }
   
-  // Request permission. If the user grants permission, return true.
   if ((await fileHandle.requestPermission(options)) === 'granted') {
     return true;
   }
