@@ -24,21 +24,21 @@ export const opfs = {
 
   /**
    * Salva um Blob no OPFS usando Streams para evitar bloqueio da UI.
+   * Em caso de erro, o writable é abortado explicitamente para liberar o handle —
+   * sem isso, handles não fechados podem bloquear operações subsequentes no Android.
    */
   save: async (filename: string, blob: Blob) => {
+    const root = await getRoot();
+    const fileHandle = await root.getFileHandle(filename, { create: true });
+    // @ts-ignore - FileSystemWritableFileStream ainda instável nos tipos TS
+    const writable = await fileHandle.createWritable();
     try {
-      const root = await getRoot();
-      // create: true garante que o arquivo seja criado se não existir
-      const fileHandle = await root.getFileHandle(filename, { create: true });
-      // @ts-ignore - Tipos do TS para FileSystemWritableFileStream ainda são instáveis
-      const writable = await fileHandle.createWritable();
-      
-      // Escreve via stream (alta performance)
       await writable.write(blob);
       await writable.close();
-      
       return true;
     } catch (e) {
+      // Descarta escrita parcial e libera o handle — evita NoModificationAllowedError no Android
+      try { await writable.abort(); } catch {}
       console.error("[OPFS] Erro ao salvar:", e);
       throw e;
     }
@@ -81,8 +81,9 @@ export const opfs = {
     try {
       const root = await getRoot();
       const keys: string[] = [];
-      // @ts-ignore - Iteração assíncrona de handles
-      for await (const name of root.keys()) {
+      // FileSystemDirectoryHandle.keys() existe na spec OPFS mas não está nos tipos TS ainda.
+      // Cast cirúrgico para suprimir apenas o acesso ao método não tipado.
+      for await (const name of (root as any).keys()) {
         keys.push(name);
       }
       return keys;
