@@ -1,129 +1,99 @@
 
-import { 
-  signInWithPopup, 
-  getRedirectResult,
-  GoogleAuthProvider, 
-  signOut as firebaseSignOut, 
-  setPersistence, 
-  browserLocalPersistence 
-} from "firebase/auth";
-import { auth } from "../firebase";
+// services/authService.ts
+// GIS puro — sem Firebase. Autenticação via Google Identity Services.
 
-const TOKEN_DATA_KEY = 'drive_access_token_data';
 export const DRIVE_TOKEN_EVENT = 'drive_token_changed';
+const TOKEN_DATA_KEY = 'drive_access_token_data';
+const USER_DATA_KEY = 'gis_user_data';
 
-// Escopos necessários para o Lectorium
 const DRIVE_SCOPES = "https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.install";
+const CLIENT_ID = "315143132640-m5cr88sfdhs41lh5nbn166ahiom4omum.apps.googleusercontent.com";
 
+// --- Tipos ---
+export interface GisUser {
+  uid: string;       // campo 'sub' do JWT Google — estável, único por conta
+  displayName: string;
+  email: string;
+  photoURL?: string;
+}
+
+// --- Token Drive ---
 export const saveDriveToken = (token: string, expiresIn: number = 3600) => {
-  const expiryDate = Date.now() + (expiresIn - 300) * 1000; 
-  const tokenData = {
-    token,
-    expiresAt: expiryDate
-  };
-  localStorage.setItem(TOKEN_DATA_KEY, JSON.stringify(tokenData));
+  const expiryDate = Date.now() + (expiresIn - 300) * 1000;
+  localStorage.setItem(TOKEN_DATA_KEY, JSON.stringify({ token, expiresAt: expiryDate }));
   window.dispatchEvent(new CustomEvent(DRIVE_TOKEN_EVENT, { detail: { token } }));
 };
 
 export const getValidDriveToken = (): string | null => {
   const data = localStorage.getItem(TOKEN_DATA_KEY);
   if (!data) return null;
-  
   try {
     const { token, expiresAt } = JSON.parse(data);
-    if (Date.now() > expiresAt) {
-      localStorage.removeItem(TOKEN_DATA_KEY);
-      return null; 
-    }
+    if (Date.now() > expiresAt) { localStorage.removeItem(TOKEN_DATA_KEY); return null; }
     return token;
-  } catch (e) {
+  } catch {
     localStorage.removeItem(TOKEN_DATA_KEY);
     return null;
   }
 };
 
-/**
- * Recurso Chrome: Storage Persistence
- */
-export async function requestPersistentStorage() {
-  if (navigator.storage && navigator.storage.persist) {
-    const isPersisted = await navigator.storage.persist();
-    console.debug(`[Lectorium Core] Armazenamento persistente: ${isPersisted ? 'ATIVADO' : 'NEGADO'}`);
-    return isPersisted;
-  }
-  return false;
-}
+// --- Usuário ---
+export const saveUser = (user: GisUser) => {
+  localStorage.setItem(USER_DATA_KEY, JSON.stringify(user));
+};
 
-/**
- * Verifica se houve um retorno de Login via Redirecionamento (Mobile - Legado/Fallback)
- * Deve ser chamado na inicialização do App.
- */
-export async function checkRedirectResult() {
-    try {
-        const result = await getRedirectResult(auth);
-        if (result) {
-            const credential = GoogleAuthProvider.credentialFromResult(result);
-            if (credential?.accessToken) {
-                console.log("[Auth] Recuperado token após redirecionamento");
-                saveDriveToken(credential.accessToken);
-                return { user: result.user, accessToken: credential.accessToken };
-            }
-        }
-    } catch (error) {
-        console.error("[Auth] Erro ao processar redirecionamento:", error);
-    }
+export const getStoredUser = (): GisUser | null => {
+  const data = localStorage.getItem(USER_DATA_KEY);
+  if (!data) return null;
+  try { return JSON.parse(data); } catch { return null; }
+};
+
+/** Decodifica o JWT do Google Sign-In sem biblioteca externa */
+function decodeGoogleJwt(credential: string): GisUser | null {
+  try {
+    const payload = JSON.parse(atob(credential.split('.')[1]));
+    return {
+      uid: payload.sub,
+      displayName: payload.name || payload.email,
+      email: payload.email,
+      photoURL: payload.picture,
+    };
+  } catch {
     return null;
+  }
 }
 
-/**
- * Protocolo de Refresh Silencioso via GSI
- */
+// --- Singleton de refresh ---
 let refreshPromise: Promise<string | null> | null = null;
 
 export async function refreshDriveTokenSilently(): Promise<string | null> {
-  // Se já há um refresh em andamento, todos esperam o mesmo resultado
-  if (refreshPromise) {
-    return refreshPromise;
-  }
+  if (refreshPromise) return refreshPromise;
 
   refreshPromise = new Promise((resolve) => {
     try {
+      const user = getStoredUser();
       const client = (window as any).google?.accounts?.oauth2?.initTokenClient({
-        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "315143132640-m5cr88sfdhs41lh5nbn166ahiom4omum.apps.googleusercontent.com",
+        client_id: CLIENT_ID,
         scope: DRIVE_SCOPES,
         callback: (response: any) => {
-          refreshPromise = null; // Libera o singleton
+          refreshPromise = null;
           if (response.access_token) {
             saveDriveToken(response.access_token, response.expires_in);
             resolve(response.access_token);
           } else {
-            console.warn("[GSI] Refresh falhou (sem token na resposta). Pode exigir re-login manual.");
             resolve(null);
           }
         },
-        error_callback: () => {
-          refreshPromise = null;
-          resolve(null);
-        }
+        error_callback: () => { refreshPromise = null; resolve(null); }
       });
 
-      if (!client) {
-        refreshPromise = null;
-        resolve(null);
-        return;
-      }
+      if (!client) { refreshPromise = null; resolve(null); return; }
 
-      // Tenta obter o e-mail do usuário atual para desambiguação
-      const userEmail = auth.currentUser?.email;
-
-      // prompt: '' instrui o Google a não mostrar UI se o usuário já consentiu
-      // login_hint: CRÍTICO para usuários com múltiplas contas logadas. Evita erro 'interaction_required'.
-      client.requestToken({ 
+      client.requestToken({
         prompt: '',
-        login_hint: userEmail || undefined
+        login_hint: user?.email || undefined
       });
-    } catch (e) {
-      console.warn("[GSI] Falha no refresh silencioso", e);
+    } catch {
       refreshPromise = null;
       resolve(null);
     }
@@ -132,38 +102,80 @@ export async function refreshDriveTokenSilently(): Promise<string | null> {
   return refreshPromise;
 }
 
-export async function signInWithGoogleDrive() {
-  const provider = new GoogleAuthProvider();
-  provider.addScope("https://www.googleapis.com/auth/drive");
-  provider.addScope("https://www.googleapis.com/auth/drive.install");
+// --- Login ---
+export async function signInWithGoogleDrive(): Promise<{ user: GisUser; accessToken: string } | null> {
+  return new Promise((resolve, reject) => {
+    // Passo 1: Sign In with Google → identidade (uid, nome, email)
+    (window as any).google?.accounts?.id?.initialize({
+      client_id: CLIENT_ID,
+      callback: (response: any) => {
+        const user = decodeGoogleJwt(response.credential);
+        if (!user) { reject(new Error("Falha ao decodificar identidade Google")); return; }
+        saveUser(user);
 
-  try {
-    await setPersistence(auth, browserLocalPersistence);
-    await requestPersistentStorage();
+        // Passo 2: OAuth2 Token Client → access_token para o Drive
+        const tokenClient = (window as any).google?.accounts?.oauth2?.initTokenClient({
+          client_id: CLIENT_ID,
+          scope: DRIVE_SCOPES,
+          callback: (tokenResponse: any) => {
+            if (tokenResponse.access_token) {
+              saveDriveToken(tokenResponse.access_token, tokenResponse.expires_in);
+              resolve({ user, accessToken: tokenResponse.access_token });
+            } else {
+              reject(new Error("Falha ao obter access token do Drive"));
+            }
+          },
+          error_callback: (err: any) => reject(new Error(err?.message || "Erro OAuth")),
+        });
 
-    // ESTRATÉGIA UNIFICADA:
-    // Usa Popup para todos os dispositivos.
-    // Navegadores mobile modernos tratam popup como uma aba segura (Tabbed Auth)
-    // o que mantém o estado da aplicação e evita recarregamento.
-    const result = await signInWithPopup(auth, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    
-    if (!credential?.accessToken) {
-      throw new Error("No access token returned from Google");
-    }
+        tokenClient.requestToken({ prompt: '' });
+      }
+    });
 
-    return {
-      user: result.user,
-      accessToken: credential.accessToken
-    };
+    (window as any).google?.accounts?.id?.prompt((notification: any) => {
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        // One Tap não disponível — abre popup explícito
+        (window as any).google?.accounts?.id?.renderButton(
+          document.createElement('div'), {}
+        );
+        // Fallback: força token client direto sem identidade prévia
+        const tokenClient = (window as any).google?.accounts?.oauth2?.initTokenClient({
+          client_id: CLIENT_ID,
+          scope: DRIVE_SCOPES,
+          callback: (tokenResponse: any) => {
+            if (tokenResponse.access_token) {
+              // Sem JWT de identidade nesse caminho — usa usuário armazenado se existir
+              const existingUser = getStoredUser();
+              if (existingUser) {
+                saveDriveToken(tokenResponse.access_token, tokenResponse.expires_in);
+                resolve({ user: existingUser, accessToken: tokenResponse.access_token });
+              } else {
+                reject(new Error("Identidade não disponível. Tente novamente."));
+              }
+            }
+          },
+          error_callback: (err: any) => reject(new Error(err?.message || "Erro OAuth")),
+        });
+        tokenClient.requestToken({ prompt: 'select_account' });
+      }
+    });
+  });
+}
 
-  } catch (error) {
-    console.error("Login failed:", error);
-    throw error;
+export async function logout(): Promise<void> {
+  const user = getStoredUser();
+  localStorage.removeItem(TOKEN_DATA_KEY);
+  localStorage.removeItem(USER_DATA_KEY);
+  if (user?.email) {
+    (window as any).google?.accounts?.id?.revoke(user.email, () => {});
   }
 }
 
-export async function logout() {
-  localStorage.removeItem(TOKEN_DATA_KEY);
-  return firebaseSignOut(auth);
+// Mantido por compatibilidade — não faz nada com GIS puro
+export async function checkRedirectResult() { return null; }
+export async function requestPersistentStorage() {
+  if (navigator.storage?.persist) {
+    return navigator.storage.persist();
+  }
+  return false;
 }
