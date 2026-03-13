@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
-import { auth } from './firebase';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { signInWithGoogleDrive, logout, saveDriveToken, getValidDriveToken, DRIVE_TOKEN_EVENT, checkRedirectResult } from './services/authService';
+import { signInWithGoogleDrive, logout, saveDriveToken, getValidDriveToken, DRIVE_TOKEN_EVENT, checkRedirectResult, getStoredUser, GisUser } from './services/authService';
 import { performAppUpdateCleanup, runJanitor, getLocalDirectoryHandle, saveLocalDirectoryHandle } from './services/storageService';
 import { openDirectoryPicker, verifyPermission } from './services/localFileService';
 import { useSync } from './hooks/useSync';
