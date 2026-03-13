@@ -19,7 +19,7 @@ const SUPPORTED_EXTENSIONS = new Set([
   '.heif',
   '.tiff',
   '.tif',
-  '.dcm',
+  '.dcm'
 ]);
 
 // Mapa para converter extensão em MIME type aproximado para a UI
