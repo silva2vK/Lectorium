@@ -3,10 +3,18 @@ import { MindMapData } from "../types";
 import { getStoredApiKey, rotateApiKey, getStoredApiKeys } from "../utils/apiKeyUtils";
 
 // --- CONFIG ---
+
+// Singleton memoizado por chave — evita recriar instância em cada operação de batch.
+// Compatível com rotação de chaves: rotateApiKey() muda o índice ativo no localStorage,
+// logo getStoredApiKey() retorna chave diferente na próxima chamada → cache invalida automaticamente.
+let _cachedClient: { key: string; instance: GoogleGenAI } | null = null;
+
 export const getAiClient = (): GoogleGenAI => {
-  const userKey = getStoredApiKey();
-  if (userKey) return new GoogleGenAI({ apiKey: userKey });
-  throw new Error("Chave de API não configurada. Por favor, adicione sua chave nas configurações.");
+  const apiKey = getStoredApiKey();
+  if (!apiKey) throw new Error("Chave de API não configurada. Por favor, adicione sua chave nas configurações.");
+  if (_cachedClient?.key === apiKey) return _cachedClient.instance;
+  _cachedClient = { key: apiKey, instance: new GoogleGenAI({ apiKey }) };
+  return _cachedClient.instance;
 };
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -43,8 +51,11 @@ export async function withKeyRotation<T>(
 export async function generateEmbeddings(texts: string[]): Promise<Float32Array[]> {
   const model = "text-embedding-004";
   const embeddings: Float32Array[] = new Array(texts.length).fill(new Float32Array(0));
-  const BATCH_SIZE = 2;
-  const BATCH_DELAY_MS = 2500;
+
+  // BATCH_SIZE=5 + BATCH_DELAY_MS=1000 → ~300 RPM — dentro do limite de 1500 RPM da tier gratuita.
+  // Com MAX_CHUNKS=300 no ragService: 60 batches × 1s ≈ 60s de indexação vs ~375s com BATCH_SIZE=2.
+  const BATCH_SIZE = 5;
+  const BATCH_DELAY_MS = 1000;
 
   const processSingle = async (text: string, index: number, retryCount = 0): Promise<void> => {
     if (!text || !text.trim()) return;
@@ -133,22 +144,17 @@ ESTRUTURE em Markdown com estas seções EXATAS:
 DOCUMENTO A ANALISAR:
 ${textToAnalyze}`;
 
-  try {
-    return await withKeyRotation(async () => {
-      const ai = getAiClient();
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: { temperature: 0.3 }
-      });
-      return response.text || "Não foi possível gerar o briefing.";
+  // ATENÇÃO ao aplicar: o caller deve ter try/catch com addNotification para tratar o erro de quota.
+  // Retornar string de erro como conteúdo válido do briefing confunde o componente que o renderiza.
+  return await withKeyRotation(async () => {
+    const ai = getAiClient();
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: { temperature: 0.3 }
     });
-  } catch (e: any) {
-    if (e.message?.includes('429') || e.status === 429) {
-      return "Tráfego intenso. Tente gerar o briefing novamente em alguns instantes.";
-    }
-    throw e;
-  }
+    return response.text || "Não foi possível gerar o briefing.";
+  });
 }
 
 export async function refineOcrWords(words: string[]): Promise<string[]> {
@@ -283,8 +289,10 @@ Retorne APENAS o JSON.`;
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
+        // systemInstruction é parâmetro de primeiro nível no @google/genai v1.43 —
+        // dentro de config é ignorado silenciosamente
+        systemInstruction: systemPrompt,
         config: {
-          systemInstruction: systemPrompt,
           responseMimeType: "application/json"
         }
       });
@@ -312,5 +320,4 @@ DADOS: ${JSON.stringify(data.slice(0, 10))}`;
   } catch {
     return "";
   }
-                    }
-
+}
