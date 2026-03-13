@@ -4,7 +4,7 @@ import { saveOcrData, touchOfflineFile } from './storageService';
 import { performFullPageOcr } from './visionService';
 import { createSmartCanvas, smartCanvasToBlob } from '../utils/canvasUtils';
 
-// Configuração do Worker - Importa configuração centralizada
+// Configuração do Worker — importa side-effect que seta GlobalWorkerOptions.workerSrc
 import '../utils/pdfjsConfig';
 
 export interface BackgroundOcrOptions {
@@ -38,10 +38,9 @@ function alignToInk(ctx: CanvasRenderingContext2D, box: number[], w: number, h: 
         const data = imageData.data;
         let sumX = 0, sumY = 0, count = 0;
         
-        // Detecta pixels "escuros" (Tinta)
         for (let i = 0; i < data.length; i += 4) {
             const brightness = (data[i] + data[i+1] + data[i+2]) / 3;
-            if (brightness < 120) { // Threshold de tinta
+            if (brightness < 120) {
                 const pixelIdx = i / 4;
                 sumX += pixelIdx % imageData.width;
                 sumY += Math.floor(pixelIdx / imageData.width);
@@ -55,7 +54,6 @@ function alignToInk(ctx: CanvasRenderingContext2D, box: number[], w: number, h: 
             const currentCenterX = imageData.width / 2;
             const currentCenterY = imageData.height / 2;
             
-            // Calcula o deslocamento necessário para centralizar na tinta
             const shiftX = ((centerX - currentCenterX) / w) * 1000;
             const shiftY = ((centerY - currentCenterY) / h) * 1000;
             
@@ -85,8 +83,11 @@ export async function runBackgroundOcr({
     const arrayBuffer = await blob.arrayBuffer();
     const pdfDoc = await getDocument({
       data: arrayBuffer,
-      cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/cmaps/',
-      cMapPacked: true,
+      // cMapUrl removido intencionalmente: /public/cmaps/ não existe no projeto.
+      // pdfjs v5.5 cobre a maioria dos encodings sem cMaps externos.
+      // Se surgir CIDFont exótico quebrando OCR: copiar node_modules/pdfjs-dist/cmaps/
+      // para /public/cmaps/ e restaurar: cMapUrl: '/cmaps/', cMapPacked: true
+      useSystemFonts: true, // necessário para rendering offline — consistente com PdfViewer
     }).promise;
 
     const totalPagesToProcess = endPage - startPage + 1;
@@ -99,20 +100,21 @@ export async function runBackgroundOcr({
             
             const page = await pdfDoc.getPage(i);
             const baseViewport = page.getViewport({ scale: 1.0 });
-            const renderScale = 1024 / baseViewport.width;
+            // 1536px — ótimo para Gemini 3 Flash (consistente com Lente Semântica no PdfContext)
+            const renderScale = 1536 / baseViewport.width;
             const viewport = page.getViewport({ scale: renderScale });
             
             let canvas: HTMLCanvasElement;
             let ctx: CanvasRenderingContext2D;
 
-            // DOM Canvas (Fallback Seguro)
             canvas = document.createElement('canvas');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
             ctx = canvas.getContext('2d', { alpha: false }) as CanvasRenderingContext2D;
             await page.render({ canvasContext: ctx as any, viewport }).promise;
 
-            const blobImg = await smartCanvasToBlob(canvas, 'image/jpeg', 0.6);
+            // JPEG 0.7 — consistente com Lente Semântica; 0.6 introduz artefatos em texto fino
+            const blobImg = await smartCanvasToBlob(canvas, 'image/jpeg', 0.7);
             const base64 = await new Promise<string>((r) => {
                 const reader = new FileReader();
                 reader.onloadend = () => r((reader.result as string).split(',')[1]);
@@ -121,7 +123,6 @@ export async function runBackgroundOcr({
             
             const { segments, metrics } = await performFullPageOcr(base64, targetLanguage);
             
-            // Refinamento de alinhamento por contraste
             const alignedSegments = segments.map(seg => ({
                 ...seg,
                 b: alignToInk(ctx, seg.b, viewport.width, viewport.height)
@@ -184,7 +185,6 @@ function mapSegmentsToWordsInLine(segments: any[], w: number, h: number, scale: 
             const lineY0 = bY0 + (lineIdx * estLineH);
             const lineY1 = lineY0 + estLineH;
             
-            // Split mantendo os espaços como elementos
             const words = lineText.trim().split(/(\s+)/);
             const totalCharsInLine = lineText.length;
             
@@ -193,11 +193,8 @@ function mapSegmentsToWordsInLine(segments: any[], w: number, h: number, scale: 
             for (const word of words) {
                 if (word.length === 0) continue;
                 
-                // Calcula largura proporcional ao número de caracteres
                 const wordWidth = (word.length / totalCharsInLine) * bWidth;
                 
-                // Correção: Agora incluímos também os espaços na camada de texto
-                // Isso garante que a seleção 'join' pegue os espaços corretamente
                 mappedWords.push({
                     text: word,
                     confidence: 99,
