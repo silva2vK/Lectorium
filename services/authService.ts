@@ -1,6 +1,8 @@
 // services/authService.ts
 // GIS puro — sem Firebase. Autenticação via Google Identity Services.
 // Sessão 1 de remoção do Firebase: 2026-03-13 ~15:00 BRT
+// Fix 2026-03-14: prompt 'consent' no primeiro login — 'prompt: """ falha silenciosamente
+// no Android Chrome quando o scope de Drive ainda não foi autorizado neste browser.
 
 export const DRIVE_TOKEN_EVENT = 'drive_token_changed';
 const TOKEN_DATA_KEY = 'drive_access_token_data';
@@ -103,6 +105,7 @@ export async function refreshDriveTokenSilently(): Promise<string | null> {
 
       if (!client) { refreshPromise = null; resolve(null); return; }
 
+      // prompt: '' é correto aqui — refresh silencioso pressupõe consentimento já existente
       client.requestToken({
         prompt: '',
         login_hint: user?.email || undefined
@@ -146,7 +149,11 @@ export async function signInWithGoogleDrive(): Promise<{ user: GisUser; accessTo
         const user = decodeGoogleJwt(response.credential);
         if (!user) { reject(new Error("Falha ao decodificar identidade Google")); return; }
         // Passo 2: OAuth2 Token Client → access_token para o Drive
-        requestDriveToken(user, '');
+        // FIX: 'consent' em vez de '' — no Android Chrome, prompt vazio falha silenciosamente
+        // na primeira autorização do scope Drive (callback do tokenClient nunca é invocado).
+        // Após o primeiro consentimento, o Chrome mantém o grant em cache e futuros refreshes
+        // silenciosos (refreshDriveTokenSilently com prompt: '') funcionam normalmente.
+        requestDriveToken(user, 'consent');
       }
     });
 
