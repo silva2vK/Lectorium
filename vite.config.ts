@@ -26,9 +26,9 @@ export default defineConfig(({ mode }) => {
     },
     optimizeDeps: {
       include: [
-        'react', 
-        'react-dom', 
-        'lucide-react', 
+        'react',
+        'react-dom',
+        'lucide-react',
         '@tiptap/react',
         '@tiptap/extension-bubble-menu'
       ],
@@ -47,20 +47,15 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 1500,
       rollupOptions: {
         external: ['unrar-js'],
-        // Suprime warnings conhecidos e insolúveis de dependências legadas
         onwarn(warning, warn) {
-          // daikon usa eval internamente (charLS WASM fallback) — insolúvel sem fork
           if (warning.code === 'EVAL' && warning.id?.includes('daikon')) return;
-          // pdfjs-dist/web/pdf_viewer.css contém seletores CSS inválidos (-:|)
-          // que o esbuild não aceita — bug upstream do pdfjs v5
           if (warning.code === 'PLUGIN_WARNING' && warning.message?.includes('-:|')) return;
-          // Módulos Node.js (fs, process) externalizados em dependências browser-only
           if (warning.code === 'MISSING_NODE_BUILTINS') return;
           warn(warning);
         },
         output: {
           manualChunks(id) {
-            // React core — carregado primeiro, sempre em cache
+            // React core
             if (id.includes('node_modules/react') ||
                 id.includes('node_modules/react-dom') ||
                 id.includes('node_modules/scheduler')) {
@@ -68,33 +63,26 @@ export default defineConfig(({ mode }) => {
             }
 
             // Motor 3D pesado
-            // TODO: quando MindMapEditor migrar para THREE.InstancedMesh puro,
-            // eliminar @react-three/drei (~400kB gzip) e remover 'r3f-vendor'.
             if (id.includes('node_modules/three')) {
               return 'three-vendor';
             }
 
-            // Bindings do React para o 3D
+            // Bindings React para 3D
             if (id.includes('node_modules/@react-three/fiber') ||
                 id.includes('node_modules/@react-three/drei')) {
               return 'r3f-vendor';
             }
 
-            // Firebase — isolado pois muda pouco
-            if (id.includes('node_modules/firebase') ||
-                id.includes('node_modules/@firebase')) {
-              return 'vendor-firebase';
-            }
+            // vendor-firebase REMOVIDO em 2026-03-13 (Sessão 1 — remoção Firebase)
+            // Firebase substituído por GIS puro em services/authService.ts
 
-            // SDK da IA Gemini — grande, carregado apenas quando IA é usada
+            // SDK Gemini
             if (id.includes('node_modules/@google/genai')) {
               return 'vendor-ai-sdk';
             }
 
-            // FIX CIRCULAR: y-prosemirror vai junto com o editor (ProseMirror)
-            // pois importa de @prosemirror/* que está neste chunk.
-            // Manter y-prosemirror em vendor-yjs criava ciclo:
-            //   vendor-yjs -> @prosemirror (vendor-editor) -> yjs (vendor-yjs)
+            // Editor TipTap + ProseMirror
+            // CRÍTICO: y-prosemirror DEVE ficar aqui, antes de vendor-yjs
             if (id.includes('node_modules/@tiptap') ||
                 id.includes('node_modules/prosemirror') ||
                 id.includes('node_modules/@prosemirror') ||
@@ -102,64 +90,59 @@ export default defineConfig(({ mode }) => {
               return 'vendor-editor';
             }
 
-            // Yjs core + transporte — sem y-prosemirror (ver acima)
+            // Yjs core + transporte — sem y-prosemirror
             if (id.includes('node_modules/yjs') ||
                 id.includes('node_modules/y-webrtc') ||
                 id.includes('node_modules/lib0')) {
               return 'vendor-yjs';
             }
 
-            // PDF engine — já é worker, mas isolar o engine principal
+            // PDF engine
             if (id.includes('node_modules/pdfjs-dist') ||
                 id.includes('node_modules/pdf-lib')) {
               return 'vendor-pdf';
             }
 
-            // Mermaid — diagramas, carregado sob demanda
+            // Mermaid — diagramas sob demanda
             if (id.includes('node_modules/mermaid') ||
                 id.includes('node_modules/@mermaid-js')) {
               return 'vendor-mermaid';
             }
 
-            // KaTeX — fórmulas matemáticas
+            // KaTeX
             if (id.includes('node_modules/katex')) {
               return 'vendor-katex';
             }
 
-            // Daikon (DICOM) + UTIF (TIFF) — dynamic import em mediaAdapterService,
-            // isolados aqui para não contaminar o bundle principal com eval/fs warnings
+            // DICOM + TIFF — lazy-load
             if (id.includes('node_modules/daikon') ||
                 id.includes('node_modules/utif')) {
               return 'vendor-medical-formats';
             }
 
-            // FIX CIRCULAR: recharts importa clsx/tailwind-merge internamente.
-            // Manter clsx/tailwind-merge em vendor-utils-light criava ciclo:
-            //   vendor-charts -> vendor-utils-light -> vendor-charts
-            // Solução: clsx e tailwind-merge saem do chunk utils e ficam no index.
+            // Recharts
             if (id.includes('node_modules/recharts')) {
               return 'vendor-charts';
             }
 
-            // Motion (framer-motion fork) — animações, isolado do bundle principal.
-            // Carregado apenas quando componentes animados são montados.
+            // Motion (Framer Motion fork)
             if (id.includes('node_modules/motion')) {
               return 'vendor-motion';
             }
 
-            // Utils genéricas leves — sem clsx/tailwind-merge (ver acima)
+            // Utils leves
             if (id.includes('node_modules/jszip') ||
                 id.includes('node_modules/uuid') ||
                 id.includes('node_modules/idb')) {
               return 'vendor-utils-light';
             }
 
-            // Lucide icons — grande coleção de SVGs
+            // Lucide icons
             if (id.includes('node_modules/lucide-react')) {
               return 'vendor-icons';
             }
 
-            // Zustand + TanStack Query — estado global
+            // Estado global
             if (id.includes('node_modules/zustand') ||
                 id.includes('node_modules/@tanstack')) {
               return 'vendor-state';
