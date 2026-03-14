@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { auth } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { signInWithGoogleDrive, logout, saveDriveToken, getValidDriveToken, DRIVE_TOKEN_EVENT, checkRedirectResult } from './services/authService';
+import { signInWithGoogleDrive, logout, saveDriveToken, getValidDriveToken, DRIVE_TOKEN_EVENT, checkRedirectResult, refreshDriveTokenSilently } from './services/authService';
 import { performAppUpdateCleanup, runJanitor, getLocalDirectoryHandle, saveLocalDirectoryHandle } from './services/storageService';
 import { openDirectoryPicker, verifyPermission } from './services/localFileService';
 import { useSync } from './hooks/useSync';
@@ -102,9 +102,6 @@ const AppContent = () => {
 
   const workspace = useWorkspace();
 
-  // Abre o LegalModal automaticamente quando onboarding chega na etapa 'legal'.
-  // Sem isso, onboardingStep === 'legal' nunca seta showLegalModal = true
-  // e o modal de consentimento obrigatorio nunca aparece apos o CookieConsent.
   useEffect(() => {
     if (workspace.onboardingStep === 'legal') {
       setLegalModalTab('privacy');
@@ -166,10 +163,24 @@ const AppContent = () => {
     };
     init();
     
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      if (!isMountedRef.current) return;
       setUser(currentUser);
-      if (!currentUser) { setAccessToken(null); } 
-      else { const storedToken = getValidDriveToken(); if (storedToken) setAccessToken(storedToken); }
+      if (!currentUser) {
+        setAccessToken(null);
+      } else {
+        const storedToken = getValidDriveToken();
+        if (storedToken) {
+          // Token Drive ainda válido — restaura sem nenhuma interação
+          setAccessToken(storedToken);
+        } else {
+          // Token expirado ou ausente — tenta renovar silenciosamente via GIS.
+          // refreshDriveTokenSilently dispara DRIVE_TOKEN_EVENT ao concluir,
+          // que handleTokenUpdate (abaixo) escuta e chama setAccessToken.
+          // Zero interação do usuário enquanto a sessão Google estiver ativa.
+          refreshDriveTokenSilently();
+        }
+      }
     });
 
     const handleTokenUpdate = (e: Event) => {
