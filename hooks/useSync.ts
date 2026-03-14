@@ -1,19 +1,23 @@
 import { useState, useCallback, useEffect } from 'react';
-import { getSyncQueue, removeSyncQueueItem, acquireFileLock, releaseFileLock, clearAppStorage } from '../services/storageService';
+import { getSyncQueue, removeSyncQueueItem, acquireFileLock, releaseFileLock } from '../services/storageService';
 import { uploadFileToDrive, updateDriveFile } from '../services/driveService';
 import { SyncStatus, SyncQueueItem } from '../types';
+
+// Evento customário para notificar mudanças na syncQueue sem polling.
+// Disparado pelo processSync após cada operação (add/remove).
+// Instâncias com autoSync=false (Dashboard) escutam para atualizar a UI.
+export const SYNC_QUEUE_EVENT = 'sync-queue-updated';
 
 interface UseSyncProps {
   accessToken: string | null;
   onAuthError: () => void;
-  autoSync?: boolean; // Novo parâmetro para permitir modo passivo (observador)
+  autoSync?: boolean;
 }
 
 export const useSync = ({ accessToken, onAuthError, autoSync = true }: UseSyncProps) => {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ active: false, message: null });
   const [queue, setQueue] = useState<SyncQueueItem[]>([]);
 
-  // Carrega a fila do IndexedDB
   const refreshQueue = useCallback(async () => {
     try {
       const items = await getSyncQueue();
@@ -24,7 +28,6 @@ export const useSync = ({ accessToken, onAuthError, autoSync = true }: UseSyncPr
   }, []);
 
   const processSync = useCallback(async () => {
-    // Atualiza a visualização da fila antes de começar
     const currentQueue = await getSyncQueue();
     setQueue(currentQueue);
 
@@ -32,7 +35,6 @@ export const useSync = ({ accessToken, onAuthError, autoSync = true }: UseSyncPr
 
     setSyncStatus({ active: true, message: `Sincronizando ${currentQueue.length} itens...` });
     
-    // Processa item a item
     for (const item of currentQueue) {
         const hasLock = await acquireFileLock(item.fileId);
         if (!hasLock) {
@@ -46,17 +48,16 @@ export const useSync = ({ accessToken, onAuthError, autoSync = true }: UseSyncPr
             } else if (item.action === 'update') {
                 await updateDriveFile(accessToken, item.fileId, item.blob, item.mimeType);
             }
-            // Sucesso: Remove da fila
             await removeSyncQueueItem(item.id);
-            // Atualiza estado local da fila
             await refreshQueue();
+            // Notifica outras instâncias (ex: Dashboard) que a fila mudou
+            window.dispatchEvent(new Event(SYNC_QUEUE_EVENT));
         } catch (e: any) {
             console.error(`Sync failed for item ${item.id}`, e);
             if (e.message.includes('401')) { 
                 onAuthError(); 
                 break; 
             }
-            // Em caso de erro não-auth, o item permanece na fila para retry futuro
         } finally { 
             await releaseFileLock(item.fileId); 
         }
@@ -70,37 +71,39 @@ export const useSync = ({ accessToken, onAuthError, autoSync = true }: UseSyncPr
   const removeItem = useCallback(async (id: string) => {
       await removeSyncQueueItem(id);
       await refreshQueue();
+      window.dispatchEvent(new Event(SYNC_QUEUE_EVENT));
   }, [refreshQueue]);
 
   const clearQueue = useCallback(async () => {
-      // Método de emergência: limpa apenas a store 'syncQueue' iterando sobre ela
       const items = await getSyncQueue();
       for (const item of items) {
           await removeSyncQueueItem(item.id);
       }
       await refreshQueue();
+      window.dispatchEvent(new Event(SYNC_QUEUE_EVENT));
   }, [refreshQueue]);
 
-  // Listeners de Rede e Polling de Fila
   useEffect(() => {
-    // Se autoSync for true, registra o listener de rede
-    if (autoSync) {
-        window.addEventListener('online', processSync);
-    }
-    
-    // Polling periódico para manter a UI atualizada (observabilidade)
-    // Isso garante que se outra aba adicionar algo à fila, esta instância verá.
-    const interval = setInterval(refreshQueue, 5000);
-    
-    // Execução inicial
+    // Carga inicial
     refreshQueue();
-    if (autoSync && navigator.onLine) processSync();
+
+    if (autoSync) {
+        // Instância principal (App.tsx): processa sync quando volta online
+        window.addEventListener('online', processSync);
+        if (navigator.onLine) processSync();
+    } else {
+        // Instância observadora (Dashboard): escuta evento sem polling
+        window.addEventListener(SYNC_QUEUE_EVENT, refreshQueue);
+    }
 
     return () => {
         if (autoSync) {
             window.removeEventListener('online', processSync);
+        } else {
+            window.removeEventListener(SYNC_QUEUE_EVENT, refreshQueue);
         }
-        clearInterval(interval);
+        // FIX: removido setInterval(refreshQueue, 5000) — polling proibido (BLACKBOX §18)
+        // Substituído por evento SYNC_QUEUE_EVENT (event-driven, sem overhead)
     };
   }, [processSync, refreshQueue, autoSync]);
 
