@@ -1,6 +1,6 @@
-
 // services/authService.ts
 // GIS puro — sem Firebase. Autenticação via Google Identity Services.
+// Sessão 1 de remoção do Firebase: 2026-03-13 ~15:00 BRT
 
 export const DRIVE_TOKEN_EVENT = 'drive_token_changed';
 const TOKEN_DATA_KEY = 'drive_access_token_data';
@@ -11,7 +11,7 @@ const CLIENT_ID = "315143132640-m5cr88sfdhs41lh5nbn166ahiom4omum.apps.googleuser
 
 // --- Tipos ---
 export interface GisUser {
-  uid: string;       // campo 'sub' do JWT Google — estável, único por conta
+  uid: string;       // campo 'sub' do JWT Google — estável, único por conta Google
   displayName: string;
   email: string;
   photoURL?: string;
@@ -63,7 +63,20 @@ function decodeGoogleJwt(credential: string): GisUser | null {
   }
 }
 
-// --- Singleton de refresh ---
+/** Storage Persistence — mantido por compatibilidade */
+export async function requestPersistentStorage() {
+  if (navigator.storage?.persist) {
+    const isPersisted = await navigator.storage.persist();
+    console.debug(`[Lectorium Core] Armazenamento persistente: ${isPersisted ? 'ATIVADO' : 'NEGADO'}`);
+    return isPersisted;
+  }
+  return false;
+}
+
+/** Mantido por compatibilidade com App.tsx — GIS não usa redirect */
+export async function checkRedirectResult() { return null; }
+
+// --- Singleton de refresh silencioso ---
 let refreshPromise: Promise<string | null> | null = null;
 
 export async function refreshDriveTokenSilently(): Promise<string | null> {
@@ -81,6 +94,7 @@ export async function refreshDriveTokenSilently(): Promise<string | null> {
             saveDriveToken(response.access_token, response.expires_in);
             resolve(response.access_token);
           } else {
+            console.warn("[GSI] Refresh falhou (sem token na resposta). Pode exigir re-login manual.");
             resolve(null);
           }
         },
@@ -93,7 +107,8 @@ export async function refreshDriveTokenSilently(): Promise<string | null> {
         prompt: '',
         login_hint: user?.email || undefined
       });
-    } catch {
+    } catch (e) {
+      console.warn("[GSI] Falha no refresh silencioso", e);
       refreshPromise = null;
       resolve(null);
     }
@@ -102,61 +117,49 @@ export async function refreshDriveTokenSilently(): Promise<string | null> {
   return refreshPromise;
 }
 
-// --- Login ---
+// --- Login principal ---
 export async function signInWithGoogleDrive(): Promise<{ user: GisUser; accessToken: string } | null> {
   return new Promise((resolve, reject) => {
+
+    const requestDriveToken = (user: GisUser, promptMode: string) => {
+      const tokenClient = (window as any).google?.accounts?.oauth2?.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: DRIVE_SCOPES,
+        callback: (tokenResponse: any) => {
+          if (tokenResponse.access_token) {
+            saveDriveToken(tokenResponse.access_token, tokenResponse.expires_in);
+            saveUser(user);
+            resolve({ user, accessToken: tokenResponse.access_token });
+          } else {
+            reject(new Error("Falha ao obter access token do Drive"));
+          }
+        },
+        error_callback: (err: any) => reject(new Error(err?.message || "Erro OAuth Drive")),
+      });
+      tokenClient.requestToken({ prompt: promptMode, login_hint: user.email });
+    };
+
     // Passo 1: Sign In with Google → identidade (uid, nome, email)
     (window as any).google?.accounts?.id?.initialize({
       client_id: CLIENT_ID,
       callback: (response: any) => {
         const user = decodeGoogleJwt(response.credential);
         if (!user) { reject(new Error("Falha ao decodificar identidade Google")); return; }
-        saveUser(user);
-
         // Passo 2: OAuth2 Token Client → access_token para o Drive
-        const tokenClient = (window as any).google?.accounts?.oauth2?.initTokenClient({
-          client_id: CLIENT_ID,
-          scope: DRIVE_SCOPES,
-          callback: (tokenResponse: any) => {
-            if (tokenResponse.access_token) {
-              saveDriveToken(tokenResponse.access_token, tokenResponse.expires_in);
-              resolve({ user, accessToken: tokenResponse.access_token });
-            } else {
-              reject(new Error("Falha ao obter access token do Drive"));
-            }
-          },
-          error_callback: (err: any) => reject(new Error(err?.message || "Erro OAuth")),
-        });
-
-        tokenClient.requestToken({ prompt: '' });
+        requestDriveToken(user, '');
       }
     });
 
     (window as any).google?.accounts?.id?.prompt((notification: any) => {
       if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        // One Tap não disponível — abre popup explícito
-        (window as any).google?.accounts?.id?.renderButton(
-          document.createElement('div'), {}
-        );
-        // Fallback: força token client direto sem identidade prévia
-        const tokenClient = (window as any).google?.accounts?.oauth2?.initTokenClient({
-          client_id: CLIENT_ID,
-          scope: DRIVE_SCOPES,
-          callback: (tokenResponse: any) => {
-            if (tokenResponse.access_token) {
-              // Sem JWT de identidade nesse caminho — usa usuário armazenado se existir
-              const existingUser = getStoredUser();
-              if (existingUser) {
-                saveDriveToken(tokenResponse.access_token, tokenResponse.expires_in);
-                resolve({ user: existingUser, accessToken: tokenResponse.access_token });
-              } else {
-                reject(new Error("Identidade não disponível. Tente novamente."));
-              }
-            }
-          },
-          error_callback: (err: any) => reject(new Error(err?.message || "Erro OAuth")),
-        });
-        tokenClient.requestToken({ prompt: 'select_account' });
+        // One Tap não disponível — fallback com usuário já armazenado
+        const existingUser = getStoredUser();
+        if (existingUser) {
+          requestDriveToken(existingUser, 'select_account');
+        } else {
+          // Nenhum usuário conhecido — rejeita para UI mostrar toast de erro
+          reject(new Error("Login necessário. Tente novamente."));
+        }
       }
     });
   });
@@ -169,13 +172,4 @@ export async function logout(): Promise<void> {
   if (user?.email) {
     (window as any).google?.accounts?.id?.revoke(user.email, () => {});
   }
-}
-
-// Mantido por compatibilidade — não faz nada com GIS puro
-export async function checkRedirectResult() { return null; }
-export async function requestPersistentStorage() {
-  if (navigator.storage?.persist) {
-    return navigator.storage.persist();
-  }
-  return false;
 }
