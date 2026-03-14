@@ -1,7 +1,7 @@
 {
   "name": "lectorium",
   "private": true,
-  "version": "1.7.0",
+  "version": "1.7.1",
   "type": "module",
   "engines": {
     "node": ">=18.0.0",
@@ -54,7 +54,6 @@
     "clsx": "^2.1.1",
     "daikon": "1.2.46",
     "docx": "9.5.1",
-    "firebase": "12.7.0",
     "glob": "^13.0.6",
     "heic2any": "0.0.4",
     "idb": "^8.0.3",
