@@ -7,7 +7,7 @@ import { useDocUI } from '../hooks/useDocUI';
 import { useSlideNavigation } from '../hooks/useSlideNavigation';
 import { CommentData } from '../components/doc/CommentsSidebar';
 import { Reference, EditorStats, MIME_TYPES } from '../types';
-import { auth } from '../firebase';
+import { getStoredUser } from '../services/authService';
 import { generateDocxBlob } from '../services/docxService';
 import { PageSettings } from '../components/doc/modals/PageSetupModal';
 import { useGlobalContext } from './GlobalContext';
@@ -102,8 +102,9 @@ export const DocEditorProvider: React.FC<ProviderProps> = ({
 
   const { addNotification } = useGlobalContext();
 
+  // Lê usuário do localStorage (GIS puro — sem Firebase)
   const userInfo = useMemo(() => {
-    const u = auth.currentUser;
+    const u = getStoredUser();
     return { name: u?.displayName || 'Visitante', color: '#4ade80' };
   }, []);
 
@@ -115,7 +116,6 @@ export const DocEditorProvider: React.FC<ProviderProps> = ({
     userInfo,
     onTableDoubleClick: () => ui.toggleModal('tableProperties', true),
     onUpdate: ({ editor: e }) => {
-        // Update stats reactively — usar 'e' do argumento evita stale closure (editor pode ser null no closure externo)
         if (e) {
             const words = e.storage.characterCount.words();
             const chars = e.storage.characterCount.characters();
@@ -129,7 +129,6 @@ export const DocEditorProvider: React.FC<ProviderProps> = ({
     }
   });
 
-  // Initial stats load
   useEffect(() => {
       if (editor) {
           const words = editor.storage.characterCount.words();
