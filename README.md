@@ -33,7 +33,7 @@ Escreva artigos e teses sem lutar contra a formatação.
 
 ## 🛠️ Requisitos de Instalação
 
-Para executar este projeto localmente:
+Para executar este projeto localmente: 
 
 1.  **Dependências:**
     ```bash
