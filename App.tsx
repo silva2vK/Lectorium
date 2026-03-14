@@ -87,7 +87,7 @@ const AppContent = () => {
   }, []);
 
   const { addNotification, isOcrRunning } = useGlobalContext();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<GisUser | null>(() => getStoredUser());
   const [accessToken, setAccessToken] = useState<string | null>(() => getValidDriveToken());
   const [showReauthToast, setShowReauthToast] = useState(false);
   const [showLegalModal, setShowLegalModal] = useState(false);
@@ -100,9 +100,6 @@ const AppContent = () => {
 
   const workspace = useWorkspace();
 
-  // Abre o LegalModal automaticamente quando onboarding chega na etapa 'legal'.
-  // Sem isso, onboardingStep === 'legal' nunca seta showLegalModal = true
-  // e o modal de consentimento obrigatorio nunca aparece apos o CookieConsent.
   useEffect(() => {
     if (workspace.onboardingStep === 'legal') {
       setLegalModalTab('privacy');
@@ -115,27 +112,32 @@ const AppContent = () => {
       setShowReauthToast(true);
   }, []);
 
-  const handleToggleSyncStrategy = useCallback((strategy: 'smart' | 'online') => { setSyncStrategy(strategy); localStorage.setItem('sync_strategy', strategy); }, []);
+  const handleToggleSyncStrategy = useCallback((strategy: 'smart' | 'online') => {
+    setSyncStrategy(strategy);
+    localStorage.setItem('sync_strategy', strategy);
+  }, []);
 
   const handleLogin = useCallback(async () => {
     try {
       const result = await signInWithGoogleDrive();
-      if (result && result.accessToken) { 
-          saveDriveToken(result.accessToken); 
-          setAccessToken(result.accessToken); 
-          setShowReauthToast(false); 
+      if (result && result.accessToken) {
+          saveDriveToken(result.accessToken);
+          setAccessToken(result.accessToken);
+          setUser(result.user);
+          setShowReauthToast(false);
       }
     } catch (e) { addNotification("Não foi possível conectar ao Google Drive.", "error"); }
   }, [addNotification]);
 
   const handleReauth = useCallback(async () => {
-    try { 
-        const result = await signInWithGoogleDrive(); 
-        if (result && result.accessToken) { 
-            saveDriveToken(result.accessToken); 
-            setAccessToken(result.accessToken); 
-            setShowReauthToast(false); 
-        } 
+    try {
+        const result = await signInWithGoogleDrive();
+        if (result && result.accessToken) {
+            saveDriveToken(result.accessToken);
+            setAccessToken(result.accessToken);
+            setUser(result.user);
+            setShowReauthToast(false);
+        }
     } catch (error) { console.error("Falha na reconexão:", error); }
   }, []);
 
@@ -158,17 +160,11 @@ const AppContent = () => {
 
         await checkRedirectResult();
         await performAppUpdateCleanup();
-        await runJanitor(); 
+        await runJanitor();
         const storedHandle = await getLocalDirectoryHandle();
         if (storedHandle) setSavedLocalDirHandle(storedHandle);
     };
     init();
-    
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (!currentUser) { setAccessToken(null); } 
-      else { const storedToken = getValidDriveToken(); if (storedToken) setAccessToken(storedToken); }
-    });
 
     const handleTokenUpdate = (e: Event) => {
         if (!isMountedRef.current) return;
@@ -181,43 +177,17 @@ const AppContent = () => {
     window.addEventListener(DRIVE_TOKEN_EVENT, handleTokenUpdate);
 
     return () => {
-        unsubscribeAuth();
         window.removeEventListener(DRIVE_TOKEN_EVENT, handleTokenUpdate);
     };
   }, [workspace]);
 
-  const handleOpenLocalFolder = useCallback(async (manualHandle?: any) => {
-    if (manualHandle) {
-        setLocalDirHandle(manualHandle);
-        setSavedLocalDirHandle(null);
-        fileManager.setActiveTab('local-fs');
-        return;
-    }
-    try { 
-        const handle = await openDirectoryPicker(); 
-        if (handle) { 
-            setLocalDirHandle(handle); 
-            setSavedLocalDirHandle(handle); 
-            await saveLocalDirectoryHandle(handle); 
-            fileManager.setActiveTab('local-fs'); 
-        } 
-    } catch (e: any) { 
-        if (e.name !== 'AbortError') addNotification(e.message, "error"); 
-    }
-  }, [addNotification]);
-
-  const handleReconnectLocalFolder = useCallback(async () => {
-      if (!savedLocalDirHandle) return;
-      try { const granted = await verifyPermission(savedLocalDirHandle, true); if (granted) { setLocalDirHandle(savedLocalDirHandle); fileManager.setActiveTab('local-fs'); } else { addNotification("Acesso negado.", "error"); setSavedLocalDirHandle(null); } } catch (e) { handleOpenLocalFolder(); }
-  }, [savedLocalDirHandle, handleOpenLocalFolder, addNotification]);
-
-  const commonProps = useMemo(() => ({ 
-      accessToken: accessToken || '', 
-      uid: user?.uid || 'guest', 
-      onBack: () => fileManager.handleReturnToDashboard(), 
-      onAuthError: handleAuthError, 
-      onToggleMenu: () => setIsSidebarOpen(v => !v), 
-      onToggleSplitView: () => fileManager.setIsSplitMode(v => !v) 
+  const commonProps = useMemo(() => ({
+      accessToken: accessToken || '',
+      uid: user?.uid || 'guest',
+      onBack: () => fileManager.handleReturnToDashboard(),
+      onAuthError: handleAuthError,
+      onToggleMenu: () => setIsSidebarOpen(v => !v),
+      onToggleSplitView: () => fileManager.setIsSplitMode(v => !v)
   }), [accessToken, user?.uid, handleAuthError]);
 
   const fileManager = useFileManager({
@@ -229,6 +199,40 @@ const AppContent = () => {
     onCloseMenu: () => setIsSidebarOpen(false),
     commonProps,
   });
+
+  const handleOpenLocalFolder = useCallback(async (manualHandle?: any) => {
+    if (manualHandle) {
+        setLocalDirHandle(manualHandle);
+        setSavedLocalDirHandle(null);
+        fileManager.setActiveTab('local-fs');
+        return;
+    }
+    try {
+        const handle = await openDirectoryPicker();
+        if (handle) {
+            setLocalDirHandle(handle);
+            setSavedLocalDirHandle(handle);
+            await saveLocalDirectoryHandle(handle);
+            fileManager.setActiveTab('local-fs');
+        }
+    } catch (e: any) {
+        if (e.name !== 'AbortError') addNotification(e.message, "error");
+    }
+  }, [addNotification]);
+
+  const handleReconnectLocalFolder = useCallback(async () => {
+      if (!savedLocalDirHandle) return;
+      try {
+        const granted = await verifyPermission(savedLocalDirHandle, true);
+        if (granted) {
+          setLocalDirHandle(savedLocalDirHandle);
+          fileManager.setActiveTab('local-fs');
+        } else {
+          addNotification("Acesso negado.", "error");
+          setSavedLocalDirHandle(null);
+        }
+      } catch (e) { handleOpenLocalFolder(); }
+  }, [savedLocalDirHandle, handleOpenLocalFolder, addNotification]);
 
   useEffect(() => {
       const handler = (e: Event) => {
@@ -247,8 +251,27 @@ const AppContent = () => {
   }, [fileManager]);
 
   const activeContent = useMemo(() => {
-    if (fileManager.activeTab === 'dashboard') return <Dashboard userName={user?.displayName} onOpenFile={fileManager.handleOpenFile} onUploadLocal={(e) => { const f = e.target.files?.[0]; if (f) fileManager.handleCreateFileFromBlob(f, f.name, f.type); }} onCreateMindMap={() => fileManager.handleCreateMindMap()} onCreateDocument={() => fileManager.handleCreateDocument()} onCreateFileFromBlob={fileManager.handleCreateFileFromBlob} onChangeView={(view) => fileManager.setActiveTab(view)} onToggleMenu={() => setIsSidebarOpen(true)} storageMode={storageMode} onToggleStorageMode={setStorageMode} onLogin={handleLogin} onOpenLocalFolder={handleOpenLocalFolder} savedLocalDirHandle={savedLocalDirHandle} onReconnectLocalFolder={handleReconnectLocalFolder} syncStrategy={syncStrategy} onToggleSyncStrategy={handleToggleSyncStrategy} />;
-    
+    if (fileManager.activeTab === 'dashboard') return (
+      <Dashboard
+        userName={user?.displayName}
+        onOpenFile={fileManager.handleOpenFile}
+        onUploadLocal={(e) => { const f = e.target.files?.[0]; if (f) fileManager.handleCreateFileFromBlob(f, f.name, f.type); }}
+        onCreateMindMap={() => fileManager.handleCreateMindMap()}
+        onCreateDocument={() => fileManager.handleCreateDocument()}
+        onCreateFileFromBlob={fileManager.handleCreateFileFromBlob}
+        onChangeView={(view) => fileManager.setActiveTab(view)}
+        onToggleMenu={() => setIsSidebarOpen(true)}
+        storageMode={storageMode}
+        onToggleStorageMode={setStorageMode}
+        onLogin={handleLogin}
+        onOpenLocalFolder={handleOpenLocalFolder}
+        savedLocalDirHandle={savedLocalDirHandle}
+        onReconnectLocalFolder={handleReconnectLocalFolder}
+        syncStrategy={syncStrategy}
+        onToggleSyncStrategy={handleToggleSyncStrategy}
+      />
+    );
+
     if (fileManager.activeTab === 'operational-archive') {
         const openDocxFiles = fileManager.openFiles.filter(
             f => f.name.endsWith('.docx') || f.mimeType === MIME_TYPES.DOCX || f.mimeType === MIME_TYPES.GOOGLE_DOC
@@ -271,19 +294,19 @@ const AppContent = () => {
     if (fileManager.activeTab === 'browser' || fileManager.activeTab === 'mindmaps' || fileManager.activeTab === 'offline' || fileManager.activeTab === 'local-fs' || fileManager.activeTab === 'shared') {
         const mode = fileManager.activeTab === 'browser' ? 'default' : fileManager.activeTab === 'local-fs' ? 'local' : fileManager.activeTab as any;
         return (
-            <DriveBrowser 
+            <DriveBrowser
                 key={mode}
-                accessToken={accessToken || ''} 
-                onSelectFile={fileManager.handleOpenFile} 
-                onLogout={logout} 
-                onAuthError={handleAuthError} 
-                onToggleMenu={() => setIsSidebarOpen(true)} 
-                mode={mode} 
-                onCreateMindMap={(parentId) => mode === 'mindmaps' ? fileManager.handleCreateMindMap(parentId) : fileManager.handleCreateDocument(parentId)} 
-                onGenerateMindMapWithAi={fileManager.handleGenerateMindMapWithAi} 
-                localDirectoryHandle={mode === 'local' ? localDirHandle : undefined} 
+                accessToken={accessToken || ''}
+                onSelectFile={fileManager.handleOpenFile}
+                onLogout={logout}
+                onAuthError={handleAuthError}
+                onToggleMenu={() => setIsSidebarOpen(true)}
+                mode={mode}
+                onCreateMindMap={(parentId) => mode === 'mindmaps' ? fileManager.handleCreateMindMap(parentId) : fileManager.handleCreateDocument(parentId)}
+                onGenerateMindMapWithAi={fileManager.handleGenerateMindMapWithAi}
+                localDirectoryHandle={mode === 'local' ? localDirHandle : undefined}
                 onLogin={handleLogin}
-                expandingFileId={fileManager.transitionId} 
+                expandingFileId={fileManager.transitionId}
             />
         );
     }
@@ -298,7 +321,7 @@ const AppContent = () => {
                     {fileManager.secondaryTab ? (
                         <div className="h-full w-full relative">
                             {fileManager.renderFileContent(fileManager.secondaryTab)}
-                            <button 
+                            <button
                                 onClick={() => fileManager.setSecondaryTab(null)}
                                 className="absolute top-2 right-2 z-[60] p-1.5 bg-black/60 hover:bg-red-500/80 rounded-full text-white/70 hover:text-white transition-colors backdrop-blur-sm border border-white/10"
                                 title="Fechar Painel Secundário"
@@ -319,7 +342,7 @@ const AppContent = () => {
                                 <p className="text-sm text-text-sec mb-4">Selecione um arquivo aberto para visualizar lado a lado:</p>
                                 <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                                     {fileManager.openFiles.filter(f => f.id !== fileManager.activeTab).map(file => (
-                                        <button 
+                                        <button
                                             key={file.id}
                                             onClick={() => fileManager.setSecondaryTab(file.id)}
                                             className="p-3 rounded-lg bg-black/40 border border-white/5 hover:border-brand/50 hover:bg-brand/5 text-left transition-all flex items-center gap-3 group"
@@ -356,36 +379,40 @@ const AppContent = () => {
       <SecretThemeModal isOpen={workspace.showSecretThemeModal} onClose={() => workspace.setShowSecretThemeModal(false)} />
 
       <div className="flex h-screen w-full bg-bg overflow-hidden relative selection:bg-brand/30">
-        <Sidebar 
-            activeTab={fileManager.activeTab} 
-            onSwitchTab={fileManager.setActiveTab} 
-            openFiles={fileManager.openFiles} 
-            onCloseFile={fileManager.handleCloseFile} 
-            user={user} 
-            onLogout={logout} 
-            onLogin={handleLogin} 
-            isOpen={isSidebarOpen} 
-            onClose={() => setIsSidebarOpen(false)} 
-            driveActive={!!accessToken} 
+        <Sidebar
+            activeTab={fileManager.activeTab}
+            onSwitchTab={fileManager.setActiveTab}
+            openFiles={fileManager.openFiles}
+            onCloseFile={fileManager.handleCloseFile}
+            user={user}
+            onLogout={logout}
+            onLogin={handleLogin}
+            isOpen={isSidebarOpen}
+            onClose={() => setIsSidebarOpen(false)}
+            driveActive={!!accessToken}
             onOpenLegal={() => { setLegalModalTab('privacy'); setShowLegalModal(true); }}
             isImmersive={workspace.isImmersive}
         />
         <main className="flex-1 relative flex flex-col bg-bg overflow-hidden transition-all duration-300">
           <Suspense fallback={<GlobalLoader />}>
-              {syncStatus.message && <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 bg-brand text-bg px-6 py-2 rounded-full font-bold shadow-2xl flex items-center gap-2 animate-in slide-in-from-top-6 duration-300 pointer-events-none"><Wifi size={18} className="animate-pulse" /> {syncStatus.message}</div>}
+              {syncStatus.message && (
+                <div className="absolute top-6 left-1/2 -translate-x-1/2 z-50 bg-brand text-bg px-6 py-2 rounded-full font-bold shadow-2xl flex items-center gap-2 animate-in slide-in-from-top-6 duration-300 pointer-events-none">
+                  <Wifi size={18} className="animate-pulse" /> {syncStatus.message}
+                </div>
+              )}
               {activeContent}
           </Suspense>
         </main>
         {showReauthToast && <ReauthToast onReauth={handleReauth} onClose={() => setShowReauthToast(false)} />}
-        
-        <LegalModal 
-            isOpen={showLegalModal} 
+
+        <LegalModal
+            isOpen={showLegalModal}
             onClose={() => setShowLegalModal(false)}
             onAccept={workspace.onboardingStep === 'legal' ? () => {
                 setShowLegalModal(false);
                 workspace.handleLegalAccepted();
             } : undefined}
-            initialTab={legalModalTab} 
+            initialTab={legalModalTab}
             isMandatory={workspace.onboardingStep === 'legal'}
         />
         <GlobalHelpModal
@@ -408,7 +435,7 @@ const AppContent = () => {
                             </p>
                         </div>
                         <div className="flex flex-col w-full gap-2 pt-2">
-                            <button 
+                            <button
                                 onClick={() => {
                                     document.documentElement.requestFullscreen().catch(() => {});
                                     workspace.setShowFullscreenPrompt(false);
@@ -417,13 +444,13 @@ const AppContent = () => {
                             >
                                 <Maximize size={18} /> Sim, Ativar
                             </button>
-                            <button 
+                            <button
                                 onClick={() => workspace.setShowFullscreenPrompt(false)}
                                 className="w-full bg-[#2c2c2c] text-white font-medium py-3 rounded-xl hover:bg-[#3c3c3c] transition-colors"
                             >
                                 Agora não
                             </button>
-                            <button 
+                            <button
                                 onClick={() => {
                                     localStorage.setItem('fullscreen_pref', 'false');
                                     workspace.setShowFullscreenPrompt(false);
