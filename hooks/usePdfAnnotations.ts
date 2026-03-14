@@ -10,10 +10,36 @@ import {
 import { PDFDocumentProxy } from 'pdfjs-dist';
 import { computeSparseHash } from '../utils/hashUtils';
 
-function fromBase64(str: string) {
-    return decodeURIComponent(atob(str).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
+// Descomprime base64 gerado pelo worker (deflate-raw via CompressionStream).
+// Suporta fallback automático para o formato legado (sem compressão) —
+// compatibilidade com PDFs salvos antes desta atualização.
+async function decompressFromBase64(b64: string): Promise<string> {
+    try {
+        const binary = atob(b64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const ds = new DecompressionStream('deflate-raw');
+        const writer = ds.writable.getWriter();
+        writer.write(bytes);
+        writer.close();
+        const chunks: Uint8Array[] = [];
+        const reader = ds.readable.getReader();
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+        }
+        const total = chunks.reduce((s, c) => s + c.length, 0);
+        const merged = new Uint8Array(total);
+        let offset = 0;
+        for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length; }
+        return new TextDecoder().decode(merged);
+    } catch (e) {
+        // Fallback: formato legado sem compressão (PDFs salvos antes desta atualização)
+        return decodeURIComponent(atob(b64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+    }
 }
 
 export const usePdfAnnotations = (
@@ -48,11 +74,8 @@ export const usePdfAnnotations = (
   }, [initialAnnotations, initialPageOffset, initialSemanticData]);
 
   useEffect(() => {
-    // FIX: pdfDoc é suficiente para ler metadados embutidos (Keywords do PDF).
-    // currentBlob pode chegar com atraso quando o arquivo é baixado do Drive sem cache.
-    // Antes: se !currentBlob → setIsCheckingIntegrity(false) e return — as anotações
-    // burned nunca eram lidas na primeira abertura sem cache local.
-    // Agora: prossegue com pdfDoc disponível; hash check é opcional (depende de currentBlob).
+    // FIX 2026-03-14a: pdfDoc é suficiente para ler metadados embutidos.
+    // currentBlob pode chegar com atraso (download Drive sem cache).
     if (!pdfDoc) {
         setIsCheckingIntegrity(false);
         return;
@@ -66,10 +89,6 @@ export const usePdfAnnotations = (
       const localAnns = await loadAnnotations(uid, fileId);
       localAnnsRef.current = localAnns;
 
-      // FIX: Hash check só é possível com blob disponível.
-      // Sem blob: pula conflict detection mas carrega embedded e local normalmente.
-      // Quando currentBlob chegar (segundo render), o useEffect roda novamente
-      // e confirma o hash com os dados já carregados.
       let currentHash: string | null = null;
       if (currentBlob) {
           currentHash = await computeSparseHash(currentBlob);
@@ -83,13 +102,19 @@ export const usePdfAnnotations = (
       if (importedAnnsRef.current.length > 0) {
           // Pacote .lect importado — não sobrescreve offset/semantic já setados via prop
       } else {
-          // Tenta ler metadados embutidos no PDF (anotações burned)
           try {
             const metadata = await pdfDoc.getMetadata();
             const keywords = (metadata.info as any)?.Keywords || '';
             
             if (typeof keywords === 'string' && keywords.includes("LECTORIUM_V2_B64:::")) {
-                const jsonStr = fromBase64(keywords.split("LECTORIUM_V2_B64:::")[1]);
+                // Extrai apenas o token do Lectorium, ignorando outros keywords
+                const b64Part = keywords.split("LECTORIUM_V2_B64:::")[1].split(/\s/)[0].trim();
+                
+                // FIX 2026-03-14b: decompressFromBase64 suporta deflate-raw (novo)
+                // e fallback legado (sem compressão). Resolve: setKeywords() falhava
+                // silenciosamente acima de ~65KB (limite PDFString do pdf-lib), deixando
+                // anotações pintadas mas invisíveis no Painel Tático.
+                const jsonStr = await decompressFromBase64(b64Part);
                 const parsed: PdfMetadataV2 = JSON.parse(jsonStr);
                 embedded = parsed.annotations || [];
                 if (parsed.pageOffset !== undefined) loadedOffset = parsed.pageOffset;
@@ -106,13 +131,11 @@ export const usePdfAnnotations = (
       setPageOffset(loadedOffset);
       setSemanticData(loadedSemantic);
 
-      // Conflict Check: só quando temos hash e não estamos carregando pacote .lect externo
       if (!initialAnnotations && currentHash && auditRecord && auditRecord.contentHash !== currentHash) {
           setConflictDetected(true);
           conflictRef.current = true;
       } else {
           const totalCount = embedded.length + localAnns.length + importedAnnsRef.current.length;
-          // Salva audit record apenas se temos hash (blob disponível)
           if (currentHash) {
               await saveAuditRecord(fileId, currentHash, totalCount);
           }
@@ -123,29 +146,25 @@ export const usePdfAnnotations = (
     };
 
     loadAndVerify();
-  }, [fileId, uid, pdfDoc, currentBlob]); // currentBlob nas deps: re-roda quando blob chega
+  }, [fileId, uid, pdfDoc, currentBlob]);
 
   const mergeAndSet = useCallback(() => {
     const map = new Map<string, Annotation>();
-    
-    // Ordem de prioridade (último vence): Embutido -> Importado -> Local
     embeddedAnnsRef.current.forEach(a => { if (a.id) map.set(a.id, a); });
     importedAnnsRef.current.forEach(a => { if (a.id) map.set(a.id, a); });
     localAnnsRef.current.forEach(a => { if (a.id) map.set(a.id, a); });
-    
     setAnnotations(Array.from(map.values()));
   }, []);
 
   const resolveConflict = useCallback(async (action: 'use_external' | 'restore_lectorium' | 'merge') => {
       if (action === 'use_external') {
-          setAnnotations([]); 
+          setAnnotations([]);
           localAnnsRef.current = [];
           setPageOffset(0);
           setSemanticData({});
       } else {
           mergeAndSet();
       }
-      
       if (currentBlob) {
           const newHash = await computeSparseHash(currentBlob);
           await saveAuditRecord(fileId, newHash, annotations.length);
@@ -164,48 +183,30 @@ export const usePdfAnnotations = (
 
   const removeAnnotation = useCallback(async (target: Annotation) => {
     if (isCheckingIntegrity || conflictDetected || target.isBurned) return;
-    
     localAnnsRef.current = localAnnsRef.current.filter(a => a.id !== target.id);
     importedAnnsRef.current = importedAnnsRef.current.filter(a => a.id !== target.id);
-    
     mergeAndSet();
     try { await deleteLocalAnnotation(target.id!); } catch (e) {}
   }, [uid, fileId, isCheckingIntegrity, conflictDetected, mergeAndSet]);
 
   const updateAnnotation = useCallback(async (updatedAnn: Annotation) => {
     if (!updatedAnn.id) return;
-    
     let foundInLocal = false;
     localAnnsRef.current = localAnnsRef.current.map(a => {
-      if (a.id === updatedAnn.id) {
-        foundInLocal = true;
-        return updatedAnn;
-      }
+      if (a.id === updatedAnn.id) { foundInLocal = true; return updatedAnn; }
       return a;
     });
-
     if (!foundInLocal) {
       localAnnsRef.current = [...localAnnsRef.current, updatedAnn];
     }
-
     importedAnnsRef.current = importedAnnsRef.current.map(a => a.id === updatedAnn.id ? updatedAnn : a);
-    
     mergeAndSet();
     try { await saveAnnotation(uid, fileId, updatedAnn); } catch (e) {}
   }, [uid, fileId, mergeAndSet]);
 
   return { 
-    annotations, 
-    addAnnotation, 
-    removeAnnotation, 
-    updateAnnotation, 
-    conflictDetected, 
-    resolveConflict, 
-    isCheckingIntegrity, 
-    hasPageMismatch, 
-    pageOffset, 
-    setPageOffset, 
-    semanticData 
+    annotations, addAnnotation, removeAnnotation, updateAnnotation,
+    conflictDetected, resolveConflict, isCheckingIntegrity,
+    hasPageMismatch, pageOffset, setPageOffset, semanticData
   };
 };
- 
