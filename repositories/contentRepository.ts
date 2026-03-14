@@ -1,4 +1,3 @@
-
 import { getDb, DocVersion, OcrRecord } from "../services/db";
 import { Annotation, AuditRecord } from "../types";
 
@@ -6,7 +5,7 @@ import { Annotation, AuditRecord } from "../types";
 export async function saveDocVersion(fileId: string, content: any, author: string, name: string = "Salvamento Automático"): Promise<void> {
   const localDb = await getDb();
   const MAX_VERSIONS = 50;
-  
+
   const version: DocVersion = {
     id: `ver-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
     fileId,
@@ -58,7 +57,7 @@ export async function getAuditRecord(fileId: string): Promise<AuditRecord | unde
 export async function saveOcrData(fileId: string, page: number, words: any[], markdown?: string): Promise<void> {
     const localDb = await getDb();
     const existing = await localDb.get("ocrCache", `${fileId}-${page}`);
-    
+
     await localDb.put("ocrCache", {
         id: `${fileId}-${page}`,
         fileId,
@@ -72,7 +71,7 @@ export async function saveOcrData(fileId: string, page: number, words: any[], ma
 export async function loadOcrData(fileId: string): Promise<Record<number, { words: any[], markdown?: string }>> {
     const localDb = await getDb();
     const records: OcrRecord[] = await localDb.getAllFromIndex("ocrCache", "fileId", fileId);
-    
+
     const map: Record<number, { words: any[], markdown?: string }> = {};
     records.forEach(rec => {
         map[rec.page] = {
@@ -85,23 +84,25 @@ export async function loadOcrData(fileId: string): Promise<Record<number, { word
 
 // Annotations (Exclusively Local-First)
 /**
- * Salva anotação no banco de dados local. 
+ * Salva anotação no banco de dados local.
  * A sincronização com a nuvem ocorre via 'burnAnnotationsToPdf' no ciclo de save do Drive.
+ * uid removido em 2026-03-13: o fileId é chave suficiente no IDB local-first.
  */
-export async function saveAnnotation(uid: string, fileId: string, ann: Annotation): Promise<Annotation> {
+export async function saveAnnotation(fileId: string, ann: Annotation): Promise<Annotation> {
   const localDb = await getDb();
   const finalId = ann.id || `ann-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const updatedAt = new Date().toISOString();
-  const annotationToSave = { ...ann, id: finalId, fileId, userId: uid, updatedAt };
-  
+  const annotationToSave = { ...ann, id: finalId, fileId, updatedAt };
+
   await localDb.put("annotations", annotationToSave);
   return annotationToSave;
 }
 
 /**
  * Carrega anotações do IndexedDB local.
+ * uid removido em 2026-03-13: busca por fileId é suficiente.
  */
-export async function loadAnnotations(uid: string, fileId: string): Promise<Annotation[]> {
+export async function loadAnnotations(fileId: string): Promise<Annotation[]> {
   const localDb = await getDb();
   return await localDb.getAllFromIndex("annotations", "fileId", fileId);
 }
@@ -109,7 +110,7 @@ export async function loadAnnotations(uid: string, fileId: string): Promise<Anno
 /**
  * Deleta uma anotação do banco local.
  */
-export async function deleteAnnotation(id: string, uid?: string, fileId?: string): Promise<void> {
+export async function deleteAnnotation(id: string): Promise<void> {
   const localDb = await getDb();
   await localDb.delete("annotations", id);
 }
