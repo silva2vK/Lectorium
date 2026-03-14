@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Icon } from '../shared/Icon';
 import { BaseModal } from '../shared/BaseModal';
@@ -7,7 +6,6 @@ import { loadOcrData, loadAnnotations, saveOfflineFile, addToSyncQueue } from '.
 import { burnAnnotationsToPdf } from '../../services/pdfModifierService';
 import { updateDriveFile, uploadFileToDrive } from '../../services/driveService';
 import { getValidDriveToken } from '../../services/authService';
-import { auth } from '../../firebase';
 import { BrainCircuit, AlertTriangle, CheckCircle, Sparkles, Hourglass, FileText, Loader2, ExternalLink, Save, Copy } from 'lucide-react';
 
 
@@ -19,14 +17,12 @@ export const OcrCompletionModal = () => {
 
   const { fileId, filename, sourceBlob, stoppedAtPage } = ocrCompletion;
   const isStopped = !!stoppedAtPage;
-  
-  // Identifica se foi uma análise da Lente Semântica pelo "filename" especial injetado no SemanticRangeModal
+
   const isSemanticResult = filename === "Semantic Analysis" || filename === "Semantic Translation";
 
   const handleReview = () => {
-    // Dispara um evento global que o App.tsx ouve para reabrir o arquivo
-    window.dispatchEvent(new CustomEvent('reopen-file-request', { 
-        detail: { fileId, filename, sourceBlob } 
+    window.dispatchEvent(new CustomEvent('reopen-file-request', {
+        detail: { fileId, filename, sourceBlob }
     }));
     clearOcrCompletion();
   };
@@ -47,12 +43,12 @@ export const OcrCompletionModal = () => {
             }
         });
 
-        const uid = auth.currentUser?.uid || 'guest';
-        const annotations = await loadAnnotations(uid, fileId);
+        // uid removido em 2026-03-13 — loadAnnotations usa apenas fileId
+        const annotations = await loadAnnotations(fileId);
 
-        // 2. Processar PDF ("Queimar" camadas visuais, OCR e agora dados semânticos)
+        // 2. Processar PDF
         const newBlob = await burnAnnotationsToPdf(sourceBlob, annotations, ocrMap, 0, semanticData);
-        
+
         const accessToken = getValidDriveToken();
         const isLocal = fileId.startsWith('local-') || fileId.startsWith('native-');
         const finalFilename = isSemanticResult ? "Análise Lectorium.pdf" : filename;
@@ -62,7 +58,7 @@ export const OcrCompletionModal = () => {
                await updateDriveFile(accessToken, fileId, newBlob);
             }
             await saveOfflineFile({ id: fileId, name: finalFilename, mimeType: 'application/pdf' }, newBlob);
-            
+
             if (!isLocal && !navigator.onLine && accessToken) {
                await addToSyncQueue({ fileId, action: 'update', blob: newBlob, name: finalFilename, mimeType: 'application/pdf' });
             }
@@ -71,7 +67,7 @@ export const OcrCompletionModal = () => {
         } else {
             const suffix = isStopped ? ' (Parcial)' : ' (Analisado)';
             const newName = finalFilename.replace(/\.pdf$/i, '') + suffix + '.pdf';
-            
+
             if (!isLocal && accessToken) {
                await uploadFileToDrive(accessToken, newBlob, newName);
             } else {
@@ -85,7 +81,7 @@ export const OcrCompletionModal = () => {
             }
             addNotification("Cópia salva com sucesso!", "success");
         }
-        
+
         clearOcrCompletion();
     } catch (e: any) {
         console.error(e);
@@ -139,7 +135,7 @@ export const OcrCompletionModal = () => {
             </div>
         ) : (
             <div className="space-y-3">
-                <button 
+                <button
                     onClick={handleReview}
                     className="w-full bg-white text-black p-4 rounded-xl font-bold flex items-center justify-between group hover:bg-brand hover:text-black transition-all shadow-lg active:scale-95"
                 >
@@ -153,7 +149,7 @@ export const OcrCompletionModal = () => {
                 </button>
 
                 <div className="grid grid-cols-2 gap-3">
-                    <button 
+                    <button
                         onClick={() => handleSave('overwrite')}
                         className="bg-[#2c2c2c] text-white p-3 rounded-xl font-bold flex flex-col items-center gap-1 hover:bg-[#363636] border border-transparent hover:border-brand/30 transition-all"
                     >
@@ -161,7 +157,7 @@ export const OcrCompletionModal = () => {
                         <span className="text-[11px]">Substituir Original</span>
                     </button>
 
-                    <button 
+                    <button
                         onClick={() => handleSave('copy')}
                         className="bg-[#2c2c2c] text-white p-3 rounded-xl font-bold flex flex-col items-center gap-1 hover:bg-[#363636] border border-transparent hover:border-brand/30 transition-all"
                     >
@@ -170,7 +166,7 @@ export const OcrCompletionModal = () => {
                     </button>
                 </div>
 
-                <button 
+                <button
                     onClick={clearOcrCompletion}
                     className="w-full text-text-sec p-3 text-xs hover:text-white transition-colors"
                 >
