@@ -11,6 +11,7 @@ const MindMapEditor = lazy(() => import('../components/MindMapEditor').then(m =>
 const DocEditor = lazy(() => import('../components/DocEditor').then(m => ({ default: m.DocEditor })));
 const UniversalMediaAdapter = lazy(() => import('../components/UniversalMediaAdapter').then(m => ({ default: m.UniversalMediaAdapter })));
 const LectAdapter = lazy(() => import('../components/LectAdapter').then(m => ({ default: m.LectAdapter })));
+
 const GlobalLoader = () => (
   <div className="flex-1 flex flex-col items-center justify-center bg-bg min-h-[300px]">
     <div className="relative mb-4">
@@ -68,29 +69,34 @@ export function useFileManager({
 
     if (!file.blob && !file.id.startsWith('local-') && !file.id.startsWith('native-')) {
         const cached = await getOfflineFile(file.id);
-        if (cached) file.blob = cached; else if (navigator.onLine) {
-            if (!accessToken) { 
-                const valid = getValidDriveToken(); 
-                if (!valid) { onAuthError(); return; } 
-                // We can't set accessToken here directly, but the next render will have it. 
-                // We'll use `valid` for the download.
-            }
+        if (cached) {
+            file.blob = cached;
+        } else if (navigator.onLine) {
+            // FIX: accessToken pode chegar como '' (App.tsx passa accessToken || '')
+            // '' é falsy mas não é null — verificação explícita evita ambiguidade
+            const token = (accessToken && accessToken.length > 0) ? accessToken : getValidDriveToken();
+            if (!token) { onAuthError(); return; }
             try { 
-                const blob = await downloadDriveFile(accessToken || getValidDriveToken() || '', file.id, file.mimeType); 
+                const blob = await downloadDriveFile(token, file.id, file.mimeType); 
                 const syncStrategy = localStorage.getItem('sync_strategy') || 'smart';
                 if (syncStrategy === 'smart') await saveOfflineFile(file, blob); 
                 file.blob = blob; 
             } catch (e: any) { 
-                if (e.message.includes('401')) { onAuthError(); return; } 
+                if (e.message.includes('401') || e.message.includes('DRIVE_TOKEN_EXPIRED')) {
+                    onAuthError();
+                    return;
+                }
                 addNotification("Erro ao baixar arquivo.", "error"); 
                 return; 
             }
         }
     }
+
     if (file.id.startsWith('native-') && file.handle && !file.blob) { 
         try { file.blob = await (file.handle as FileSystemFileHandle).getFile(); } 
         catch (e) { addNotification("Erro ao ler arquivo local.", "error"); return; } 
     }
+
     addRecentFile(file);
     
     if (!background && document.startViewTransition) {
@@ -183,7 +189,6 @@ export function useFileManager({
           if (!isLocal) {
               await renameDriveFile(accessToken!, fileId, safeName);
           }
-          // Update local state
           setOpenFiles(prev => prev.map(f => f.id === fileId ? { ...f, name: safeName } : f));
           addNotification("Arquivo renomeado.", "success");
       } catch (e) {
