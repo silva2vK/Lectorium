@@ -1,4 +1,4 @@
-# Lectorium
+# Lectorium 
 
 **O Workspace Acadêmico Definitivo (PWA)**
 
