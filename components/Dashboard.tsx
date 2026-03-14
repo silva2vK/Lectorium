@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { BrainCircuit, FileText, File as FileIcon, Pin, Clock, Menu, Zap, Cloud, AlertCircle, CheckCircle, Database, Workflow, FolderOpen, Upload, FilePlus, LifeBuoy, ArrowRight, X, HardDrive, Server } from 'lucide-react';
 import { DriveFile, StorageMode } from '../types';
 import { getRecentFiles, getStorageEstimate, clearAppStorage, StorageBreakdown, runJanitor, getWallpaper } from '../services/storageService';
+import { getValidDriveToken } from '../services/authService';
 import { useSync } from '../hooks/useSync';
 import { SyncStatusModal } from './SyncStatusModal';
 import { Icon } from './shared/Icon';
@@ -102,12 +103,8 @@ const RecentFileItem: React.FC<RecentFileItemProps> = ({ file, styles, onClick }
             onClick={onClick} 
             className="group flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 transition-all cursor-pointer active:scale-95 border border-transparent hover:border-white/10"
         >
-            {/* The Maker Aesthetic: Futuristic/Scientific Container */}
             <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
-                {/* Background: Deep Tech Blue with subtle gradient */}
                 <div className="absolute inset-0 bg-gradient-to-br from-[#0f172a] to-[#1e293b] rounded-xl border border-blue-500/20 group-hover:border-blue-400/50 shadow-[0_0_15px_-5px_rgba(59,130,246,0.2)] group-hover:shadow-[0_0_20px_-5px_rgba(59,130,246,0.4)] transition-all duration-500"></div>
-                
-                {/* Icon with "Holographic" effect colors */}
                 <div className="relative z-10 transition-colors duration-300">
                     {file.name.endsWith('.mindmap') ? (
                         <BrainCircuit size={22} className="text-purple-300 group-hover:text-purple-200 drop-shadow-[0_0_5px_rgba(168,85,247,0.4)]" />
@@ -117,14 +114,12 @@ const RecentFileItem: React.FC<RecentFileItemProps> = ({ file, styles, onClick }
                         <FileIcon size={22} className="text-blue-300 group-hover:text-blue-200 drop-shadow-[0_0_5px_rgba(59,130,246,0.4)]" />
                     )}
                 </div>
-
                 {file.pinned && (
                     <div className="absolute -top-1 -right-1 z-20 text-cyan-400 bg-[#020617] rounded-full p-0.5 border border-cyan-500/50 shadow-[0_0_8px_rgba(34,211,238,0.3)]">
                         <Pin size={9} fill="currentColor" />
                     </div>
                 )}
             </div>
-
             <div className="min-w-0 flex-1 flex flex-col justify-center">
                 <h3 className="font-sans font-bold text-[15px] text-gray-100 truncate tracking-tight leading-snug mb-0.5 group-hover:text-white transition-colors">
                     {file.name}
@@ -139,10 +134,8 @@ const RecentFileItem: React.FC<RecentFileItemProps> = ({ file, styles, onClick }
 
 const IconBaGua = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    {/* Pasta aberta */}
     <path d="M8 20 C8 17 10 15 13 15 L24 15 L28 20 L51 20 C54 20 56 22 56 25 L56 48 C56 51 54 53 51 53 L13 53 C10 53 8 51 8 48 Z"/>
     <path d="M8 28 L56 28" strokeWidth="1.4"/>
-    {/* Documentos dentro */}
     <line x1="22" y1="36" x2="42" y2="36" strokeWidth="1.4"/>
     <line x1="22" y1="42" x2="36" y2="42" strokeWidth="1.4"/>
   </svg>
@@ -150,10 +143,8 @@ const IconBaGua = ({ className }: { className?: string }) => (
 
 const IconDragon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    {/* Seta para cima — abertura/envio */}
     <line x1="32" y1="52" x2="32" y2="16"/>
     <polyline points="18,30 32,16 46,30"/>
-    {/* Base — plataforma de lançamento */}
     <line x1="12" y1="52" x2="52" y2="52"/>
     <line x1="12" y1="52" x2="12" y2="46"/>
     <line x1="52" y1="52" x2="52" y2="46"/>
@@ -162,14 +153,11 @@ const IconDragon = ({ className }: { className?: string }) => (
 
 const IconWen = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-    {/* Documento com canto dobrado */}
     <path d="M14 8 L14 56 L50 56 L50 20 L38 8 Z"/>
     <polyline points="38,8 38,20 50,20" strokeWidth="1.4"/>
-    {/* Linhas de texto */}
     <line x1="22" y1="30" x2="42" y2="30"/>
     <line x1="22" y1="38" x2="42" y2="38"/>
     <line x1="22" y1="46" x2="34" y2="46"/>
-    {/* Cruz de adição — novo documento */}
     <line x1="42" y1="43" x2="42" y2="51"/>
     <line x1="38" y1="47" x2="46" y2="47"/>
   </svg>
@@ -237,16 +225,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [storageData, setStorageData] = useState<StorageBreakdown | null>(null);
   const [wallpapers, setWallpapers] = useState<{ landscape: string | null, portrait: string | null }>({ landscape: null, portrait: null });
   
-  // Estado de Orientação (Landscape vs Portrait) para UI Responsiva
   const [orientation, setOrientation] = useState<'landscape' | 'portrait'>(
       typeof window !== 'undefined' ? (window.innerWidth > window.innerHeight ? 'landscape' : 'portrait') : 'landscape'
   );
   
-  // Referência para o input de arquivo (Upload Local)
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Detecção de Mobile/WebView
-  // Se for mobile, assumimos que NÃO há suporte completo a Native File System (showDirectoryPicker falha em WebViews)
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   const hasNativeFS = 'showDirectoryPicker' in window && !isMobile;
   const isEmbedded = window.self !== window.top;
@@ -254,8 +238,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const { dashboardScale } = useGlobalContext();
   const styles = getScaleStyles(dashboardScale);
 
+  // FIX 2026-03-14: substituído localStorage.getItem('drive_access_token') por
+  // getValidDriveToken(). A chave real é 'drive_access_token_data' (JSON com token
+  // + expiresAt). A chave antiga nunca existiu — accessToken era sempre null aqui.
   const { syncStatus, queue, triggerSync, removeItem, clearQueue } = useSync({ 
-      accessToken: localStorage.getItem('drive_access_token'), 
+      accessToken: getValidDriveToken(),
       onAuthError: () => {},
       autoSync: false 
   });
@@ -278,14 +265,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const handleUpdate = () => loadWallpapers();
     window.addEventListener('wallpaper-changed', handleUpdate);
     
-    // Listener de Orientação e Redimensionamento
     const handleResize = () => {
         setOrientation(window.innerWidth > window.innerHeight ? 'landscape' : 'portrait');
     };
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleResize);
-    
-    // Check inicial
     handleResize();
 
     return () => {
@@ -326,20 +310,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
       if (!files || files.length === 0) return;
 
       if (files.length === 1) {
-          // SELECIONOU 1 ARQUIVO: Abre direto no Editor (Bypass na "Pasta Local")
           const file = files[0];
           onCreateFileFromBlob(file, file.name, file.type);
       } else if (onOpenLocalFolder) {
-          // SELECIONOU VÁRIOS: Cria handle virtual e mostra lista
           const virtualHandle = createVirtualDirectoryHandle(files);
           onOpenLocalFolder(virtualHandle);
       }
       
-      // Limpa input para permitir re-seleção
       e.target.value = '';
   };
 
-  // Wrapper para abrir o seletor de arquivos
   const handleLocalUploadClick = () => {
       fileInputRef.current?.click();
   };
@@ -357,7 +337,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="flex-1 h-full overflow-hidden bg-bg text-text relative font-sans">
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-transparent">
-          {/* Wallpapers com Fallback Inteligente e Detecção de Orientação */}
           {(wallpapers.landscape || wallpapers.portrait) && (
               <img 
                 src={
@@ -367,10 +346,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 } 
                 className="absolute inset-0 w-full h-full object-cover opacity-50 scale-105 transition-all duration-700 ease-in-out" 
                 alt="Background" 
-                key={orientation} // Força transição suave ao trocar de modo
+                key={orientation}
               />
           )}
-          {/* Apenas um gradiente sutil para legibilidade, permitindo a cor de fundo do tema passar */}
           <div className="absolute inset-0 bg-gradient-to-br from-bg/20 via-bg/40 to-bg/90 z-10" />
       </div>
 
@@ -477,7 +455,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     />
                 )}
 
-                {/* Bloco de Abertura Direta - Comportamento híbrido (1 arquivo = open, N = list) */}
                 <ActionTile 
                     onClick={handleLocalUploadClick}
                     title="ABRIR ARQUIVO"
@@ -487,7 +464,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     gradientClass="from-orange-500/10 to-transparent"
                     borderColorClass="hover:border-orange-500/50"
                 />
-                {/* Input Hidden para File Upload (Multiple Files) */}
                 <input 
                     type="file"
                     ref={fileInputRef}
@@ -562,11 +538,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           <span className="text-base text-white">Uso Total: <span className="text-white font-bold">{storageData ? formatBytes(storageData.usage) : '...'}</span></span>
                           <button onClick={handleManualJanitor} className="text-[12px] text-brand font-bold bg-brand/10 px-3 py-1 rounded-full hover:bg-brand hover:text-black transition-all active:scale-95">LIMPAR CACHE</button>
                       </div>
-                      
                       <div className="w-full bg-white/5 h-3 rounded-full overflow-hidden mb-4">
                           <div className="h-full bg-gradient-to-r from-brand to-brand-to transition-all duration-1000" style={{ width: storageData ? `${Math.min(100, (storageData.usage / (storageData.quota || 1)) * 100)}%` : '0%' }} />
                       </div>
-
                       {storageData?.details && (
                           <div className="grid grid-cols-3 gap-2 mt-4 text-[12px]">
                               <div className="bg-white/5 p-2 rounded-xl flex flex-col items-center gap-1 border border-white/5">
