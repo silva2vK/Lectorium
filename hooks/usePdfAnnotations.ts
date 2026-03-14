@@ -1,10 +1,10 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Annotation, PdfMetadataV2, SemanticLensData } from '../types';
-import { 
-  loadAnnotations, 
-  saveAnnotation, 
-  deleteAnnotation as deleteLocalAnnotation, 
+import {
+  loadAnnotations,
+  saveAnnotation,
+  deleteAnnotation as deleteLocalAnnotation,
   getAuditRecord,
   saveAuditRecord
 } from '../services/storageService';
@@ -18,9 +18,9 @@ function fromBase64(str: string) {
 }
 
 export const usePdfAnnotations = (
-    fileId: string, 
-    uid: string, 
-    pdfDoc: PDFDocumentProxy | null, 
+    fileId: string,
+    uid: string, // mantido na assinatura para compatibilidade com callers existentes — não usado internamente
+    pdfDoc: PDFDocumentProxy | null,
     currentBlob?: Blob | null,
     initialAnnotations?: Annotation[],
     initialPageOffset?: number,
@@ -33,16 +33,15 @@ export const usePdfAnnotations = (
   const [isCheckingIntegrity, setIsCheckingIntegrity] = useState(true);
   const [hasPageMismatch, setHasPageMismatch] = useState(false);
   const [pageOffset, setPageOffset] = useState(0);
-  
+
   const localAnnsRef = useRef<Annotation[]>([]);
   const embeddedAnnsRef = useRef<Annotation[]>([]);
-  const importedAnnsRef = useRef<Annotation[]>(initialAnnotations || []); // Novo
+  const importedAnnsRef = useRef<Annotation[]>(initialAnnotations || []);
 
   useEffect(() => {
     if (initialAnnotations) importedAnnsRef.current = initialAnnotations;
     if (initialPageOffset !== undefined) setPageOffset(initialPageOffset);
     if (initialSemanticData) {
-        // Converte SemanticLensData para formato string armazenado
         const simpleSemantic: Record<number, string> = {};
         Object.entries(initialSemanticData).forEach(([p, d]) => simpleSemantic[parseInt(p)] = d.markdown);
         setSemanticData(simpleSemantic);
@@ -60,50 +59,46 @@ export const usePdfAnnotations = (
       setConflictDetected(false);
       conflictRef.current = false;
 
-      const localAnns = await loadAnnotations(uid, fileId);
+      // uid removido da chamada — fileId é chave suficiente
+      const localAnns = await loadAnnotations(fileId);
       localAnnsRef.current = localAnns;
 
       const currentHash = await computeSparseHash(currentBlob);
       const auditRecord = await getAuditRecord(fileId);
-      
+
       let embedded: Annotation[] = [];
-      let loadedOffset = pageOffset; 
+      let loadedOffset = pageOffset;
       let loadedSemantic = semanticData;
 
-      // Se temos dados importados (Pacote Lectorium), eles têm prioridade sobre metadados embutidos
-      // pois o pacote .lect é a fonte de verdade externa
       if (importedAnnsRef.current.length > 0) {
-          // Não sobrescrevemos loadedOffset/Semantic se já foram setados pelo prop
+          // Pacote .lect tem prioridade — não sobrescreve offset/semantic já definidos
       } else {
-          // Tenta ler metadados embutidos no PDF
           try {
             const metadata = await pdfDoc.getMetadata();
             const keywords = (metadata.info as any)?.Keywords || '';
-            
+
             if (typeof keywords === 'string' && keywords.includes("LECTORIUM_V2_B64:::")) {
                 const jsonStr = fromBase64(keywords.split("LECTORIUM_V2_B64:::")[1]);
                 const parsed: PdfMetadataV2 = JSON.parse(jsonStr);
                 embedded = parsed.annotations || [];
                 if (parsed.pageOffset !== undefined) loadedOffset = parsed.pageOffset;
                 if (parsed.semanticData) loadedSemantic = parsed.semanticData;
-                
+
                 if (parsed.pageCount !== pdfDoc.numPages) {
                     setHasPageMismatch(true);
                 }
             }
           } catch (e) { console.warn("[Meta] Fail:", e); }
       }
-      
+
       embeddedAnnsRef.current = embedded;
       setPageOffset(loadedOffset);
       setSemanticData(loadedSemantic);
 
-      // Conflict Check: Só faz sentido se NÃO estivermos carregando um pacote .lect externo
       if (!initialAnnotations && auditRecord && auditRecord.contentHash !== currentHash) {
           setConflictDetected(true);
           conflictRef.current = true;
       } else {
-          // Se é um arquivo novo ou pacote, assumimos que está ok e atualizamos o audit
           const totalCount = embedded.length + localAnns.length + importedAnnsRef.current.length;
           await saveAuditRecord(fileId, currentHash, totalCount);
       }
@@ -113,29 +108,29 @@ export const usePdfAnnotations = (
     };
 
     loadAndVerify();
-  }, [fileId, uid, pdfDoc, currentBlob]); // Mantém deps, initialAnnotations tratado via ref
+  }, [fileId, uid, pdfDoc, currentBlob]);
 
   const mergeAndSet = useCallback(() => {
     const map = new Map<string, Annotation>();
-    
+
     // Ordem de prioridade (último vence): Embutido -> Importado -> Local
     embeddedAnnsRef.current.forEach(a => { if (a.id) map.set(a.id, a); });
     importedAnnsRef.current.forEach(a => { if (a.id) map.set(a.id, a); });
     localAnnsRef.current.forEach(a => { if (a.id) map.set(a.id, a); });
-    
+
     setAnnotations(Array.from(map.values()));
   }, []);
 
   const resolveConflict = useCallback(async (action: 'use_external' | 'restore_lectorium' | 'merge') => {
       if (action === 'use_external') {
-          setAnnotations([]); 
+          setAnnotations([]);
           localAnnsRef.current = [];
           setPageOffset(0);
           setSemanticData({});
       } else {
           mergeAndSet();
       }
-      
+
       if (currentBlob) {
           const newHash = await computeSparseHash(currentBlob);
           await saveAuditRecord(fileId, newHash, annotations.length);
@@ -149,30 +144,25 @@ export const usePdfAnnotations = (
     const newAnn = { ...ann, id: finalId };
     localAnnsRef.current = [...localAnnsRef.current, newAnn];
     mergeAndSet();
-    // Salva localmente para persistência
-    try { await saveAnnotation(uid, fileId, newAnn); } catch (e) {}
-  }, [fileId, uid, isCheckingIntegrity, conflictDetected, mergeAndSet]);
+    try { await saveAnnotation(fileId, newAnn); } catch (e) {}
+  }, [fileId, isCheckingIntegrity, conflictDetected, mergeAndSet]);
 
   const removeAnnotation = useCallback(async (target: Annotation) => {
     if (isCheckingIntegrity || conflictDetected || target.isBurned) return;
-    
-    // Remove de todos os refs para garantir
+
     localAnnsRef.current = localAnnsRef.current.filter(a => a.id !== target.id);
     importedAnnsRef.current = importedAnnsRef.current.filter(a => a.id !== target.id);
-    
+
     mergeAndSet();
     try { await deleteLocalAnnotation(target.id!); } catch (e) {}
-  }, [uid, fileId, isCheckingIntegrity, conflictDetected, mergeAndSet]);
+  }, [fileId, isCheckingIntegrity, conflictDetected, mergeAndSet]);
 
   const updateAnnotation = useCallback(async (updatedAnn: Annotation) => {
     if (!updatedAnn.id) return;
-    
+
     let foundInLocal = false;
     localAnnsRef.current = localAnnsRef.current.map(a => {
-      if (a.id === updatedAnn.id) {
-        foundInLocal = true;
-        return updatedAnn;
-      }
+      if (a.id === updatedAnn.id) { foundInLocal = true; return updatedAnn; }
       return a;
     });
 
@@ -181,10 +171,22 @@ export const usePdfAnnotations = (
     }
 
     importedAnnsRef.current = importedAnnsRef.current.map(a => a.id === updatedAnn.id ? updatedAnn : a);
-    
-    mergeAndSet();
-    try { await saveAnnotation(uid, fileId, updatedAnn); } catch (e) {}
-  }, [uid, fileId, mergeAndSet]);
 
-  return { annotations, addAnnotation, removeAnnotation, updateAnnotation, conflictDetected, resolveConflict, isCheckingIntegrity, hasPageMismatch, pageOffset, setPageOffset, semanticData };
+    mergeAndSet();
+    try { await saveAnnotation(fileId, updatedAnn); } catch (e) {}
+  }, [fileId, mergeAndSet]);
+
+  return {
+    annotations,
+    addAnnotation,
+    removeAnnotation,
+    updateAnnotation,
+    conflictDetected,
+    resolveConflict,
+    isCheckingIntegrity,
+    hasPageMismatch,
+    pageOffset,
+    setPageOffset,
+    semanticData
+  };
 };
