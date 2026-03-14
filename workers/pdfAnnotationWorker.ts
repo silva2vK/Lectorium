@@ -136,16 +136,50 @@ self.onmessage = async (e: MessageEvent) => {
             semanticData: lensData || {}
         };
         
-        try {
-            const compressed = await compressToBase64(JSON.stringify(meta));
-            const lectoriumTag = `LECTORIUM_V2_B64:::${compressed}`;
-            const existingKeywords = pdfDoc.getKeywords() || '';
-            const cleanKeywords = existingKeywords
-                .split(/\s+/)
-                .filter((k: string) => k.length > 0 && !k.startsWith('LECTORIUM_V2_B64:::'));
-            pdfDoc.setKeywords([...cleanKeywords, lectoriumTag]);
-            pdfDoc.setProducer("Lectorium Engine v1.7 (Mark VII)");
-        } catch (metaErr) {
+        // Estratégia de degradação progressiva do payload:
+        // Nível 1: meta completo (annotations + semanticData)
+        // Nível 2: sem semanticData (OCR markdown — fica só no IDB)
+        // Nível 3: annotations sem texto (só id/page/bbox/type/color)
+        // Se nível 3 ainda falhar → META_WRITE_FAILED
+        // Limite seguro: 45KB base64 (margem abaixo dos ~65KB do pdf-lib PDFString)
+        const SAFE_B64_BYTES = 45 * 1024;
+
+        const trySetMeta = async (payload: object): Promise<boolean> => {
+            try {
+                const compressed = await compressToBase64(JSON.stringify(payload));
+                if (compressed.length > SAFE_B64_BYTES) return false;
+                const lectoriumTag = `LECTORIUM_V2_B64:::${compressed}`;
+                const existingKeywords = pdfDoc.getKeywords() || '';
+                const cleanKeywords = existingKeywords
+                    .split(/\s+/)
+                    .filter((k: string) => k.length > 0 && !k.startsWith('LECTORIUM_V2_B64:::'));
+                pdfDoc.setKeywords([...cleanKeywords, lectoriumTag]);
+                pdfDoc.setProducer("Lectorium Engine v1.7 (Mark VII)");
+                return true;
+            } catch (e) {
+                return false;
+            }
+        };
+
+        // Nível 1: completo
+        let saved = await trySetMeta(meta);
+
+        // Nível 2: sem semanticData
+        if (!saved) {
+            saved = await trySetMeta({ ...meta, semanticData: {} });
+        }
+
+        // Nível 3: annotations sem texto
+        if (!saved) {
+            const annsMinimal = annotationsSlim.map((a: any) => ({
+                id: a.id, page: a.page, bbox: a.bbox,
+                type: a.type, color: a.color, opacity: a.opacity,
+                tags: a.tags, isBurned: true
+            }));
+            saved = await trySetMeta({ ...meta, semanticData: {}, annotations: annsMinimal });
+        }
+
+        if (!saved) {
             (self as any).postMessage({ success: false, error: 'META_WRITE_FAILED' });
             return;
         }
