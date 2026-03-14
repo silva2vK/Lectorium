@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Icon } from '../../shared/Icon';
 import { DocVersion, getDocVersions, saveDocVersion } from '../../../services/storageService';
-import { auth } from '../../../firebase';
+import { getStoredUser } from '../../../services/authService';
 import { Clock, X, Loader2, RotateCcw, Save } from 'lucide-react';
 import { useGlobalContext } from '../../../context/GlobalContext';
 
@@ -19,11 +19,8 @@ export const VersionHistoryModal: React.FC<Props> = ({ isOpen, onClose, fileId, 
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  // Inline name input (substitui prompt())
   const [showNameInput, setShowNameInput] = useState(false);
   const [snapshotName, setSnapshotName] = useState('Versão Manual');
-
-  // Inline confirm de restauração (substitui confirm())
   const [confirmRestore, setConfirmRestore] = useState<DocVersion | null>(null);
 
   useEffect(() => {
@@ -45,19 +42,17 @@ export const VersionHistoryModal: React.FC<Props> = ({ isOpen, onClose, fileId, 
     }
   };
 
-  // Passo 1: abre o input inline
   const handleCreateSnapshot = () => {
     if (!fileId || !currentContent) return;
     setSnapshotName('Versão Manual');
     setShowNameInput(true);
   };
 
-  // Passo 2: confirma e salva
   const handleConfirmSnapshot = async () => {
     setShowNameInput(false);
     setCreating(true);
     try {
-      const author = auth.currentUser?.displayName || 'Você';
+      const author = getStoredUser()?.displayName || 'Você';
       await saveDocVersion(fileId!, currentContent, author, snapshotName || 'Versão Manual');
       await loadHistory();
     } catch (e) {
@@ -67,12 +62,10 @@ export const VersionHistoryModal: React.FC<Props> = ({ isOpen, onClose, fileId, 
     }
   };
 
-  // Passo 1: solicita confirmação inline
   const handleRestore = (version: DocVersion) => {
     setConfirmRestore(version);
   };
 
-  // Passo 2: executa restauração
   const handleConfirmRestore = () => {
     if (confirmRestore && onRestore) {
       onRestore(confirmRestore.content);
@@ -127,7 +120,6 @@ export const VersionHistoryModal: React.FC<Props> = ({ isOpen, onClose, fileId, 
           
           <div className="mt-4 pt-4 border-t border-[#444] flex flex-col gap-2 shrink-0">
 
-              {/* Inline: confirmação de restauração (substitui confirm()) */}
               {confirmRestore && (
                   <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 animate-in fade-in">
                       <p className="text-xs text-yellow-200 mb-2 leading-relaxed">
@@ -151,7 +143,6 @@ export const VersionHistoryModal: React.FC<Props> = ({ isOpen, onClose, fileId, 
                   </div>
               )}
 
-              {/* Inline: nome da versão (substitui prompt()) */}
               {showNameInput && (
                   <div className="flex gap-2 animate-in fade-in">
                       <input
