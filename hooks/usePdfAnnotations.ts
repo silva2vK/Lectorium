@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Annotation, PdfMetadataV2, SemanticLensData } from '../types';
 import { 
@@ -36,13 +35,12 @@ export const usePdfAnnotations = (
   
   const localAnnsRef = useRef<Annotation[]>([]);
   const embeddedAnnsRef = useRef<Annotation[]>([]);
-  const importedAnnsRef = useRef<Annotation[]>(initialAnnotations || []); // Novo
+  const importedAnnsRef = useRef<Annotation[]>(initialAnnotations || []);
 
   useEffect(() => {
     if (initialAnnotations) importedAnnsRef.current = initialAnnotations;
     if (initialPageOffset !== undefined) setPageOffset(initialPageOffset);
     if (initialSemanticData) {
-        // Converte SemanticLensData para formato string armazenado
         const simpleSemantic: Record<number, string> = {};
         Object.entries(initialSemanticData).forEach(([p, d]) => simpleSemantic[parseInt(p)] = d.markdown);
         setSemanticData(simpleSemantic);
@@ -50,7 +48,12 @@ export const usePdfAnnotations = (
   }, [initialAnnotations, initialPageOffset, initialSemanticData]);
 
   useEffect(() => {
-    if (!pdfDoc || !currentBlob) {
+    // FIX: pdfDoc é suficiente para ler metadados embutidos (Keywords do PDF).
+    // currentBlob pode chegar com atraso quando o arquivo é baixado do Drive sem cache.
+    // Antes: se !currentBlob → setIsCheckingIntegrity(false) e return — as anotações
+    // burned nunca eram lidas na primeira abertura sem cache local.
+    // Agora: prossegue com pdfDoc disponível; hash check é opcional (depende de currentBlob).
+    if (!pdfDoc) {
         setIsCheckingIntegrity(false);
         return;
     }
@@ -63,19 +66,24 @@ export const usePdfAnnotations = (
       const localAnns = await loadAnnotations(uid, fileId);
       localAnnsRef.current = localAnns;
 
-      const currentHash = await computeSparseHash(currentBlob);
+      // FIX: Hash check só é possível com blob disponível.
+      // Sem blob: pula conflict detection mas carrega embedded e local normalmente.
+      // Quando currentBlob chegar (segundo render), o useEffect roda novamente
+      // e confirma o hash com os dados já carregados.
+      let currentHash: string | null = null;
+      if (currentBlob) {
+          currentHash = await computeSparseHash(currentBlob);
+      }
       const auditRecord = await getAuditRecord(fileId);
       
       let embedded: Annotation[] = [];
       let loadedOffset = pageOffset; 
       let loadedSemantic = semanticData;
 
-      // Se temos dados importados (Pacote Lectorium), eles têm prioridade sobre metadados embutidos
-      // pois o pacote .lect é a fonte de verdade externa
       if (importedAnnsRef.current.length > 0) {
-          // Não sobrescrevemos loadedOffset/Semantic se já foram setados pelo prop
+          // Pacote .lect importado — não sobrescreve offset/semantic já setados via prop
       } else {
-          // Tenta ler metadados embutidos no PDF
+          // Tenta ler metadados embutidos no PDF (anotações burned)
           try {
             const metadata = await pdfDoc.getMetadata();
             const keywords = (metadata.info as any)?.Keywords || '';
@@ -98,14 +106,16 @@ export const usePdfAnnotations = (
       setPageOffset(loadedOffset);
       setSemanticData(loadedSemantic);
 
-      // Conflict Check: Só faz sentido se NÃO estivermos carregando um pacote .lect externo
-      if (!initialAnnotations && auditRecord && auditRecord.contentHash !== currentHash) {
+      // Conflict Check: só quando temos hash e não estamos carregando pacote .lect externo
+      if (!initialAnnotations && currentHash && auditRecord && auditRecord.contentHash !== currentHash) {
           setConflictDetected(true);
           conflictRef.current = true;
       } else {
-          // Se é um arquivo novo ou pacote, assumimos que está ok e atualizamos o audit
           const totalCount = embedded.length + localAnns.length + importedAnnsRef.current.length;
-          await saveAuditRecord(fileId, currentHash, totalCount);
+          // Salva audit record apenas se temos hash (blob disponível)
+          if (currentHash) {
+              await saveAuditRecord(fileId, currentHash, totalCount);
+          }
       }
 
       setIsCheckingIntegrity(false);
@@ -113,7 +123,7 @@ export const usePdfAnnotations = (
     };
 
     loadAndVerify();
-  }, [fileId, uid, pdfDoc, currentBlob]); // Mantém deps, initialAnnotations tratado via ref
+  }, [fileId, uid, pdfDoc, currentBlob]); // currentBlob nas deps: re-roda quando blob chega
 
   const mergeAndSet = useCallback(() => {
     const map = new Map<string, Annotation>();
@@ -149,14 +159,12 @@ export const usePdfAnnotations = (
     const newAnn = { ...ann, id: finalId };
     localAnnsRef.current = [...localAnnsRef.current, newAnn];
     mergeAndSet();
-    // Salva localmente para persistência
     try { await saveAnnotation(uid, fileId, newAnn); } catch (e) {}
   }, [fileId, uid, isCheckingIntegrity, conflictDetected, mergeAndSet]);
 
   const removeAnnotation = useCallback(async (target: Annotation) => {
     if (isCheckingIntegrity || conflictDetected || target.isBurned) return;
     
-    // Remove de todos os refs para garantir
     localAnnsRef.current = localAnnsRef.current.filter(a => a.id !== target.id);
     importedAnnsRef.current = importedAnnsRef.current.filter(a => a.id !== target.id);
     
@@ -186,5 +194,18 @@ export const usePdfAnnotations = (
     try { await saveAnnotation(uid, fileId, updatedAnn); } catch (e) {}
   }, [uid, fileId, mergeAndSet]);
 
-  return { annotations, addAnnotation, removeAnnotation, updateAnnotation, conflictDetected, resolveConflict, isCheckingIntegrity, hasPageMismatch, pageOffset, setPageOffset, semanticData };
+  return { 
+    annotations, 
+    addAnnotation, 
+    removeAnnotation, 
+    updateAnnotation, 
+    conflictDetected, 
+    resolveConflict, 
+    isCheckingIntegrity, 
+    hasPageMismatch, 
+    pageOffset, 
+    setPageOffset, 
+    semanticData 
+  };
 };
+ 
