@@ -1,6 +1,3 @@
-
-import { User } from "firebase/auth";
-
 export const MIME_TYPES = {
   PDF: 'application/pdf',
   FOLDER: 'application/vnd.google-apps.folder',
@@ -163,7 +160,7 @@ export interface MindMapNode {
   shape?: NodeShape;
   imageUrl?: string;
   imageScale?: number;
-  scale?: number; // Added to fix property not found error
+  scale?: number;
   collapsed?: boolean;
 }
 
@@ -203,29 +200,29 @@ export interface SyncQueueItem {
 export type LexSynthFillMode = 'literal' | 'ai';
 
 export interface LexSynthColumn {
-  id: string;           // uuid
-  name: string;         // label visível na tabela
-  tags: string[];       // tags mapeadas (sem '#'), ex: ['metodologia']
+  id: string;
+  name: string;
+  tags: string[];
   fillMode: LexSynthFillMode;
 }
 
 export interface LexSynthCell {
-  content: string;      // texto preenchido (literal ou síntese IA)
-  pages: number[];      // páginas de origem
+  content: string;
+  pages: number[];
   isLoading?: boolean;
-  isUsed?: boolean;     // marcado como "já citado" no DocEditor
+  isUsed?: boolean;
 }
 
 export interface LexSynthRow {
   fileId: string;
   fileName: string;
-  hasOcr: boolean;      // indica se há OCR disponível para IA trabalhar
-  cells: Record<string, LexSynthCell>; // chave = LexSynthColumn.id
+  hasOcr: boolean;
+  cells: Record<string, LexSynthCell>;
 }
 
 export interface LexSynthTable {
-  id: string;           // uuid da tabela
-  name: string;         // nome do documento
+  id: string;
+  name: string;
   createdAt: number;
   updatedAt: number;
   columns: LexSynthColumn[];
