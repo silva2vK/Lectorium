@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { LayoutGrid, X, Workflow, FileText, Home, FolderOpen, Users, Database, Contrast, CheckCircle, Palette, ChevronDown, ChevronRight, Image as ImageIcon, Upload, Trash2, Loader2, DownloadCloud, Key, Scale, Minimize, Maximize, LogOut, LogIn } from 'lucide-react';
 import { Icon } from './shared/Icon';
-import { User } from 'firebase/auth';
+// FIX 2026-03-14: removido import { User } from 'firebase/auth' — projeto migrado para GIS puro.
+// Tipo substituído por GisUser do authService.
+import { GisUser } from '../services/authService';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { DriveFile } from '../types';
 import { cacheAppResources, getOfflineCacheSize, ResourceCategory, deleteOfflineResources } from '../services/offlineService';
@@ -18,7 +20,7 @@ interface SidebarProps {
   onSwitchTab: (tabId: string) => void;
   openFiles: DriveFile[];
   onCloseFile: (fileId: string) => void;
-  user: User | null;
+  user: GisUser | null; // FIX: era User (Firebase) — agora GisUser (GIS puro)
   onLogout: () => void;
   onLogin?: () => void;
   isOpen: boolean;
@@ -303,6 +305,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
           </div>
 
+          {/* FIX: user agora é GisUser — campos: displayName, email, photoURL (mesma interface) */}
           {user ? (
             <div className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
                 {user.photoURL ? <img src={user.photoURL} alt="U" className="w-9 h-9 rounded-lg border border-white/10 shadow-sm" /> : <div className="w-9 h-9 rounded-lg bg-brand/20 flex items-center justify-center text-brand font-bold text-xs">{user.displayName?.[0]}</div>}
@@ -314,7 +317,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <OfflineDownloadModal isOpen={showOfflineModal} onClose={() => setShowOfflineModal(false)} onConfirm={handleStartDownload} onClear={handleClearCache} currentSize={downloadSize} isDownloading={cachingStatus === 'caching'} progress={cacheProgress} />
-<ApiKeyModal isOpen={showKeyModal} onClose={() => setShowKeyModal(false)} />
+      <ApiKeyModal isOpen={showKeyModal} onClose={() => setShowKeyModal(false)} />
     </>
   );
 };
