@@ -1,4 +1,4 @@
-import { PDFDocument, PDFName, PDFRawStream, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, PDFName, rgb, StandardFonts } from 'pdf-lib';
 
 interface Annotation {
   id?: string;
@@ -34,10 +34,8 @@ function buildXmpXml(meta: object): string {
         .replace(/"/g, '&quot;');
 
     // begin="" vazio — pdfjs v5 valida o xpacket e rejeita o stream quando
-    // o atributo begin contém \uFEFF (BOM codificado como entidade dentro do
-    // atributo). BOM como bytes separados no início do stream seria correto,
-    // mas o pdf-lib não expõe esse controle via PDFRawStream. begin="" é
-    // igualmente válido pelo spec XMP ISO 16684-1 e aceito por todos os parsers.
+    // o atributo begin contém \uFEFF (BOM) como entidade dentro do atributo.
+    // begin="" é igualmente válido pelo spec XMP ISO 16684-1.
     return `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/">
   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
@@ -57,14 +55,16 @@ function injectXmpStream(pdfDoc: PDFDocument, xmpXml: string): void {
     const encoder = new TextEncoder();
     const xmlBytes = encoder.encode(xmpXml);
 
-    // Cria stream dict conforme PDF spec §14.3.2 (Metadata Streams)
-    const metaDict = pdfDoc.context.obj({
+    // context.stream() é a API correta do pdf-lib 1.17.1 para criar streams.
+    // PDFRawStream.of() não é método estático público nessa versão e lança
+    // TypeError em runtime — causa do META_WRITE_FAILED.
+    // context.stream() monta o dicionário internamente com PDFName corretos,
+    // incluindo Length calculado automaticamente.
+    const metaStream = pdfDoc.context.stream(xmlBytes, {
         Type: 'Metadata',
         Subtype: 'XML',
-        Length: xmlBytes.length,
     });
 
-    const metaStream = PDFRawStream.of(metaDict, xmlBytes);
     const metaRef = pdfDoc.context.register(metaStream);
 
     // Aponta Root.Metadata para o novo stream
@@ -89,10 +89,10 @@ function drawOcr(page: any, words: any[], helvetica: any): void {
             } catch (e: any) {
                 if (e.message?.includes('WinAnsi cannot encode')) {
                     const charMap: Record<string, string> = {
-                        '⁴': '^4', '³': '^3', '²': '^2', '¹': '^1', '⁰': '^0',
-                        '⁵': '^5', '⁶': '^6', '⁷': '^7', '⁸': '^8', '⁹': '^9',
+                        '\u2074': '^4', '\u00B3': '^3', '\u00B2': '^2', '\u00B9': '^1', '\u2070': '^0',
+                        '\u2075': '^5', '\u2076': '^6', '\u2077': '^7', '\u2078': '^8', '\u2079': '^9',
                         '\u201C': '"', '\u201D': '"', '\u2018': "'", '\u2019': "'",
-                        '–': '-', '—': '-', '…': '...',
+                        '\u2013': '-', '\u2014': '-', '\u2026': '...',
                     };
                     const sanitized = w.text.replace(/[^\x00-\xFF]/g, (m: string) => charMap[m] || '');
                     if (sanitized) {
