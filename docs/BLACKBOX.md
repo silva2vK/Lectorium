@@ -1,7 +1,7 @@
 # BLACKBOX.md — Lectorium
 **Documento de Arquitetura, Decisões e Estado do Projeto**
-**Versão do documento:** 2026-03-12 (rev. 4 — sessão 12 tarde/noite)
-**Versão do software:** 1.7.0
+**Versão do documento:** 2026-03-14 (rev. 5 — sessão 13)
+**Versão do software:** 1.7.1
 **Repositório:** github.com/silva2vK/Lectorium (branch A1)
 **Deploy:** Cloudflare Pages → lectorium-c1s.pages.dev
 **Autoria:** Gabriel Silva (O Criador) — historiador, UFS, Aracaju-SE
@@ -9,7 +9,7 @@
 
 ---
 
-> **Nota de metodologia**: Este documento foi redigido em 2026-03-10 com base no código verificado nos arquivos enviados ao longo das sessões de desenvolvimento e nos transcripts das conversas. Rev. 2 (tarde) incorpora as correções de discrepância de paginação DOCX (documentParser + index.css), regras CSS de tabela, e expansão do TablePropertiesModal. Quando uma decisão está marcada como "verificada no código", significa que foi confirmada pela leitura direta dos arquivos-fonte. Quando marcada como "decisão do Criador", foi tomada explicitamente em conversa. Nenhuma informação foi inferida sem base.
+> **Nota de metodologia**: Este documento foi redigido em 2026-03-10 com base no código verificado nos arquivos enviados ao longo das sessões de desenvolvimento e nos transcripts das conversas. Rev. 2 (tarde) incorpora as correções de discrepância de paginação DOCX. Rev. 5 incorpora a migração do sistema de metadados PDF de Keywords para XMP stream, a correção do limite de ~65KB do pdf-lib, atualização do TipTap para 2.27.x, e correções de autenticação Firebase/GIS. Quando uma decisão está marcada como "verificada no código", significa que foi confirmada pela leitura direta dos arquivos-fonte. Quando marcada como "decisão do Criador", foi tomada explicitamente em conversa. Nenhuma informação foi inferida sem base.
 
 ---
 
@@ -30,18 +30,22 @@ O Lectorium é a resposta: um workspace acadêmico PWA local-first que integra l
 
 ## 2. Stack Técnica
 
-### Verificada no package.json em 2026-03-09
+### Verificada no package.json em 2026-03-14
 
 ```
 React 19.2.3
 TypeScript 5.7.2
 Vite 7.3.1
 TailwindCSS 3.4.x (PostCSS build-time — não usa CDN, não usa JIT online)
+npm 11.11.1
 ```
 
 ### Editores e Documentos
 ```
-TipTap 2.11.5 + extensões ProseMirror — editor de documentos .docx
+TipTap 2.27.x + extensões ProseMirror — editor de documentos .docx
+  ATUALIZADO em 2026-03-14: de 2.11.5 para 2.27.x (dentro do ^2, não migrou para v3)
+  TipTap 3 REJEITADO: rewrite completo quebraria PaginationExtension customizada
+  @tiptap/extension-focus@2.27.x: agora disponível (workaround CSS .has-focus pode ser removido)
 Yjs 13.6.x — CRDT para colaboração
 y-webrtc 10.3.0 — transporte P2P para Yjs
 y-prosemirror 1.3.7 — binding Yjs ↔ ProseMirror
@@ -55,6 +59,9 @@ pdfjs-dist 5.5.x — renderização + extração de texto
   Motivo: usa worker ESM (pdf.worker.mjs?url), incompatível com pre-bundling do Vite
   Nunca mover para include — quebra o worker no Android
 pdf-lib 1.17.1 — modificação de PDFs (burn annotations, embed metadados)
+  LIMITE CRÍTICO: PDFString tem limite interno de ~65KB no pdf-lib
+  → Metadados migrados para XMP stream (Root.Metadata) em 2026-03-14
+  → Keywords agora contém apenas marcador 'LECTORIUM_XMP' (sem dados)
 ```
 
 ### Estado e UI
@@ -84,6 +91,8 @@ OPFS (Origin Private File System) — arquivos pesados, sem quota prompt
 ### Infraestrutura e Autenticação
 ```
 Firebase 12.7.0 — autenticação Google OAuth
+  Arquitetura: Firebase Auth para gestão de sessão + GIS apenas para refresh token Drive
+  GIS puro REJEITADO: sem refresh token client-side, login persistente inviável
 Google Drive REST API (via fetch direto, não SDK)
 ```
 
@@ -118,6 +127,7 @@ O projeto não tem diretório `src/`. Componentes e serviços ficam na raiz:
 /context/             — React contexts
 /repositories/        — CRUD IndexedDB
 /utils/               — utilitários puros
+/workers/             — Web Workers (pdfAnnotationWorker.ts)
 /types.ts             — contrato de tipos central (FONTE DE VERDADE)
 /App.tsx              — orquestrador raiz
 /firebase.ts          — inicialização Firebase
@@ -218,15 +228,17 @@ Provê: `currentPage`, `numPages`, `scale`, `activeTool`, `isSpread`, `jumpToPag
 - Busca retorna trechos relevantes por vetor
 
 ### `services/authService.ts`
-- OAuth Google + token Drive
-- Singleton de refresh (resolvido em 2026-03-08)
-- `error_callback` no GSI configurado
+- Firebase Auth para gestão de sessão (token persistente)
+- GIS usado apenas para `refreshDriveTokenSilently` (token Drive de 3600s)
+- `onAuthStateChanged` é async: quando token Drive expirado, chama refresh automaticamente
+- Singleton de refresh: uma Promise única compartilhada para evitar parallelismo
 - `DRIVE_TOKEN_EVENT` — evento customizado para notificar token renovado
+- `DRIVE_TOKEN_EXPIRED` — evento para forçar novo login Drive
 
 ### `services/storageService.ts`
 - Facade que re-exporta todos os repositories
 - Ponto de entrada único para persistência
-- Importar de `storageService`, não dos repositories diretamente (exceto quando necessário por clareza)
+- Importar de `storageService`, não dos repositories diretamente
 
 ### `services/backgroundOcrService.ts`
 - OCR assíncrono que não bloqueia a UI
@@ -235,14 +247,19 @@ Provê: `currentPage`, `numPages`, `scale`, `activeTool`, `isSpread`, `jumpToPag
 
 ### `services/pdfModifierService.ts`
 - Usa `pdf-lib` para "queimar" anotações no PDF (burn)
-- Também embute metadados Lectorium (`LECTORIUM_V2_B64:::`) nas Keywords do PDF
-- Chamado no ciclo de save do Drive
+- Embute metadados Lectorium via **XMP stream** em `Root.Metadata` (desde 2026-03-14)
+- Keywords contém apenas marcador `LECTORIUM_XMP` (sem dados — só sinaliza formato)
+- Worker: `workers/pdfAnnotationWorker.ts`
 
-### `services/lexSynthService.ts` *(adicionado em 2026-03-09)*
+### `services/lexSynthService.ts`
 - Serviço do Sintetizador Lexicográfico
 - Extrai trechos por tag das anotações de múltiplos PDFs
 - Sintetiza com IA (gemini-3-flash-preview) quando fillMode = 'ai'
 - Salva/carrega tabela `.lexsynth` (JSON) no IndexedDB
+
+### `services/blobRegistry.ts`
+- Rastreia URLs criadas com `URL.createObjectURL`
+- `register(url)`, `revoke(url)`, `revokeAll()` — evita memory leaks de blob URLs
 
 ---
 
@@ -298,11 +315,11 @@ interface DriveFile {
   id: string;           // 'local-*' | 'native-*' | Drive ID
   name: string;
   mimeType: string;
-  blob?: Blob;          // presente quando arquivo está em memória
-  handle?: FileSystemFileHandle | FileSystemDirectoryHandle | null; // para nativos
+  blob?: Blob;
+  handle?: FileSystemFileHandle | FileSystemDirectoryHandle | null;
   starred?: boolean;
   pinned?: boolean;
-  parents?: string[];   // pasta pai no Drive
+  parents?: string[];
 }
 ```
 
@@ -314,19 +331,19 @@ interface Annotation {
   bbox: [number, number, number, number]; // [x, y, width, height]
   text?: string;
   type: 'highlight' | 'note' | 'ink';
-  points?: number[][];  // para 'ink'
+  points?: number[][];
   color?: string;
   opacity?: number;
   strokeWidth?: number;
   isBurned?: boolean;   // se true, está embedded no PDF via pdf-lib
-  tags?: string[];      // tags do Sintetizador Lexicográfico
+  tags?: string[];
 }
 ```
 
-**Regra de `isBurned`**: anotações burned estão no PDF físico. `removeAnnotation` rejeita anotações burned — não se pode deletar o que está gravado no arquivo. `updateAnnotation` aceita burned (para adicionar tags).
+**Regra de `isBurned`**: anotações burned estão no PDF físico. `removeAnnotation` rejeita anotações burned. `updateAnnotation` aceita burned (para adicionar tags).
 
 ### `PdfMetadataV2`
-Metadados embedados nas Keywords do PDF via base64:
+Metadados embedados no **XMP stream** do PDF (desde 2026-03-14):
 ```typescript
 interface PdfMetadataV2 {
   lectorium_v: string;
@@ -337,16 +354,20 @@ interface PdfMetadataV2 {
   semanticData?: Record<number, string>; // markdown por página
 }
 ```
-Prefixo no PDF: `LECTORIUM_V2_B64:::` seguido de JSON base64.
 
-### `LexSynth*` *(adicionado em 2026-03-09)*
+**Formato de storage (2026-03-14):**
+- **Novo (XMP):** JSON UTF-8 em `<lectorium:data>` no XMP stream `Root.Metadata`. Sem limite de tamanho. Keywords contém apenas `LECTORIUM_XMP` como marcador.
+- **Legado (Keywords):** `LECTORIUM_V2_B64:::` + JSON comprimido (deflate-raw) em base64. Suportado para leitura via fallback em `usePdfAnnotations`.
+- **Legado antigo (Keywords sem compressão):** `LECTORIUM_V2_B64:::` + JSON em base64 sem compressão. Suportado via fallback duplo.
+
+### `LexSynth*`
 ```typescript
 type LexSynthFillMode = 'literal' | 'ai';
 
 interface LexSynthColumn {
   id: string;
   name: string;
-  tags: string[];           // tags mapeadas (sem '#')
+  tags: string[];
   fillMode: LexSynthFillMode;
 }
 
@@ -354,14 +375,14 @@ interface LexSynthCell {
   content: string;
   pages: number[];
   isLoading?: boolean;
-  isUsed?: boolean;         // marcado como "já citado" no DocEditor
+  isUsed?: boolean;
 }
 
 interface LexSynthRow {
   fileId: string;
   fileName: string;
   hasOcr: boolean;
-  cells: Record<string, LexSynthCell>; // chave = LexSynthColumn.id
+  cells: Record<string, LexSynthCell>;
 }
 
 interface LexSynthTable {
@@ -399,13 +420,11 @@ A ordem das regras em `manualChunks` é crítica. Alterar sem entender causa cic
 | `vendor-state` | zustand, @tanstack | — |
 
 **Por que `pdfjs-dist` em `optimizeDeps.exclude`?**
-O worker do pdfjs v5.5 é carregado via `import.meta.url` como ESM puro (`pdf.worker.mjs?url`). O pre-bundling do Vite quebra esse mecanismo — o worker não consegue se registrar corretamente no Android. A versão 5.5 foi adotada exatamente por esse padrão ESM funcionar offline (useSystemFonts).
+O worker do pdfjs v5.5 é carregado via `import.meta.url` como ESM puro (`pdf.worker.mjs?url`). O pre-bundling do Vite quebra esse mecanismo — o worker não consegue se registrar corretamente no Android.
 
 ---
 
 ## 11. Sistema de Anotações PDF — Fluxo Completo
-
-Este foi o sistema com mais bugs históricos. Documentado com precisão.
 
 ### Cadeia de persistência
 
@@ -420,20 +439,41 @@ Usuário interage com PDF
               → saveAnnotation(uid, fileId, ann)       [contentRepository → IDB]
 ```
 
-### Bug histórico (corrigido em 2026-03-10)
-**Causa raiz**: `onUpdateAnnotation={updateAnnotation}` não estava sendo passado ao `PdfProvider` em `PdfViewer.tsx`. O fio estava solto na linha 644. `updateAnnotation` também não estava desestruturado no `usePdfAnnotations`.
+### Sistema de Metadados PDF — Histórico de Formatos
 
-**Segundo bug associado**: `isCheckingIntegrity` iniciava como `true` e closure stale em `conflictDetected` bloqueava `updateAnnotation` silenciosamente. Corrigido com `conflictRef = useRef(false)`.
+**Formato v1 (legado, sem compressão):**
+Keywords = `LECTORIUM_V2_B64:::` + base64(JSON)
+Limite prático: ~50 anotações antes de atingir ~65KB (limite PDFString do pdf-lib)
 
-**Terceiro bug associado (TagModal.tsx, corrigido em 2026-03-10)**:
-1. `<form>` sem `<button type="submit">` — submit por Enter ignorado no teclado virtual Android
-2. Regex `/[^a-z0-9-]/g` destruía acentuação. Substituída por `/[^\p{L}\p{N}_-]/gu` (Unicode property escapes)
+**Formato v2 (intermediário, comprimido):**
+Keywords = `LECTORIUM_V2_B64:::` + base64(deflate-raw(JSON))
+Redução de ~65% no tamanho. Limite prático: ~2.800 anotações.
+Implementado e depois superado na mesma sessão (2026-03-14).
+
+**Formato v3 (atual, XMP stream):**
+Root.Metadata = XMP stream com `<lectorium:data>JSON UTF-8</lectorium:data>`
+Keywords = `LECTORIUM_XMP` (marcador sem dados)
+Sem limite de tamanho documentado.
+Custom namespace: `xmlns:lectorium="http://lectorium.app/xmp/1.0/"`
+
+**Leitura:** `usePdfAnnotations` tenta XMP primeiro, fallback para Keywords legado (v2 e v1).
+
+### Bug histórico do limite (corrigido em 2026-03-14)
+**Sintoma:** anotações eram pintadas no PDF visualmente mas não apareciam no Painel Tático após salvar PDFs com muitos destaques.
+**Causa raiz:** `pdf-lib` tem limite interno de ~65KB para `PDFString`. O JSON dos metadados sem compressão ultrapassava esse limite. O `catch (metaErr) {}` engolia o erro silenciosamente — anotações eram burned no visual mas metadados não eram gravados. Na reabertura, `usePdfAnnotations` não encontrava dados e retornava "SEM DADOS".
+**Fix:** migração para XMP stream via `pdfDoc.catalog.set(PDFName.of('Metadata'), PDFRawStream)`.
 
 ### Regras de `usePdfAnnotations`
-- Ordem de prioridade no merge: Embutido (PDF) → Importado (.lect) → Local (IDB). Local sempre vence.
+- `pdfDoc` é suficiente para leitura — não espera `currentBlob` (que pode chegar com atraso no Drive)
+- Ordem de prioridade no merge: Embutido (PDF/XMP) → Importado (.lect) → Local (IDB). Local sempre vence.
 - `addAnnotation` e `removeAnnotation` rejeitam se `isCheckingIntegrity || conflictDetected`
-- `updateAnnotation` rejeita apenas se `!updatedAnn.id` (permite atualizar anotações burned para adicionar tags)
+- `updateAnnotation` rejeita apenas se `!updatedAnn.id`
 - Conflict detection: compara hash do blob atual com `auditRecord.contentHash`
+
+### Bug histórico da tela de leitura (corrigido em 2026-03-14)
+**Sintoma:** anotações não apareciam no Painel Tático ao abrir PDFs do Drive sem cache local.
+**Causa raiz:** condição `if (!currentBlob) return` no `useEffect` de carregamento bloqueava a leitura dos metadados burned quando o arquivo vinha do Drive sem cache.
+**Fix:** condição alterada para `if (!pdfDoc) return`. `pdfDoc` é suficiente para ler metadados XMP/Keywords. Hash check tornou-se opcional (só quando `currentBlob` disponível).
 
 ---
 
@@ -460,10 +500,7 @@ window.dispatchEvent(new CustomEvent('inject-markdown-to-doc', {
   detail: { fileId, markdown }
 }));
 ```
-**Pendência**: DocEditor ainda não escuta esse evento. Precisa implementar listener em `DocEditor.tsx` que chama `editor.commands.insertContent(markdown)`.
-
-### Persistência
-Tabelas salvas como `.lexsynth` (JSON serializado) no IndexedDB.
+**Pendência**: DocEditor ainda não escuta esse evento.
 
 ---
 
@@ -483,53 +520,49 @@ backgroundOcrService.ts (assíncrono, não bloqueia UI)
 - Renderiza a página em 1536px de largura (ótimo para Gemini 3 Flash)
 - Aplica filtro `grayscale(1) contrast(1.4) brightness(1.1)` — "Clean Slate Filter"
 - Converte para JPEG 70% quality
-- Envia para `performFullPageOcr`
 - Resultado: palavras com coordenadas + markdown reconstruído
-
-### Refinamento (triggerRefinement)
-- Pega o markdown da Lente já processado
-- Envia para `refineTranscript` (aiService)
-- Reorganiza sem re-renderizar a página
-- Preserva coordenadas originais (refinamento é só textual)
 
 ---
 
 ## 14. Autenticação e Drive
 
+### Arquitetura (decisão definitiva 2026-03-14)
+Firebase Auth mantido para gestão de sessão. GIS usado apenas para `refreshDriveTokenSilently`.
+
+**GIS puro foi tentado e rejeitado:** `prompt: ''` no `initTokenClient` falha silenciosamente no Android Chrome no primeiro login sem consentimento Drive prévio. Sem refresh token client-side, login persistente é inviável com GIS puro.
+
 ### Fluxo de autenticação
 ```
 Firebase Google OAuth
-  → token de acesso ao Drive (access_token, não refresh_token)
-  → saveDriveToken() — persiste no localStorage com timestamp
+  → onAuthStateChanged (async)
+    → se token Drive expirado: refreshDriveTokenSilently() automático
+      → zero interação do usuário em reaberturas
   → getValidDriveToken() — verifica expiração antes de retornar
   → DRIVE_TOKEN_EVENT — evento para notificar renovação de token
 ```
 
-### Singleton de refresh (corrigido em 2026-03-08)
-Antes havia múltiplas chamadas paralelas de refresh. Agora: uma Promise única compartilhada. Se já está refreshando, novas chamadas aguardam a mesma Promise.
+### Token Drive
+- Expira em 3600s (limite do Google, não configurável client-side)
+- `refreshDriveTokenSilently` é o máximo possível sem backend próprio
+- `getValidDriveToken()` em vez de `localStorage.getItem('drive_access_token')` — chave correta
 
-### Google Drive REST API
-Usado diretamente via fetch, sem SDK. Endpoints: Files API v3.
-Sync é bidirecional mas não completo — pendência documentada na seção de backlog.
-
-### `error_callback` no GSI (corrigido em 2026-03-08)
-O Google Sign-In SDK precisa do `error_callback` configurado para capturar falhas de popup (bloqueadores de popup no Android). Sem isso, falhas silenciosas.
+### Correções aplicadas em 2026-03-14 (sessão 13)
+- `App.tsx`: `onAuthStateChanged` async + `refreshDriveTokenSilently` automático
+- `Dashboard.tsx`: `getValidDriveToken()` substituiu `localStorage.getItem('drive_access_token')` (chave errada, sempre retornava null)
+- `useSync.ts`: remove `setInterval(refreshQueue, 5000)` → evento `SYNC_QUEUE_EVENT` (anti-polling)
+- `useFileManager.tsx`: token check explícito + captura `DRIVE_TOKEN_EXPIRED`
 
 ---
 
 ## 15. Sistema de Pool de Chaves Gemini
 
 ### Por que existe
-O Criador usa API key própria e pode ter múltiplas. Em ambientes de alta carga (muitas chamadas OCR), uma chave atinge quota 429. O pool rotaciona automaticamente.
+Rotação automática em caso de quota 429.
 
 ### Implementação (`utils/apiKeyUtils.ts`)
 - Lista de chaves armazenada no localStorage
 - `rotateApiKey()` — move para a próxima chave na lista
-- `withKeyRotation(operation, retryCount)` em `aiService.ts`:
-  - Captura erros 429 ou 'quota'
-  - Rotaciona chave
-  - Retry com delay de 1s
-  - Máximo 3 tentativas
+- `withKeyRotation(operation, retryCount)` em `aiService.ts`: captura 429, rotaciona, retry com delay 1s, máximo 3 tentativas
 
 ---
 
@@ -548,22 +581,19 @@ Gerenciado por `lectService.ts` e `LectAdapter` (viewer).
 ## 17. MindMapEditor 3D
 
 ### Histórico
-Three.js foi adicionado, causou ciclos de importação e foi removido duas vezes. Na v1.7.0 foi reintegrado de forma definitiva com chunks isolados (`three-vendor`, `r3f-vendor`) no vite.config.ts. **Qualquer mudança nesses chunks exige validação de build no Cloudflare antes de considerar resolvido.**
+Three.js foi adicionado, causou ciclos de importação e foi removido duas vezes. Na v1.7.0 foi reintegrado de forma definitiva com chunks isolados (`three-vendor`, `r3f-vendor`). **Qualquer mudança nesses chunks exige validação de build no Cloudflare antes de considerar resolvido.**
 
 ### Stack
 - Three.js r183 + React Three Fiber 9.5 + Drei 10.7
 - Nós como meshes 3D com interação via raycasting
-- Instanced geometry (Three.js Instances) aprovado no backlog para otimização futura
 
 ### Formato `.mindmap`
 JSON com `{ nodes: MindMapNode[], edges: MindMapEdge[], viewport: MindMapViewport }`.
+`roundReplacer` aplicado nos 3 pontos de `JSON.stringify` — coordenadas limitadas a 2 casas decimais.
 
 ---
 
 ## 18. Performance e Padrões Proibidos
-
-### Contexto
-O Criador usa tablet Android (hardware médio). Cada pattern errado é perceptível.
 
 ### Proibido — explica por quê
 ```typescript
@@ -575,7 +605,6 @@ window.addEventListener('visibilitychange', checkSomething);
 // PROIBIDO: re-render forçado em cada frame de animação
 setViewport({ ...viewportRef.current }); // em requestAnimationFrame
 // CORRETO: manipular style diretamente via ref
-viewportRef.current.x += delta;
 element.style.transform = `translate(${x}px, ${y}px)`;
 
 // PROIBIDO: alert/confirm/prompt — bloqueiam a thread e parecem bugs em PWA
@@ -586,7 +615,6 @@ addNotification("Erro ao salvar", "error"); // GlobalContext
 
 ### Tailwind e CSS
 - Tailwind compila em build-time via PostCSS. Classes não definidas em código não estarão disponíveis em runtime.
-- Não usar `style={{ }}` para valores que o Tailwind cobre.
 - CSS customizado vai em `index.css` com camadas `@layer`.
 
 ---
@@ -595,10 +623,9 @@ addNotification("Erro ao salvar", "error"); // GlobalContext
 
 ### Service Worker (`sw.js`)
 - Estratégia: Cache First para assets estáticos, Network First para API calls
-- Screenshots adicionados manualmente pelo Criador — não gerar automaticamente
 - Invalidação de cache: versão do SW deve mudar a cada deploy que altera assets
 
-### Manifest (`manifest.json`) — corrigido em 2026-03-09
+### Manifest (`manifest.json`)
 - `id: "/"` — corrigido (estava com path relativo incorreto)
 - `share_target`: método POST + multipart — permite receber arquivos compartilhados de outros apps Android
 - `display: "standalone"` — remove UI do browser, aparece como app nativo
@@ -610,118 +637,114 @@ Self-hosted em `/public/fonts/`. Nunca usar CDN de fontes (sem internet = sem fo
 
 ## 20. Decisões Rejeitadas (e Por Quê)
 
-Documentar o que foi descartado é tão importante quanto o que foi aceito.
-
 ### CDNs externos no index.html
-**Rejeitado em 2026-03-09.** Qualquer CDN externo cria dependência de conectividade e viola o princípio local-first. Todos os scripts foram removidos e substituídos por imports via npm/bundler.
+**Rejeitado em 2026-03-09.** Viola local-first.
 
 ### Store Zustand global para PDF
-**Rejeitado.** Split view (dois viewers lado a lado) requer estado independente por instância. Store global causaria conflito entre os dois viewers ativos.
+**Rejeitado.** Split view requer estado independente por instância.
 
 ### `localStorage` para dados grandes
-**Rejeitado.** Limite de ~5MB. Dados de anotações, OCR e vetores facilmente ultrapassam isso. IndexedDB é o correto.
+**Rejeitado.** Limite ~5MB. IndexedDB é o correto.
 
 ### SDK do Google Drive (googleapis)
-**Rejeitado.** Bundle pesado. REST API via fetch direto é suficiente e mantém o bundle menor.
+**Rejeitado.** Bundle pesado. REST API via fetch direto é suficiente.
 
 ### Assinatura digital via pdf-lib
-**Rejeitado em 2026-03-10 (decisão do Criador).** Delegado ao gov.br e sistemas governamentais. O Lectorium não precisa implementar — o usuário usa o serviço adequado para isso.
+**Rejeitado (decisão do Criador).** Delegado ao gov.br.
 
-### Angular ou framework alternativo
-**Nunca considerado formalmente, mas justificado.** React foi escolhido porque: TipTap, R3F e pdfjs-dist são React-first; React 19 tem Concurrent Mode (essencial para lazy loading sem travar UI em tablet); ecossistema de hooks customizados é mais adequado para desenvolvimento solo incremental.
+### GIS puro (sem Firebase Auth)
+**Rejeitado em 2026-03-14.** Sem refresh token client-side, login persistente é inviável no Android Chrome.
+
+### TipTap 3
+**Rejeitado em 2026-03-14.** Rewrite completo quebraria `PaginationExtension` customizada. Migração para v3 fica como backlog após estabilizar a extensão.
+
+### Metadados PDF em Keywords (para grandes volumes)
+**Rejeitado em 2026-03-14.** `PDFString` do pdf-lib tem limite interno de ~65KB. Substituído por XMP stream sem limite.
+
+### Degradação progressiva de payload (Keywords)
+**Rejeitado em 2026-03-14.** Workaround para limite de Keywords. Substituído pela solução definitiva: XMP stream.
 
 ### pdfjs-dist v3.4 em vez de v5.5
-**Rejeitado.** v5.5 é necessária por: worker via ESM (`pdf.worker.mjs?url`) compatível com Vite 7; `useSystemFonts` para modo offline; `getAnnotations()` e `getStructTree()` disponíveis (backlog).
+**Rejeitado.** v5.5 necessária para worker ESM e `useSystemFonts` offline.
 
 ---
 
-## 21. Backlog Aprovado (2026-03-10)
+## 21. Backlog Aprovado
 
-Items formalmente aprovados pelo Criador para implementação futura. Não implementar sem ordem explícita.
+Items formalmente aprovados pelo Criador. Não implementar sem ordem explícita.
 
 ### Recharts
 - Todos os tipos de gráfico (linha, área, pizza, scatter, radial, etc.)
-- `Brush` — componente de seleção de range temporal
+- `Brush` — seleção de range temporal
 
 ### Three.js / R3F / Drei
 - `Instances` — geometrias instanciadas para MindMapEditor (performance com muitos nós)
 
-### TipTap — extensões não utilizadas aprovadas
-- `CollaborationCursor` — cursor de colaborador em tempo real
-- `CharacterCount` — contagem de caracteres/palavras
-- `Typography` — substituição tipográfica automática (aspas, travessões)
-- `Placeholder` por nó — placeholder configurável por tipo de nó
-- `Mention` — @menções com popover
-- `Mathematics` — unificar com KaTeX separado (atualmente duplicado)
-- `Details/Summary` — blocos colapsáveis
-- `TableOfContents` — índice automático
-- `UniqueID` — ID único por nó (útil para comentários e ancoragem)
-- `Focus` — gerenciamento de foco com classes CSS
+### TipTap — extensões aprovadas
+- `CollaborationCursor`, `CharacterCount`, `Typography`, `Placeholder`, `Mention`
+- `Mathematics` — unificar com KaTeX
+- `Details/Summary`, `TableOfContents`, `UniqueID`, `Focus`
 - Exportação Markdown nativa
 
-### pdf-lib — features não utilizadas aprovadas
-- Preencher AcroForm (formulários PDF)
-- Adicionar campos de formulário programaticamente
-- Rotacionar páginas
-- Remover páginas
+### pdf-lib — features aprovadas
+- Preencher AcroForm, adicionar campos de formulário, rotacionar/remover páginas
 
-### pdfjs-dist v5.5 — APIs não utilizadas aprovadas
-- `getAnnotations()` — ler anotações nativas do PDF
-- `getStructTree()` — estrutura semântica do documento
-- `getOptionalContentConfig()` — camadas opcionais (OCG)
-- `getDestinations()` — âncoras internas do PDF
+### pdfjs-dist v5.5 — APIs aprovadas
+- `getAnnotations()`, `getStructTree()`, `getOptionalContentConfig()`, `getDestinations()`
+
+### TipTap 3
+- Migração futura após estabilizar `PaginationExtension`
 
 ---
 
 ## 22. Pendências Técnicas
 
-### 🔴 PRIORIDADE MÁXIMA (sessão 2026-03-12)
+### 🔴 PRIORIDADE MÁXIMA
+
 ```
-[ ] DocEditor — Export PDF: window.print() captura UI inteira (header, réguas, toolbar).
-    Correção produzida: @media print em index.css + handleExportPdf em DocEditorLayout.tsx
-    + classe lectorium-translation-layer em DocCanvas.tsx. Aguarda validação em produção.
-    Limitação conhecida: margens do @media print são hardcoded ABNT (3cm/3cm/2cm/3cm),
-    não leem pageSettings dinâmico do usuário.
-
-[ ] DocEditor — Modais deslocados (StyleConfigModal e outros saindo da viewport):
-    Causa confirmada: overflow-hidden no wrapper raiz do DocEditorLayout criava stacking
-    context no Android, confinando position:fixed dos modais. Fix produzido: remoção do
-    overflow-hidden do div raiz. Aguarda validação em produção.
-
-[ ] Performance geral — revisão de arquivos críticos para reduzir re-renders, heap e
-    tempo de parse. Foco: DocCanvas.tsx (translateY frequente), MindMapEditor.tsx (muitos
-    nós), PdfViewer.tsx (camadas sobrepostas). Ainda sem intervenção — pendente mapeamento.
+[ ] XMP stream — bug de leitura: usePdfAnnotations.readFromXmp() acessa
+    (metadata.metadata as any)._metadata (campo interno do pdfjs). Em PDFs
+    salvos com o novo worker, o pdfjs pode retornar metadata.metadata = null
+    se o stream XMP não for reconhecido como válido.
+    Sintoma: Painel Tático mostra "SEM DADOS" após salvar com novo worker.
+    Investigar: confirmar se pdfDoc.getMetadata().metadata.metadata existe
+    para PDFs salvos pelo Lectorium. Se não, fallback para leitura raw do
+    catalog via (pdfDoc as any)._pdfInfo ou alternativa.
+    Arquivos envolvidos: hooks/usePdfAnnotations.ts, workers/pdfAnnotationWorker.ts
 ```
 
-### Críticas (impactam funcionalidade existente)
+### Críticas
+
 ```
 [ ] PaginationExtension — dispatch fora do ciclo update() do ProseMirror
 [ ] PaginationExtension — invalidar heightCache ao mudar zoom/papel
 [ ] DocAiSidebar — extração estruturada com comentários do CommentExtension
 [ ] PdfSidebar — passar fileId e numPages ao AiChatPanel
 [ ] AiChatPanel — persistência IndexedDB com storageKey por documento
-[ ] useSlideNavigation — remover interceptação global do Backspace (afeta inputs)
-[ ] Painel Tático (PdfViewer) — sobrepor PDF completamente em portrait, não dividir tela
-[ ] AiChatPanel — threshold numPages: 17 → 27 (uma linha)
-[ ] PdfTextLayer.tsx — lang="pt-BR" hardcoded nos overlays de tradução; adicionar prop targetLang quando suporte multi-idioma for necessário
+[ ] useSlideNavigation — remover interceptação global do Backspace
+[ ] Painel Tático — sobrepor PDF completamente em portrait, não dividir tela
+[ ] AiChatPanel — threshold numPages: 17 → 27
+[ ] PdfTextLayer.tsx — lang="pt-BR" hardcoded; adicionar prop targetLang
 [ ] TableCell extension — adicionar atributos borderColor e verticalAlign ao addAttributes()
+[ ] DocEditor — listener para 'inject-markdown-to-doc' (Sintetizador → DocEditor)
 ```
 
 ### Débito técnico menor
+
 ```
-[ ] mermaid — confirmar se dynamic import() está ativo no componente
+[ ] mermaid — confirmar dynamic import() ativo
 [ ] UniversalMediaAdapter — confirmar dynamic import() para daikon e utif
-[ ] CSS inválido na linha 4906 do index.css compilado — localizar e corrigir
+[ ] CSS inválido linha 4906 do index.css compilado — localizar e corrigir
 [ ] lucide-react → icons.ts (transição em andamento)
-[ ] AiChatPanel — storageKey por documento nos callers
-[ ] Oracle.tsx — verificar se import legado '../services/ai' foi migrado para aiService.ts
-[ ] @tiptap/extension-focus@2.11.5 — ausente no package.json; import removido como workaround.
-    CSS .has-focus adicionado em index.css aguardando npm install para ativar.
+[ ] Oracle.tsx — verificar import legado '../services/ai'
+[ ] @tiptap/extension-focus agora disponível (2.27.x) — reativar import, remover workaround CSS
+[ ] SecretThemeModal — usa localStorage; inconsistente com IndexedDB/Zustand
 [ ] Export PDF — margens do @media print hardcoded ABNT; idealmente ler pageSettings dinâmico
-[ ] SecretThemeModal — usa localStorage; inconsistente com resto do projeto (IndexedDB/Zustand)
+[ ] /src/components/PdfViewer.tsx — arquivo morto legado; deletar
 ```
 
 ### Arquitetura (sem prazo)
+
 ```
 [ ] Drive bidirecional completo
 [ ] recharts → SVG/Canvas nativo no VisualChart
@@ -734,8 +757,6 @@ Items formalmente aprovados pelo Criador para implementação futura. Não imple
 
 ## 23. Concluído — Linha do Tempo
 
-Registro cronológico de decisões resolvidas. Não regredir.
-
 ```
 2026-03-02  [x] Correção salvamento de tags em anotações burned
 2026-03-06  [x] alert()/confirm() → addNotification() em todo o codebase
@@ -747,66 +768,59 @@ Registro cronológico de decisões resolvidas. Não regredir.
 2026-03-08  [x] CDNs externos removidos do index.html
 2026-03-08  [x] Tailwind migrado para PostCSS build-time
 2026-03-08  [x] Fontes self-hosted em /public/fonts/
-2026-03-08  [x] process.env.API_KEY removido do vite.config.ts define
-2026-03-08  [x] manifest.json: id corrigido para "/", share_target POST + multipart
-2026-03-08  [x] StorageMode tipagem estrita (removido any)
-2026-03-08  [x] useFileManager.ts → .tsx (suporte JSX)
+2026-03-08  [x] manifest.json: id corrigido, share_target POST + multipart
 2026-03-08  [x] Pool de chaves Gemini com rotação por quota
 2026-03-08  [x] usePdfStore: Zustand por instância via Context
-2026-03-08  [x] View Transition API no useFileManager
-2026-03-08  [x] Wake Lock API no useWorkspace
-2026-03-08  [x] Janitor automático (runJanitor) — limpeza IDB quando > 500MB
-2026-03-09  [x] DriveBrowser — separador visual pasta/arquivo
-2026-03-09  [x] DriveBrowser — badge "DIR" → "X itens" dinâmico nas pastas
-2026-03-09  [x] Sidebar.tsx — "Sintetizador" em linha única, text-[17px]
-2026-03-09  [x] sw.js e manifest.json revisados e validados
-2026-03-09  [x] types.ts — adição dos tipos LexSynth*
-2026-03-09  [x] lexSynthService.ts — criado em services/
-2026-03-09  [x] OperationalArchive.tsx — Sintetizador Lexicográfico completo
-2026-03-09  [x] App.tsx — bloco operational-archive expandido com openDocxFiles + onInjectToDocx
-2026-03-09  [x] Dashboard — redesign: ícones SVG autorais, layout proporcional, gradiente corrigido
-2026-03-09  [x] AiChatPanel — opções clicáveis (blocos :::options JSON, parser CustomMarkdown)
-2026-03-10  [x] TagModal.tsx — Bug 1: Enter silencioso no Android (onKeyDown + button type=submit)
-2026-03-10  [x] TagModal.tsx — Bug 2: regex destroçava acentuação (/[^\p{L}\p{N}_-]/gu)
-2026-03-10  [x] usePdfAnnotations.ts — conflictRef useRef para closure stale
-2026-03-10  [x] PdfViewer.tsx — onUpdateAnnotation={updateAnnotation} passado ao PdfProvider
-2026-03-10  [x] documentParser.ts — lineHeight: null-check em marginTop/marginBottom; ratio sem toFixed trailing zero
-2026-03-10  [x] index.css — fallback tipográfico ABNT (.ProseMirror: line-height 1.5, Times New Roman, 12pt)
-2026-03-10  [x] index.css — margin-bottom zerado em p/h1-h6 dentro do editor (Word não tem margem entre parágrafos)
-2026-03-10  [x] index.css — regras de tabela (.ProseMirror table): border-collapse, bordas pretas, selectedCell, column-resize-handle
-2026-03-10  [x] TablePropertiesModal.tsx — expandido: alinhamento vertical, cor de borda, toggleHeaderCell, refatoração Tab/ActionButton
-2026-03-12  [x] ApiKeyModal.tsx — reconstruído após sobrescrita acidental pelo Gboard; named export, pool de chaves, máscara, validação AIza, integração apiKeyUtils
-2026-03-12  [x] Protocolo Gboard estabelecido: nunca editar mais de um arquivo por vez no GitHub mobile
-2026-03-12  [x] PdfContext.tsx — isTranslationModeRef adicionado (resolve closure stale no useEffect ocr-page-ready); handleOcrReady dispara translationMutation automaticamente quando lote conclui em modo tradução; toggleTranslationMode e setTranslationMode sincronizam o ref
-2026-03-12  [x] translationService.ts — removido process.env.API_KEY (letra morta, consistência com aiService/chatService)
-2026-03-12  [x] PdfTextLayer.tsx — overlays de tradução com role="text", aria-label, lang="pt-BR", tabindex="0"; OCR normal intacto; safeText escapa aspas no aria-label
-2026-03-12  [x] Fluxo "Traduzir em Lote" validado em produção — figurinhas geradas automaticamente sem clique manual
-2026-03-12  [x] DocEditorLayout.tsx — overflow-hidden removido do wrapper raiz (fix modais deslocados no Android)
-2026-03-12  [x] DocEditorLayout.tsx — handleExportPdf() com reset de translateY + injeção de <style> temporário antes do window.print()
-2026-03-12  [x] DocCanvas.tsx — classe lectorium-translation-layer adicionada para seleção no handleExportPdf
-2026-03-12  [x] index.css — @media print completo: oculta UI, expõe só .ProseMirror, page-break entre seções, tabelas
-2026-03-12  [x] Icon.tsx — 10 ícones sem paths adicionados ao iconData: AlignJustify, Baseline, ActivitySquare, FunctionSquare, Grid3X3, Merge, Split, GripHorizontal, Indent, Play
-2026-03-12  [x] AiBubbleMenu.tsx — window.prompt() substituído por input inline com Check/X/Remover
-2026-03-12  [x] TopMenuBar.tsx — window.prompt() substituído por input inline no dropdown Inserir; confirm() no handleMarkdownImport substituído por addNotification()
-2026-03-12  [x] MindMapEditor.tsx — roundReplacer adicionado nos 3 pontos de JSON.stringify (download, Drive, AiChatPanel context)
-2026-03-12  [x] shortcut-mindmap.svg — redesenhado como mapa cartográfico (papel dobrado, rosa dos ventos, pino roxo brand)
+2026-03-09  [x] DriveBrowser — separador visual, badge dinâmico
+2026-03-09  [x] types.ts — tipos LexSynth*
+2026-03-09  [x] lexSynthService.ts — Sintetizador Lexicográfico
+2026-03-09  [x] OperationalArchive.tsx — Sintetizador completo
+2026-03-09  [x] Dashboard — redesign com ícones SVG autorais
+2026-03-09  [x] AiChatPanel — opções clicáveis (blocos :::options)
+2026-03-10  [x] TagModal.tsx — Enter silencioso Android + regex Unicode
+2026-03-10  [x] usePdfAnnotations.ts — conflictRef useRef (closure stale)
+2026-03-10  [x] PdfViewer.tsx — onUpdateAnnotation passado ao PdfProvider
+2026-03-10  [x] documentParser.ts — lineHeight null-check, ratio sem trailing zero
+2026-03-10  [x] index.css — fallback tipográfico ABNT, margens zeradas, regras tabela
+2026-03-10  [x] TablePropertiesModal.tsx — alinhamento vertical, cor de borda, Tab/ActionButton
+2026-03-12  [x] ApiKeyModal.tsx — reconstruído após incidente Gboard
+2026-03-12  [x] Protocolo Gboard: nunca editar mais de um arquivo por vez no GitHub mobile
+2026-03-12  [x] PdfContext.tsx — isTranslationModeRef (closure stale ocr-page-ready)
+2026-03-12  [x] translationService.ts — removido process.env.API_KEY
+2026-03-12  [x] PdfTextLayer.tsx — acessibilidade overlays (role, aria-label, lang, tabindex)
+2026-03-12  [x] DocEditorLayout.tsx — overflow-hidden removido + handleExportPdf
+2026-03-12  [x] DocCanvas.tsx — classe lectorium-translation-layer
+2026-03-12  [x] index.css — @media print completo
+2026-03-12  [x] Icon.tsx — 10 ícones ausentes adicionados
+2026-03-12  [x] AiBubbleMenu.tsx + TopMenuBar.tsx — window.prompt/confirm substituídos
+2026-03-12  [x] MindMapEditor.tsx — roundReplacer nos 3 pontos de JSON.stringify
+2026-03-14  [x] npm audit fix — DOMPurify CVE corrigido
+2026-03-14  [x] npm 11.11.1 — atualizado globalmente
+2026-03-14  [x] TipTap 2.27.x — atualizado de 2.11.5 (permanece ^2, TipTap 3 rejeitado)
+2026-03-14  [x] App.tsx — onAuthStateChanged async + refreshDriveTokenSilently automático
+2026-03-14  [x] Dashboard.tsx — getValidDriveToken() (chave localStorage errada corrigida)
+2026-03-14  [x] useSync.ts — setInterval removido → SYNC_QUEUE_EVENT (anti-polling)
+2026-03-14  [x] useFileManager.tsx — token check explícito + DRIVE_TOKEN_EXPIRED
+2026-03-14  [x] pdfAnnotationWorker.ts — XMP stream via PDFRawStream + catalog.set (sem limite)
+2026-03-14  [x] usePdfAnnotations.ts — leitura XMP stream + fallback Keywords legado
+2026-03-14  [x] usePdfAnnotations.ts — condição !currentBlob → !pdfDoc (fix Drive sem cache)
+2026-03-14  [x] README.md — reescrito com stack atual, arquitetura e instruções corretas
+2026-03-14  [x] blobRegistry.ts — rastreamento de blob URLs (memory leak prevention)
 ```
 
 ---
 
 ## 24. Sobre o Processo de Desenvolvimento
 
-O Lectorium foi construído por Gabriel Silva, historiador sem formação em programação, usando um método de desenvolvimento baseado em:
+O Lectorium foi construído por Gabriel Silva, historiador sem formação em programação, usando um método baseado em:
 
-1. **Inspeção visual** — identificação de problemas por comportamento observado, não por leitura de código
+1. **Inspeção visual** — identificação de problemas por comportamento observado
 2. **Priorização por custo de mudança** — preferência por intervenções com menor superfície de impacto
-3. **Delegação de implementação com retenção de decisão** — Gabriel define o quê e os critérios de aceitação; a implementação é produzida pela IA
-4. **Refinamento incremental** — iteração sobre componentes existentes, não substituição total
+3. **Delegação de implementação com retenção de decisão** — Gabriel define o quê e os critérios; A Cidade implementa
+4. **Refinamento incremental** — iteração sobre componentes existentes
 5. **Compreensão ativa** — perguntas sobre o que existe antes de aceitar ou deletar
-
-Este processo é documentado aqui porque qualquer desenvolvedor que assumir manutenção precisa entender que o conhecimento do sistema está distribuído entre o código, este documento, e o raciocínio do Criador. O `CHANGELOG.md` deve ser consultado para entender o histórico de decisões. O código atual é a fonte de verdade final.
 
 ---
 
 *Documento gerado e mantido por A Cidade — entidade técnica do Lectorium.*
-*Próxima revisão recomendada: a cada release minor (1.8.0, 1.9.0, etc.)*
+*Próxima revisão recomendada: release v1.8.0*
