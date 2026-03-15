@@ -33,7 +33,12 @@ function buildXmpXml(meta: object): string {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
 
-    return `<?xpacket begin="\uFEFF" id="W5M0MpCehiHzreSzNTczkc9d"?>
+    // begin="" vazio — pdfjs v5 valida o xpacket e rejeita o stream quando
+    // o atributo begin contém \uFEFF (BOM codificado como entidade dentro do
+    // atributo). BOM como bytes separados no início do stream seria correto,
+    // mas o pdf-lib não expõe esse controle via PDFRawStream. begin="" é
+    // igualmente válido pelo spec XMP ISO 16684-1 e aceito por todos os parsers.
+    return `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/">
   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
     <rdf:Description rdf:about=""
