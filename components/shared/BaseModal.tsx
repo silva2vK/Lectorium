@@ -1,8 +1,5 @@
-
 import React, { useEffect } from 'react';
-import { Icon } from './Icon';
 import { X } from 'lucide-react';
-
 
 interface BaseModalProps {
   isOpen: boolean;
@@ -14,8 +11,8 @@ interface BaseModalProps {
   footer?: React.ReactNode;
 }
 
-export const BaseModal: React.FC<BaseModalProps> = ({ 
-  isOpen, onClose, title, icon, children, maxWidth = 'max-w-md', footer 
+export const BaseModal: React.FC<BaseModalProps> = ({
+  isOpen, onClose, title, icon, children, maxWidth = 'max-w-md', footer
 }) => {
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
@@ -26,22 +23,49 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 animate-in fade-in duration-200 print:hidden">
-      <div 
-        className={`bg-surface border border-border rounded-[2rem] w-full ${maxWidth} relative animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]`}
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200 print:hidden"
+      style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(8px)' }}
+      onClick={onClose}
+    >
+      <div
+        className={`w-full ${maxWidth} flex flex-col animate-in zoom-in-95 duration-200`}
+        style={{
+          background: 'linear-gradient(160deg, #0e0e0e 0%, #0a0a0a 100%)',
+          border: '1px solid rgba(255,255,255,0.07)',
+          borderTop: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: '16px',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.95), 0 0 0 1px rgba(255,255,255,0.03)',
+          maxHeight: '90vh',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-border shrink-0">
+        <div
+          className="flex items-center justify-between px-6 py-4 shrink-0"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        >
           <div className="flex items-center gap-3">
-            {icon && <div className="text-brand">{icon}</div>}
-            {title && <h3 className="text-xl font-bold text-text">{title}</h3>}
+            {icon && (
+              <span style={{ color: 'var(--brand)' }}>{icon}</span>
+            )}
+            {title && (
+              <h3
+                className="font-bold text-base tracking-wide"
+                style={{ color: 'rgba(255,255,255,0.9)' }}
+              >
+                {title}
+              </h3>
+            )}
           </div>
-          <button 
-            onClick={onClose} 
-            className="p-2 text-text-sec hover:text-text hover:bg-white/5 rounded-full transition-colors"
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: 'rgba(255,255,255,0.3)' }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.85)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.3)')}
           >
-            <X size={20} />
+            <X size={16} />
           </button>
         </div>
 
@@ -52,7 +76,10 @@ export const BaseModal: React.FC<BaseModalProps> = ({
 
         {/* Footer */}
         {footer && (
-          <div className="p-6 border-t border-border flex justify-end gap-3 shrink-0">
+          <div
+            className="px-6 py-4 flex justify-end gap-3 shrink-0"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+          >
             {footer}
           </div>
         )}
