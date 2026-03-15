@@ -12,7 +12,427 @@
 > **Nota de metodologia**: Este documento foi redigido em 2026-03-10 com base no código verificado nos arquivos enviados ao longo das sessões de desenvolvimento e nos transcripts das conversas. Rev. 2 (tarde) incorpora as correções de discrepância de paginação DOCX. Rev. 5 incorpora a migração do sistema de metadados PDF de Keywords para XMP stream, a correção do limite de ~65KB do pdf-lib, atualização do TipTap para 2.27.x, e correções de autenticação Firebase/GIS. Quando uma decisão está marcada como "verificada no código", significa que foi confirmada pela leitura direta dos arquivos-fonte. Quando marcada como "decisão do Criador", foi tomada explicitamente em conversa. Nenhuma informação foi inferida sem base.
 
 ---
+## 0. Mapa Estrutural de Arquivos       ← referência rápida, atualiza a cada sessão
 
+Memória carregada. Agora leitura dos arquivos-fonte.Agora leitura dos arquivos-fonte. Vou ler os mais críticos para completar o mapa.
+
+Lendo os arquivos restantes para completar o mapa.Lendo serviços e workers críticos.
+
+Lendo os arquivos restantes para completar o mapa antes de responder.Preciso ler mais alguns arquivos antes de fechar o mapa.Lendo os últimos arquivos necessários.
+
+Baseio minha análise nas leituras feitas. Confirmo: XMP fora do escopo por ora.
+
+---
+
+## Mapa Estrutural — Lectorium (2026-03-15)
+
+*Gerado por varredura integral dos arquivos do projeto. Notações: `[CRÍTICO]` = bug aberto ou risco de quebra; `[PENDÊNCIA]` = funcionalidade incompleta documentada; `[DEFASADO]` = skill/doc desatualizada em relação ao código; `[LEGADO]` = código morto ou formato obsoleto.*
+
+---
+
+### Raiz (Entry points e configuração)
+
+```
+App.tsx                — Orquestrador raiz. GlobalProvider → ErrorBoundary → AppContent.
+                         Hooks: useWorkspace, useFileManager, useSync.
+                         onAuthStateChanged async com refreshDriveTokenSilently automático.
+                         [ATUALIZADO — sessão 13]
+
+index.tsx              — Entry point Vite. Monta <App /> no DOM.
+index.html             — HTML root. Sem CDNs externos (removidos 2026-03-08).
+index.css              — CSS global, @layer base/components/utilities, @media print ABNT.
+                         [PENDÊNCIA: linha ~4906 contém CSS inválido — não localizado ainda]
+
+types.ts               — Fonte de verdade de tipos. DriveFile, Annotation, PdfMetadataV2,
+                         VectorIndex, MindMapData, LexSynth*, SyncQueueItem, MIME_TYPES.
+                         [ATUALIZADO — LexSynth adicionado 2026-03-09]
+
+firebase.ts            — Inicialização Firebase. Exporta `auth`.
+constants.ts           — Constantes compartilhadas (valores de configuração).
+vite_config.ts         — manualChunks, optimizeDeps.exclude (pdfjs-dist), aliases.
+                         [CRÍTICO: pdfjs-dist DEVE ficar em exclude — nunca mudar]
+tailwind_config.js     — Config Tailwind PostCSS. Sem JIT online.
+tsconfig.json          — TypeScript 5.7.2, target ES2022.
+package.json           — Dependências. Versão 1.7.1.
+manifest.json          — PWA manifest. id="/", share_target POST+multipart.
+sw.js                  — Service Worker. Cache First estático / Network First API.
+```
+
+---
+
+### /components — Componentes React
+
+#### Viewers principais (lazy via React.lazy)
+
+```
+PdfViewer.tsx          — Viewer PDF principal. 670+ linhas. Orquestra PdfContext,
+                         PdfPage, PdfSidebar, PdfToolbar, PdfHeader.
+                         [CRÍTICO: bug XMP leitura — Painel Tático "SEM DADOS" — FORA DO ESCOPO AGORA]
+
+DocEditor.tsx          — Editor TipTap completo. Delega a DocEditorContext, DocCanvas,
+                         DocToolbar, DocModals. Importa extensões de /extensions.
+
+MindMapEditor.tsx      — Editor 3D. Three.js + R3F + Drei. roundReplacer nos JSON.stringify.
+                         [NOTA: chunks three-vendor/r3f-vendor — qualquer mudança = validar build]
+
+UniversalMediaAdapter.tsx — Viewer universal: imagens (TIFF/HEIC/WEBP/CBZ), DICOM, texto.
+                         [PENDÊNCIA: confirmar dynamic import() para daikon e utif]
+
+LectAdapter.tsx        — Viewer formato .lect proprietário.
+OperationalArchive.tsx — Sintetizador Lexicográfico. Usa lexSynthService + IA.
+Dashboard.tsx          — Tela inicial. Usa getValidDriveToken() (corrigido sessão 13).
+DriveBrowser.tsx       — Browser Google Drive + tabs de arquivos offline/local/shared.
+```
+
+#### Layout e navegação
+
+```
+Sidebar.tsx            — Menu lateral de navegação e tabs abertas.
+```
+
+#### Subcomponentes do PdfViewer
+
+```
+components/pdf/
+  PdfPage.tsx          — Renderiza página individual. PdfCanvasLayer + PdfTextLayer + PdfInkLayer.
+  PdfHeader.tsx        — Header do viewer (nome do arquivo, controles).
+  PdfSidebar.tsx       — Painel lateral do PDF (anotações, Painel Tático, chat).
+                         [PENDÊNCIA: passar fileId e numPages ao AiChatPanel]
+  PdfToolbar.tsx       — Ferramentas (highlight, note, ink, zoom).
+  SelectionMenu.tsx    — Menu de seleção de texto (highlight, note, tradução).
+  SemanticLensPanel.tsx — Painel da Lente Semântica (OCR + markdown).
+  VirtualSplitPage.tsx — Split view virtual de páginas.
+  NoteMarker.tsx       — Marcador visual de nota no PDF.
+  ConfidenceWord.tsx   — Palavra com indicador de confiança OCR.
+
+  layers/
+    PdfCanvasLayer.tsx — Canvas de renderização pdfjs.
+    PdfTextLayer.tsx   — Layer de texto selecionável.
+                         [PENDÊNCIA: lang="pt-BR" hardcoded — adicionar prop targetLang]
+    PdfInkLayer.tsx    — Layer de desenho ink (canvas para anotações manuais).
+```
+
+#### Subcomponentes do DocEditor
+
+```
+components/doc/
+  DocEditorLayout.tsx  — Layout do editor. overflow-hidden removido (fix modais Android).
+  DocCanvas.tsx        — Área de conteúdo TipTap. Classe lectorium-translation-layer.
+  DocToolbar.tsx       — Toolbar desktop.
+  MobileDocToolbar.tsx — Toolbar mobile touch.
+  TopMenuBar.tsx       — Menu superior (File, Edit, Format...).
+  FindReplaceBar.tsx   — Barra busca/substituição.
+  OutlineSidebar.tsx   — Painel de estrutura de documento.
+  CommentsSidebar.tsx  — Painel de comentários.
+  ImageOptionsSidebar.tsx — Painel de opções de imagem.
+  Ruler.tsx            — Régua horizontal ABNT.
+  VerticalRuler.tsx    — Régua vertical ABNT.
+  SlideNavigationControls.tsx — Navegação entre slides/páginas.
+  DocAiSidebar.tsx     — Sidebar de IA no DocEditor.
+                         [PENDÊNCIA: extração estruturada com comentários do CommentExtension]
+  AiBubbleMenu.tsx     — Bubble menu com ações IA no texto.
+  SuggestionBubbleMenu.tsx — Bubble menu para sugestões TipTap.
+  ImageBubbleMenu.tsx  — Bubble menu para imagens.
+  FootnoteBubbleMenu.tsx — Bubble menu para notas de rodapé.
+  FootnotesLayer.tsx   — Renderização de rodapés.
+  TableBubbleMenu.tsx  — Bubble menu para tabelas.
+```
+
+#### Modais do DocEditor
+
+```
+components/doc/modals/
+  CitationModal.tsx    — Inserção de citação ABNT.
+  ColumnsModal.tsx     — Configuração de colunas.
+  FootnoteModal.tsx    — Inserção de nota de rodapé.
+  HeaderFooterModal.tsx — Cabeçalho e rodapé.
+  HelpModal.tsx        — Ajuda do DocEditor.
+  LanguageModal.tsx    — Seleção de idioma.
+  PageNumberModal.tsx  — Numeração de páginas.
+  PageSetupModal.tsx   — Configuração da página (margens, tamanho).
+  ShareModal.tsx       — Compartilhamento.
+  StyleConfigModal.tsx — Configuração de estilos.
+  SymbolModal.tsx      — Inserção de símbolos.
+  TablePropertiesModal.tsx — Propriedades de tabela (cor borda, alinhamento vertical).
+                            [ATUALIZADO 2026-03-10]
+  VersionHistoryModal.tsx — Histórico de versões.
+  WordCountModal.tsx   — Contagem de palavras.
+```
+
+#### Modais globais e de PDF
+
+```
+components/modals/
+  OcrRangeModal.tsx    — Range de páginas para OCR.
+  SemanticRangeModal.tsx — Range para Lente Semântica.
+  TagModal.tsx         — Gerenciamento de tags. Enter silencioso Android + regex Unicode.
+  DefinitionModal.tsx  — Modal de definição de palavra.
+  PasswordPromptModal.tsx — Senha de PDF protegido.
+  PdfRestrictionModal.tsx — PDF com restrições de permissão.
+  ConflictResolutionModal.tsx — Resolução de conflito de anotações.
+  OcrCompletionModal.tsx — Modal ao fim do OCR.
+  SaveDocumentModal.tsx — Salvar documento.
+  SaveErrorModal.tsx   — Erro ao salvar.
+  SaveSuccessModal.tsx — Sucesso ao salvar.
+  SemanticRangeModal.tsx — Range semântico.
+  DriveFolderPickerModal.tsx — Seletor de pasta no Drive.
+  LegalModal.tsx       — Termos e privacidade (onboarding).
+  MindMapGeneratorModal.tsx — Geração de mapa mental com IA.
+  MindMapRenameModal.tsx — Renomear mapa.
+  MindMapSaveModal.tsx — Salvar mapa mental.
+  RenameFileModal.tsx  — Renomear arquivo.
+  MoveFileModal.tsx    — Mover arquivo.
+  OfflineDownloadModal.tsx — Download offline.
+  ColorPickerModal.tsx — Seletor de cor.
+  SyncStatusModal.tsx  — Status de sincronização.
+  VersionDebugModal.tsx — Debug de versão.
+```
+
+#### Componentes utilitários
+
+```
+components/ui/
+  AiChatPanel.tsx      — Chat streaming Kalaki. Suporta blocos :::options.
+                         [PENDÊNCIA: persistência IndexedDB por documento]
+                         [PENDÊNCIA: threshold numPages 17 → 27]
+  BaseModal.tsx        — Modal base reutilizável.
+  CustomMarkdown.tsx   — Renderizador Markdown customizado.
+  DataGrid.tsx         — Grid de dados (Sintetizador).
+  Icon.tsx             — Sistema de ícones SVG autoral (transição de lucide-react).
+  VisualChart.tsx      — Gráficos (recharts — pendente migração para SVG/Canvas nativo).
+
+  ApiKeyModal.tsx      — Modal de configuração de chaves Gemini.
+                         [RECONSTRUÍDO 2026-03-12 após incidente Gboard]
+  ArchivistDashboard.tsx — Dashboard do arquivista.
+  CookieConsent.tsx    — Banner de consentimento LGPD.
+  ErrorBoundary.tsx    — Boundary de erro React.
+  GlobalHelpModal.tsx  — Modal de ajuda global (onboarding).
+  ReauthToast.tsx      — Toast de reautenticação Drive.
+  SecretThemeModal.tsx — Modal de tema secreto.
+                         [DÉBITO: usa localStorage — inconsistente com IndexedDB/Zustand]
+  ThemeSwitcher.tsx    — Seletor de tema.
+  VersionDebugModal.tsx — Debug de versão e build.
+```
+
+---
+
+### /extensions — Extensões TipTap/ProseMirror
+
+```
+ChartExtension.ts      — Nó de gráfico embutido.
+ChartNodeView.tsx      — View React do nó de gráfico.
+CitationExtension.ts   — Nó de citação ABNT.
+CitationNode.tsx       — View do nó de citação.
+CodeBlockExtension.ts  — Bloco de código.
+CodeBlockComponent.tsx — View do bloco de código.
+ColumnsExtension.ts    — Layout de colunas.
+CommentExtension.ts    — Comentários inline.
+CustomImage.ts         — Imagem customizada com propriedades extras.
+ImageNodeView.tsx      — View da imagem.
+ImageBubbleMenu.tsx    — Bubble menu da imagem.
+FootnoteExtension.ts   — Notas de rodapé.
+LazyNodeView.tsx       — View com lazy loading para nós pesados.
+MathNode.tsx           — Nó KaTeX para fórmulas.
+MermaidNode.tsx        — Nó Mermaid para diagramas.
+                         [PENDÊNCIA: confirmar dynamic import() ativo]
+PaginationExtension.ts — Paginação ABNT customizada.
+                         [CRÍTICO: dispatch fora do ciclo update() do ProseMirror]
+                         [CRÍTICO: heightCache não invalida ao mudar zoom/papel]
+QrCodeNodeView.ts      — View de QR Code.
+SectionBreak.ts        — Quebra de seção.
+SuggestionExtension.ts — Sugestões de texto.
+TableOfContentsExtension.ts — Sumário automático.
+TableOfContentsNode.tsx    — View do nó de sumário.
+TrailingNodeExtension.ts   — Nó trailing (evita cursor preso no fim).
+UniqueIdExtension.ts   — IDs únicos para nós (colaboração Yjs).
+customExtensions.ts    — Agregador de extensões customizadas.
+```
+
+---
+
+### /services — Serviços (lógica de negócio)
+
+```
+aiService.ts           — Gemini API. getAiClient() singleton memoizado por chave.
+                         withKeyRotation() para rotação em 429. generateEmbeddings(),
+                         generateMindMapAi(), refineTranscript().
+                         Modelos: gemini-3-flash-preview, gemini-3-pro-preview.
+                         [REGRA: nunca substituir os identificadores de modelo]
+
+chatService.ts         — Kalaki. Chat streaming com gemini-3-flash-preview.
+                         Mantém histórico da sessão. Suporta blocos :::options.
+
+ragService.ts          — RAG bare-metal. Sem LangChain. indexDocumentForSearch(),
+                         busca por cosine similarity. MAX_CHUNKS=300.
+
+authService.ts         — Firebase Auth + GIS para refresh silencioso.
+                         getValidDriveToken() → lê TOKEN_DATA_KEY do localStorage.
+                         refreshDriveTokenSilently() → singleton Promise (evita parallelismo).
+                         DRIVE_TOKEN_EVENT, DRIVE_TOKEN_EXPIRED eventos customizados.
+                         [ATUALIZADO 2026-03-14]
+
+driveService.ts        — Google Drive REST API via fetch direto (sem SDK).
+                         uploadFileToDrive, updateDriveFile, downloadDriveFile,
+                         renameDriveFile, listDriveContents.
+
+storageService.ts      — Facade. Re-exporta todos os repositories. Ponto único de
+                         entrada para persistência. Importar sempre daqui.
+                         Inclui runJanitor() (limpeza IDB > 500MB) e performAppUpdateCleanup().
+
+pdfModifierService.ts  — Bridge UI → pdfAnnotationWorker. Burn de anotações + injeção XMP.
+                         [CRÍTICO: parte do sistema XMP — FORA DO ESCOPO AGORA]
+
+backgroundOcrService.ts — OCR assíncrono. Não bloqueia UI. Dispara evento ocr-page-ready.
+                          Delega para visionService.ts.
+
+visionService.ts       — Gemini Vision. Renderiza página → JPEG → API.
+                         "Clean Slate Filter": grayscale(1) contrast(1.4) brightness(1.1).
+                         Largura 1536px para otimização Gemini 3 Flash.
+
+translationService.ts  — Tradução via Gemini. process.env removido (2026-03-12).
+
+lexSynthService.ts     — Sintetizador Lexicográfico. Extrai trechos por tag de múltiplos
+                         PDFs. fillMode 'literal' ou 'ai'. Salva tabela .lexsynth no IDB.
+                         [ADICIONADO 2026-03-09]
+
+lectService.ts         — Empacotamento/desempacotamento formato .lect.
+                         Combina conteúdo + anotações + OCR + offset.
+
+docxService.ts         — Geração .docx (docx 9.5.1).
+docxImporter.ts        — Import .docx → TipTap JSON (parse de OOXML).
+pdfGenerator.ts        — Geração de PDF do zero (pdf-lib).
+localFileService.ts    — File System Access API. openDirectoryPicker, verifyPermission.
+opfs.ts                — OPFS wrapper. Arquivos pesados sem quota prompt.
+blobRegistry.ts        — Rastreia blob URLs. register/revoke/revokeAll. Anti memory-leak.
+                         [ADICIONADO 2026-03-14]
+bitmapCacheService.ts  — Cache de bitmaps renderizados (páginas PDF).
+offlineService.ts      — Estratégia offline.
+mediaAdapterService.ts — Adaptador universal de mídia.
+dictionaryService.ts   — Serviço de dicionário.
+scheduler.ts           — Agendador de tarefas background.
+skillRouter.ts         — Roteamento de skills de IA.
+db.ts                  — Inicialização e schema do IndexedDB via idb. getDb().
+                         Stores: offlineFiles, ocrCache, vector_store, document_versions,
+                         audit_log, settings, annotations.
+                         [LEGADO: stores 'documents' e 'syntheses' — não migradas, não usar]
+```
+
+---
+
+### /hooks — React Hooks customizados
+
+```
+useFileManager.tsx     — Roteador de viewers. openFiles[], activeTab, lazy loading,
+                         handleOpenFile (download Drive + cache), renderFileContent().
+                         [ATUALIZADO 2026-03-14: token check explícito + DRIVE_TOKEN_EXPIRED]
+
+useWorkspace.ts        — Onboarding (legal → guide), tema, wakeLock API, fullscreen,
+                         isImmersive, showSecretThemeModal.
+
+useSync.ts             — Sync Drive ↔ IDB. SYNC_QUEUE_EVENT (sem polling).
+                         autoSync=true (App.tsx) processa ao voltar online.
+                         autoSync=false (Dashboard) escuta evento apenas.
+                         [ATUALIZADO 2026-03-14: setInterval removido]
+
+usePdfAnnotations.ts   — Carrega, merge e persiste anotações PDF.
+                         Ordem de prioridade: XMP/Keywords → .lect importado → IDB local.
+                         [CRÍTICO: bug XMP leitura — _metadata — FORA DO ESCOPO AGORA]
+                         [ATUALIZADO 2026-03-14: condição pdfDoc (não currentBlob)]
+
+usePdfSaver.ts         — Orquestra ciclo de save do PDF. Delega ao pdfModifierService.
+usePdfDocument.ts      — Carrega PDFDocumentProxy via pdfjs-dist.
+usePdfStore.ts         — Factory Zustand por instância. currentPage, numPages, scale,
+                         activeTool. NUNCA converter para store global (quebra split view).
+usePdfGestures.ts      — Gestos touch (pinch-zoom, swipe) para o PDF.
+usePdfInput.ts         — Inputs de texto sobre o PDF.
+usePdfSelection.ts     — Seleção de texto no PDF.
+usePdfPreloader.ts     — Pré-carregamento de páginas adjacentes.
+usePdfAnnotations.ts   — (descrito acima)
+usePageOcr.ts          — OCR por página.
+usePageLayout.ts       — Layout e dimensionamento de páginas.
+useSafeViewCalculation.ts — Cálculo de viewport seguro para Android.
+useSlideNavigation.ts  — Navegação entre slides/páginas.
+                         [PENDÊNCIA: remover interceptação global do Backspace]
+useDriveFiles.ts       — Listagem de arquivos do Drive.
+useFileLock.ts         — Lock de arquivo durante operações de save.
+useDocEditorConfig.ts  — Configuração do editor TipTap.
+useDocFileHandler.ts   — Manipulação de arquivos no DocEditor.
+useDocLoader.ts        — Carregamento de documento no DocEditor.
+useDocSaver.ts         — Salvamento de documento (versões IDB + Drive).
+useDocUI.ts            — Estado de UI do DocEditor.
+```
+
+---
+
+### /context — React Contexts
+
+```
+GlobalContext.tsx       — OCR global (startGlobalOcr, isOcrRunning, ocrProgress,
+                         ocrStatusMessage), notificações toast (addNotification),
+                         dashboardScale (1–5), ocrCompletion modal state.
+                         [REGRA: addNotification() é o único canal de notificação ao usuário]
+
+DocEditorContext.tsx    — Estado completo do editor TipTap. Editor instance, stats,
+                         configurações de página, modo de sugestão.
+
+PdfContext.tsx          — Estado do PdfViewer. settings, annotations, ocrMap, lensData,
+                         translationMap, triggerSemanticLens/Ocr/Refinement/Translation,
+                         isTranslationMode, isTranslationModeRef (useRef — closure stale fix).
+                         [CRÍTICO: isTranslationModeRef nunca remover — closure stale ocr-page-ready]
+```
+
+---
+
+### /repositories — CRUD IndexedDB
+
+```
+fileRepository.ts      — CRUD offlineFiles. getOfflineFile, saveOfflineFile, deleteOfflineFile.
+vectorRepository.ts    — CRUD vector_store. VectorIndex + EmbeddingChunk[].
+settingsRepository.ts  — CRUD settings. idb-keyval para key-value simples.
+contentRepository.ts   — Anotações (annotations), versões (document_versions),
+                         OCR cache (ocrCache), audit_log (AuditRecord).
+                         saveAnnotation, loadAnnotations, getAuditRecord, saveAuditRecord,
+                         saveDocVersion, getDocVersions (max 50), saveOcrData, loadOcrData.
+```
+
+---
+
+### /workers — Web Workers
+
+```
+pdfAnnotationWorker.ts — Burns visuais + injeção XMP stream.
+                         buildXmpXml(): namespace http://lectorium.app/xmp/1.0/
+                         injectXmpStream(): PDFRawStream → catalog.set('Metadata').
+                         Keywords: apenas marcador 'LECTORIUM_XMP'.
+                         [CRÍTICO: parte central do sistema XMP — FORA DO ESCOPO AGORA]
+
+ocrProcessingWorker.ts — Worker de processamento OCR (off-thread).
+```
+
+---
+
+### /utils — Utilitários puros
+
+```
+apiKeyUtils.ts         — Pool de chaves Gemini. getStoredApiKey(), rotateApiKey(),
+                         getStoredApiKeys(). localStorage.
+hashUtils.ts           — computeSparseHash(). Hash esparso de Blob (não lê o arquivo inteiro).
+textUtils.ts           — Processamento de texto.
+canvasUtils.ts         — Utilitários de canvas (renderização, export de imagem).
+geometry.ts            — Geometria 2D (interseção de rects, distâncias).
+pdfjsConfig.ts         — Configuração do pdfjs worker (pdf.worker.mjs?url).
+pdfRenderUtils.ts      — Utilitários de renderização PDF.
+citationUtils.ts       — Formatação de citações ABNT.
+utils.ts               — Utilitários gerais (clsx, merge, formatação).
+```
+
+---
+
+### /parsers — Parsers e exportadores de documento
+
+```
+documentParser.ts      — .docx OOXML → TipTap JSON. lineHeight null-check corrigido.
+exportNodes.ts         — TipTap nod
 ## 1. Visão e Propósito
 
 O Lectorium nasceu de uma constatação empírica do TCC de Gabriel: das 139 dissertações do PROHIS-UFS (Programa de Pós-Graduação em História, 2014–2025), nenhuma atingiu o que ele definiu como nível 3 de impacto social. A causa identificada foi instrumental — os pesquisadores não tinham ferramentas adequadas para organizar, anotar, sintetizar e escrever num fluxo contínuo.
