@@ -1,7 +1,25 @@
-
 import React, { useState, useEffect } from 'react';
 import { Icon } from './shared/Icon';
-import { Cloud, AlertTriangle, CheckSquare, Globe, Shield, Zap, Layers, CheckCircle2, AlertCircle, Monitor, Wifi, HardDrive, Database, Save, CloudOff, History, RefreshCw, FileText, Layout, MessageSquare, Search, Wand2, BrainCircuit, Calculator, Quote, Table, Image, FilePlus, FolderPlus, Trash2, Download, ExternalLink, Lock, Key, Users, Info, Menu, Workflow, Pin, Clock, Server, File, FolderOpen, LifeBuoy, Upload, Signal, SignalHigh, Home, Folder, FolderInput, BarChart2, Square, Unlock, Terminal, Cpu, LogOut, User, Palette, ChevronDown, ChevronRight, DownloadCloud, LayoutGrid, LogIn, Wrench, Scale, Minimize, Contrast, UploadCloud, FileType, Copy, Scissors, Bold, Italic, Link, MessageSquarePlus, Share2, ArrowDown, ArrowUp, Replace, ReplaceAll, MessageSquareQuote, AlignLeft, AlignCenter, AlignRight, Settings2, Crop, RotateCw, Type, RefreshCcw, Hash, ChevronLeft, PenTool, ClipboardPaste, EyeOff, Activity, Edit2, HelpCircle, Book, Columns, LayoutTemplate, PanelTop, PanelBottom, Keyboard, Command, Settings, ArrowUpFromLine, Code, Sigma, RotateCcw, Gavel, Hourglass, MessageSquareText, PanelLeft, Droplets, Binary, Pen, Highlighter, ScrollText, SplitSquareHorizontal, MousePointer2, StickyNote, Eraser, MoveHorizontal, Minus, ZoomIn, Paintbrush, Languages, ListRestart, FileDiff, XCircle, FileWarning, WifiOff, Send, Bot, Podcast, Pipette, Chrome, Safari, Firefox, Apple, Smartphone, X, Battery, BookOpen, ArrowRight, ArrowLeft, ShieldCheck, Touchpad, MousePointerClick } from 'lucide-react';
+import {
+  Cloud, AlertTriangle, CheckSquare, Globe, Shield, Zap, Layers, CheckCircle2,
+  AlertCircle, Wifi, HardDrive, RefreshCw, FileText, Wand2, BrainCircuit,
+  FilePlus, FolderPlus, Download, ExternalLink, Lock, Key, Info, Menu, Workflow,
+  Pin, Clock, Server, File, FolderOpen, Upload, Signal, Home, Folder,
+  FolderInput, BarChart2, Square, Terminal, Cpu, LogOut, User, Palette,
+  ChevronDown, ChevronRight, DownloadCloud, LayoutGrid, LogIn, Wrench, Scale,
+  Minimize, Contrast, UploadCloud, FileType, Copy, Scissors, Bold, Italic,
+  Link, MessageSquarePlus, Share2, ArrowDown, ArrowUp, Replace, ReplaceAll,
+  AlignLeft, AlignCenter, AlignRight, Settings2, Crop, RotateCw, Type,
+  RefreshCcw, Hash, ChevronLeft, PenTool, ClipboardPaste, EyeOff, Activity,
+  Edit2, HelpCircle, Book, Columns, LayoutTemplate, PanelTop, PanelBottom,
+  Keyboard, Command, Settings, ArrowUpFromLine, Code, Sigma, RotateCcw,
+  Gavel, Hourglass, PanelLeft, Droplets, Binary, Pen, Highlighter, ScrollText,
+  SplitSquareHorizontal, MousePointer2, StickyNote, Eraser, MoveHorizontal,
+  Minus, ZoomIn, Paintbrush, Languages, ListRestart, FileDiff, XCircle,
+  FileWarning, WifiOff, Send, Bot, Podcast, Pipette, Chrome, Safari, Firefox,
+  Apple, Smartphone, X, Battery, BookOpen, ArrowRight, ArrowLeft, ShieldCheck,
+  Touchpad, MousePointerClick, MessageSquare, Sparkles,
+} from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -9,457 +27,487 @@ interface Props {
   isMandatory?: boolean;
 }
 
+// ─── Estilos compartilhados ────────────────────────────────────────────────────
+
+const card = {
+  background: 'rgba(255,255,255,0.03)',
+  border: '1px solid rgba(255,255,255,0.07)',
+  borderRadius: '10px',
+  padding: '14px 16px',
+} as const;
+
+const cardHighlight = (color: string) => ({
+  background: `${color}08`,
+  border: `1px solid ${color}25`,
+  borderRadius: '10px',
+  padding: '14px 16px',
+});
+
+const label = {
+  color: 'rgba(255,255,255,0.25)',
+  fontSize: '9px',
+  fontWeight: 700,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase' as const,
+  marginBottom: '10px',
+  display: 'block',
+};
+
+const sectionTitle = {
+  color: 'rgba(255,255,255,0.9)',
+  fontSize: '16px',
+  fontWeight: 700,
+  marginBottom: '12px',
+};
+
+const bodyText = {
+  color: 'rgba(255,255,255,0.55)',
+  fontSize: '13px',
+  lineHeight: 1.6,
+};
+
+const mono = {
+  fontFamily: 'monospace',
+  fontSize: '11px',
+  background: 'rgba(255,255,255,0.05)',
+  border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: '6px',
+  padding: '2px 6px',
+  color: 'rgba(255,255,255,0.7)',
+};
+
+// ─── Componente de tabela de flags ─────────────────────────────────────────────
+
+interface FlagRow {
+  flag: string;
+  value: string;
+  enabled: boolean;
+  note: string;
+  isNew?: boolean;
+  deprecated?: boolean;
+}
+
+const FlagTable: React.FC<{ rows: FlagRow[]; accentColor: string }> = ({ rows, accentColor }) => (
+  <div style={{ borderRadius: '8px', border: '1px solid rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+      <thead>
+        <tr style={{ background: 'rgba(0,0,0,0.4)' }}>
+          <th style={{ padding: '8px 10px', textAlign: 'left', color: 'rgba(255,255,255,0.3)', fontWeight: 700, letterSpacing: '0.08em', fontSize: '9px', textTransform: 'uppercase', borderRight: '1px solid rgba(255,255,255,0.05)' }}>Flag</th>
+          <th style={{ padding: '8px 10px', textAlign: 'left', color: 'rgba(255,255,255,0.3)', fontWeight: 700, letterSpacing: '0.08em', fontSize: '9px', textTransform: 'uppercase', width: '72px', borderRight: '1px solid rgba(255,255,255,0.05)' }}>Definir como</th>
+          <th style={{ padding: '8px 10px', textAlign: 'left', color: 'rgba(255,255,255,0.3)', fontWeight: 700, letterSpacing: '0.08em', fontSize: '9px', textTransform: 'uppercase' }}>Efeito</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, i) => (
+          <tr
+            key={row.flag}
+            style={{
+              borderTop: '1px solid rgba(255,255,255,0.05)',
+              opacity: row.deprecated ? 0.45 : 1,
+            }}
+          >
+            <td style={{ padding: '8px 10px', borderRight: '1px solid rgba(255,255,255,0.05)', fontFamily: 'monospace', color: accentColor, verticalAlign: 'top' }}>
+              {row.flag}
+              {row.isNew && (
+                <span style={{ marginLeft: '6px', fontSize: '8px', background: `${accentColor}20`, color: accentColor, borderRadius: '4px', padding: '1px 5px', fontFamily: 'sans-serif', fontWeight: 700 }}>NOVO</span>
+              )}
+              {row.deprecated && (
+                <span style={{ marginLeft: '6px', fontSize: '8px', background: 'rgba(255,100,100,0.15)', color: '#f87171', borderRadius: '4px', padding: '1px 5px', fontFamily: 'sans-serif', fontWeight: 700 }}>OBSOLETO</span>
+              )}
+            </td>
+            <td style={{ padding: '8px 10px', borderRight: '1px solid rgba(255,255,255,0.05)', fontWeight: 700, color: row.enabled ? '#4ade80' : '#f87171', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+              {row.value}
+            </td>
+            <td style={{ padding: '8px 10px', color: 'rgba(255,255,255,0.5)', verticalAlign: 'top', lineHeight: 1.5 }}>
+              {row.note}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
+
+// ─── Conteúdo das seções ───────────────────────────────────────────────────────
+
 const SECTIONS = [
   {
     id: 'intro',
     title: 'Acesso e Google Drive',
     icon: Cloud,
     content: (
-      <div className="space-y-6">
-        <div className="bg-brand/10 p-4 rounded-xl border border-brand/20">
-          <h3 className="text-lg font-bold text-white mb-2">Por que pedimos permissão 2 vezes?</h3>
-          <p className="text-sm text-gray-300">
-            O Lectorium não tem servidor próprio. Seus arquivos ficam salvos diretamente no <strong>seu Google Drive</strong>.
-            Para isso funcionar, precisamos de duas chaves separadas:
+      <div className="space-y-4">
+        <div style={cardHighlight('#08fc72')}>
+          <h3 style={{ ...sectionTitle, fontSize: '14px' }}>Por que pedimos permissão 2 vezes?</h3>
+          <p style={bodyText}>
+            O Lectorium não tem servidor próprio. Seus arquivos ficam salvos diretamente no{' '}
+            <strong style={{ color: 'rgba(255,255,255,0.85)' }}>seu Google Drive</strong>.
+            Para isso funcionar, precisamos de duas chaves separadas.
           </p>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex gap-4 items-start bg-[#2c2c2c] p-4 rounded-xl border border-gray-700">
-            <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400 font-bold">1</div>
-            <div>
-              <strong className="text-white block">Login (Identidade)</strong>
-              <p className="text-xs text-gray-400">Para sabermos seu nome e foto.</p>
+        <div className="space-y-3">
+          <div style={card}>
+            <div className="flex gap-3 items-start">
+              <div style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', padding: '6px 10px', fontWeight: 700, color: '#60a5fa', fontSize: '13px', flexShrink: 0 }}>1</div>
+              <div>
+                <strong style={{ color: 'rgba(255,255,255,0.85)', display: 'block', marginBottom: '4px', fontSize: '13px' }}>Login (Identidade)</strong>
+                <p style={{ ...bodyText, fontSize: '12px' }}>Para sabermos seu nome e foto.</p>
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-4 items-start bg-[#2c2c2c] p-4 rounded-xl border border-yellow-500/30">
-            <div className="bg-yellow-500/20 p-2 rounded-lg text-yellow-500 font-bold">2</div>
-            <div>
-              <strong className="text-white block flex items-center gap-2">
-                Acesso aos Arquivos <AlertTriangle size={14} className="text-yellow-500"/>
-              </strong>
-              <p className="text-xs text-gray-400 mt-1">
-                Esta é a parte crítica. Uma tela do Google aparecerá pedindo para "Ver, editar, criar e excluir arquivos".
-              </p>
-              <div className="mt-3 bg-black/40 p-3 rounded border border-gray-600">
-                <div className="flex items-center gap-2 text-green-400 text-xs font-bold mb-1">
-                  <CheckSquare size={14} /> O QUE VOCÊ DEVE FAZER:
+          <div style={{ ...card, border: '1px solid rgba(234,179,8,0.25)', background: 'rgba(234,179,8,0.04)' }}>
+            <div className="flex gap-3 items-start">
+              <div style={{ background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: '8px', padding: '6px 10px', fontWeight: 700, color: '#fbbf24', fontSize: '13px', flexShrink: 0 }}>2</div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <strong style={{ color: 'rgba(255,255,255,0.85)', fontSize: '13px' }}>Acesso aos Arquivos</strong>
+                  <AlertTriangle size={13} style={{ color: '#fbbf24' }} />
                 </div>
-                <p className="text-xs text-gray-300">
-                  Você <strong>PRECISA marcar todas as caixas de seleção</strong> nessa tela. Se você não marcar, o Lectorium não conseguirá salvar nada e dará erro.
+                <p style={{ ...bodyText, fontSize: '12px', marginBottom: '10px' }}>
+                  Uma tela do Google pedirá para "Ver, editar, criar e excluir arquivos".
                 </p>
+                <div style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '10px 12px' }}>
+                  <div className="flex items-center gap-2 mb-1" style={{ color: '#4ade80', fontSize: '11px', fontWeight: 700 }}>
+                    <CheckSquare size={12} /> O QUE VOCÊ DEVE FAZER
+                  </div>
+                  <p style={{ ...bodyText, fontSize: '12px' }}>
+                    Você <strong style={{ color: 'rgba(255,255,255,0.85)' }}>precisa marcar todas as caixas</strong>. Sem isso, o Lectorium não conseguirá salvar nada.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    )
+    ),
   },
   {
     id: 'browsers',
     title: 'Navegadores',
     icon: Globe,
     content: (
-      <div className="space-y-6">
-        <h3 className="text-lg font-bold text-white mb-2">Tier List de Performance</h3>
-        <p className="text-sm text-gray-300">
-          O Lectorium usa tecnologias avançadas (WebAssembly, File System Access API). 
-          Sua experiência depende do motor do seu navegador.
-        </p>
-
-        <div className="space-y-4">
-          
-          {/* TIER S */}
-          <div className="bg-[#1a1a1a] border border-green-500/30 rounded-xl overflow-hidden">
-            <div className="bg-green-500/10 p-3 flex justify-between items-center border-b border-green-500/20">
-              <span className="text-green-400 font-bold text-sm">TIER S (Recomendado)</span>
-              <span className="text-[10px] text-green-400/80 bg-green-900/30 px-2 py-0.5 rounded">Chromium Desktop</span>
-            </div>
-            <div className="p-4 grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-3 bg-[#252525] p-2 rounded-lg border border-[#333]">
-                <Chrome size={20} className="text-blue-400" /> <span className="text-sm text-white">Google Chrome</span>
-              </div>
-              <div className="flex items-center gap-3 bg-[#252525] p-2 rounded-lg border border-[#333]">
-                <Shield size={20} className="text-orange-400" /> <span className="text-sm text-white">Brave</span>
-              </div>
-              <div className="flex items-center gap-3 bg-[#252525] p-2 rounded-lg border border-[#333]">
-                <Zap size={20} className="text-cyan-400" /> <span className="text-sm text-white">Microsoft Edge</span>
-              </div>
-              <div className="flex items-center gap-3 bg-[#252525] p-2 rounded-lg border border-[#333]">
-                <Layers size={20} className="text-red-400" /> <span className="text-sm text-white">Vivaldi</span>
-              </div>
-            </div>
-            <div className="px-4 pb-3">
-              <p className="text-[10px] text-gray-500 mt-2 flex items-center gap-1">
-                <CheckCircle2 size={10} className="text-green-500"/> Edição de arquivos locais sem re-upload.
-              </p>
-            </div>
-          </div>
-
-          {/* TIER A */}
-          <div className="bg-[#1a1a1a] border border-blue-500/30 rounded-xl overflow-hidden">
-            <div className="bg-blue-500/10 p-3 flex justify-between items-center border-b border-blue-500/20">
-              <span className="text-blue-400 font-bold text-sm">TIER A (Excelente)</span>
-              <span className="text-[10px] text-blue-400/80 bg-blue-900/30 px-2 py-0.5 rounded">Mobile & Alternativos</span>
-            </div>
-            <div className="p-4 grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-3 bg-[#252525] p-2 rounded-lg border border-[#333]">
-                <Smartphone size={20} className="text-purple-400" /> <span className="text-sm text-white">Samsung Internet</span>
-              </div>
-              <div className="flex items-center gap-3 bg-[#252525] p-2 rounded-lg border border-[#333]">
-                <Icon name="Disc" size={20} className="text-red-500" /> <span className="text-sm text-white">Opera</span>
-              </div>
-              <div className="flex items-center gap-3 bg-[#252525] p-2 rounded-lg border border-[#333]">
-                <Smartphone size={20} className="text-yellow-400" /> <span className="text-sm text-white">Soul Browser</span>
-              </div>
-            </div>
-          </div>
-
-          {/* TIER B */}
-          <div className="bg-[#1a1a1a] border border-yellow-600/30 rounded-xl overflow-hidden">
-            <div className="bg-yellow-600/10 p-3 flex justify-between items-center border-b border-yellow-600/20">
-              <span className="text-yellow-500 font-bold text-sm">TIER B (Compatível)</span>
-              <span className="text-[10px] text-yellow-500/80 bg-yellow-900/30 px-2 py-0.5 rounded">Sem Acesso Nativo</span>
-            </div>
-            <div className="p-4 grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-3 bg-[#252525] p-2 rounded-lg border border-[#333]">
-                <Icon name="Flame" size={20} className="text-orange-500" /> <span className="text-sm text-white">Firefox</span>
-              </div>
-              <div className="flex items-center gap-3 bg-[#252525] p-2 rounded-lg border border-[#333]">
-                <Icon name="Compass" size={20} className="text-blue-300" /> <span className="text-sm text-white">Safari</span>
-              </div>
-            </div>
-            <div className="px-4 pb-3">
-              <p className="text-[10px] text-gray-500 mt-2 flex items-center gap-1">
-                <AlertTriangle size={10} className="text-yellow-500"/> Arquivos locais requerem "Salvar como Cópia".
-              </p>
-            </div>
-          </div>
-
+      <div className="space-y-4">
+        <div>
+          <h3 style={sectionTitle}>Tier List de Performance</h3>
+          <p style={bodyText}>
+            O Lectorium usa WebAssembly e File System Access API. Sua experiência depende do motor do navegador.
+          </p>
         </div>
+
+        {[
+          {
+            tier: 'S',
+            label: 'Recomendado',
+            sublabel: 'Chromium',
+            color: '#4ade80',
+            items: [
+              { icon: <Chrome size={16} style={{ color: '#60a5fa' }} />, name: 'Google Chrome' },
+              { icon: <Shield size={16} style={{ color: '#fb923c' }} />, name: 'Brave' },
+              { icon: <Zap size={16} style={{ color: '#22d3ee' }} />, name: 'Microsoft Edge' },
+              { icon: <Layers size={16} style={{ color: '#f87171' }} />, name: 'Vivaldi' },
+            ],
+            note: { icon: <CheckCircle2 size={10} style={{ color: '#4ade80' }} />, text: 'Edição de arquivos locais sem re-upload.' },
+          },
+          {
+            tier: 'A',
+            label: 'Excelente',
+            sublabel: 'Mobile & Alternativos',
+            color: '#60a5fa',
+            items: [
+              { icon: <Smartphone size={16} style={{ color: '#c084fc' }} />, name: 'Samsung Internet' },
+              { icon: <Icon name="Disc" size={16} className="text-red-500" />, name: 'Opera' },
+              { icon: <Smartphone size={16} style={{ color: '#fbbf24' }} />, name: 'Soul Browser' },
+            ],
+          },
+          {
+            tier: 'B',
+            label: 'Compatível',
+            sublabel: 'Sem Acesso Nativo',
+            color: '#fbbf24',
+            items: [
+              { icon: <Icon name="Flame" size={16} className="text-orange-500" />, name: 'Firefox' },
+              { icon: <Icon name="Compass" size={16} className="text-blue-300" />, name: 'Safari' },
+            ],
+            note: { icon: <AlertTriangle size={10} style={{ color: '#fbbf24' }} />, text: 'Arquivos locais requerem "Salvar como Cópia".' },
+          },
+        ].map(({ tier, label: tierLabel, sublabel, color, items, note }) => (
+          <div key={tier} style={{ ...card, border: `1px solid ${color}22` }}>
+            <div className="flex items-center justify-between mb-3">
+              <span style={{ color, fontWeight: 700, fontSize: '13px' }}>TIER {tier} — {tierLabel}</span>
+              <span style={{ color: `${color}99`, fontSize: '10px', background: `${color}15`, borderRadius: '4px', padding: '2px 8px', fontWeight: 600 }}>{sublabel}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {items.map(({ icon, name }) => (
+                <div key={name} className="flex items-center gap-2.5" style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '8px 10px' }}>
+                  {icon}
+                  <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '13px' }}>{name}</span>
+                </div>
+              ))}
+            </div>
+            {note && (
+              <div className="flex items-center gap-1.5 mt-2.5" style={{ paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                {note.icon}
+                <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: '10px' }}>{note.text}</span>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
-    )
+    ),
   },
   {
     id: 'tuning',
     title: 'Tuning & Performance',
     icon: Zap,
     content: (
-      <div className="space-y-6">
-        
-        {/* DISCLAIMER */}
-        <div className="bg-red-900/10 border border-red-500/30 p-4 rounded-xl flex items-start gap-3">
-            <AlertTriangle size={20} className="text-red-500 shrink-0 mt-0.5" />
+      <div className="space-y-4">
+        {/* Disclaimer */}
+        <div style={{ ...cardHighlight('#ef4444'), padding: '12px 14px' }}>
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={16} style={{ color: '#f87171', flexShrink: 0, marginTop: 2 }} />
             <div>
-                <h4 className="text-sm font-bold text-red-400 mb-1 uppercase tracking-wider">Aviso de Risco</h4>
-                <p className="text-xs text-red-200/80 leading-relaxed text-justify">
-                    As configurações abaixo alteram o motor de renderização do navegador. 
-                    Embora testadas, elas podem causar instabilidade. 
-                    <strong>O usuário assume total responsabilidade ao modificar flags experimentais.</strong>
-                </p>
+              <p style={{ color: '#fca5a5', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>Aviso de risco</p>
+              <p style={{ ...bodyText, fontSize: '12px' }}>
+                Estas configurações alteram o motor do navegador. Podem causar instabilidade.{' '}
+                <strong style={{ color: 'rgba(255,255,255,0.7)' }}>O usuário assume total responsabilidade.</strong>
+              </p>
             </div>
+          </div>
         </div>
 
-        {/* CHROMIUM SECTION (CHROME & VIVALDI) */}
-        <div className="bg-[#1a1a1a] border border-blue-500/30 rounded-xl overflow-hidden">
-            <div className="bg-blue-500/10 p-3 flex items-center gap-2 border-b border-blue-500/20">
-                <div className="flex -space-x-1">
-                    <Chrome size={18} className="text-blue-400" />
-                    <Layers size={18} className="text-red-400" />
-                </div>
-                <span className="text-white font-bold text-sm">Protocolo Chromium (Chrome & Vivaldi)</span>
-            </div>
-            
-            <div className="p-5 space-y-4">
-                <p className="text-xs text-gray-300 leading-relaxed">
-                    Estas configurações forçam o uso da GPU para renderizar os PDFs e a interface, liberando a CPU para a Inteligência Artificial.
-                </p>
-
-                <div className="space-y-2">
-                    <div className="bg-black/40 p-2 rounded border border-gray-700 flex justify-between items-center">
-                        <span className="text-xs text-gray-400 font-mono">Chrome</span>
-                        <code className="text-xs text-blue-400 font-bold bg-blue-900/20 px-2 py-0.5 rounded">chrome://flags</code>
-                    </div>
-                    <div className="bg-black/40 p-2 rounded border border-gray-700 flex justify-between items-center">
-                        <span className="text-xs text-gray-400 font-mono">Vivaldi</span>
-                        <code className="text-xs text-red-400 font-bold bg-red-900/20 px-2 py-0.5 rounded">vivaldi://flags</code>
-                    </div>
-                    
-                    <div className="bg-[#252525] rounded-lg border border-[#333] overflow-hidden">
-                        <table className="w-full text-left text-[10px]">
-                            <thead className="bg-black/20 text-gray-500 uppercase font-bold">
-                                <tr>
-                                    <th className="p-2 border-r border-[#333]">Pesquisar Flag (#)</th>
-                                    <th className="p-2 border-r border-[#333] w-16">Mudar para</th>
-                                    <th className="p-2">Motivo</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[#333] text-gray-300">
-                                <tr>
-                                    <td className="p-2 font-mono text-blue-300 border-r border-[#333]">gpu-rasterization</td>
-                                    <td className="p-2 text-green-400 font-bold border-r border-[#333]">Enabled</td>
-                                    <td className="p-2">Desenha o PDF usando a placa de vídeo.</td>
-                                </tr>
-                                <tr>
-                                    <td className="p-2 font-mono text-blue-300 border-r border-[#333]">enable-zero-copy</td>
-                                    <td className="p-2 text-green-400 font-bold border-r border-[#333]">Enabled</td>
-                                    <td className="p-2">Escreve direto na memória GPU (Menos RAM).</td>
-                                </tr>
-                                <tr>
-                                    <td className="p-2 font-mono text-blue-300 border-r border-[#333]">enable-parallel-downloading</td>
-                                    <td className="p-2 text-green-400 font-bold border-r border-[#333]">Enabled</td>
-                                    <td className="p-2">Acelera download de PDFs grandes.</td>
-                                </tr>
-                                <tr>
-                                    <td className="p-2 font-mono text-blue-300 border-r border-[#333]">smooth-scrolling</td>
-                                    <td className="p-2 text-yellow-400 font-bold border-r border-[#333]">Disabled</td>
-                                    <td className="p-2">Opcional. Remove o "efeito elástico" para resposta tátil instantânea.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
+        {/* Nota de versão */}
+        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 14px' }}>
+          <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '10px', lineHeight: 1.5 }}>
+            <strong style={{ color: 'rgba(255,255,255,0.45)' }}>Fonte:</strong> Chrome Developers, chromestatus.com, Android Authority — referência{' '}
+            <strong style={{ color: 'rgba(255,255,255,0.45)' }}>Chrome 132–134 (jan–mar 2026)</strong>, motor Chromium compartilhado com Brave.
+            Flags marcadas como OBSOLETO ainda existem mas não têm efeito prático nesta versão.
+          </p>
         </div>
 
-        {/* FIREFOX SECTION */}
-        <div className="bg-[#1a1a1a] border border-orange-500/30 rounded-xl overflow-hidden">
-            <div className="bg-orange-500/10 p-3 flex items-center gap-2 border-b border-orange-500/20">
-                <Icon name="Flame" size={18} className="text-orange-500" />
-                <span className="text-white font-bold text-sm">Protocolo Firefox (Android)</span>
+        {/* Chromium */}
+        <div style={{ ...card, border: '1px solid rgba(96,165,250,0.2)' }}>
+          <div className="flex items-center gap-2 mb-1" style={{ paddingBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex -space-x-1">
+              <Chrome size={16} style={{ color: '#60a5fa' }} />
+              <Shield size={16} style={{ color: '#fb923c' }} />
+              <Layers size={16} style={{ color: '#f87171' }} />
             </div>
-            
-            <div className="p-5 space-y-4">
-                <p className="text-xs text-gray-300 leading-relaxed">
-                    O Firefox padrão bloqueia configurações avançadas. Para habilitar 60fps no PDF e OCR rápido, 
-                    recomenda-se o uso do <strong>Firefox Nightly</strong>.
-                </p>
+            <span style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 700, fontSize: '13px' }}>Chromium — Chrome · Brave · Edge · Vivaldi</span>
+          </div>
 
-                <div className="space-y-2">
-                    <div className="bg-black/40 p-2 rounded border border-gray-700 flex justify-between items-center">
-                        <span className="text-xs text-gray-400 font-mono">Endereço de Config</span>
-                        <code className="text-xs text-green-400 font-bold bg-green-900/20 px-2 py-0.5 rounded">about:config</code>
-                    </div>
-                    
-                    <div className="bg-[#252525] rounded-lg border border-[#333] overflow-hidden">
-                        <table className="w-full text-left text-[10px]">
-                            <thead className="bg-black/20 text-gray-500 uppercase font-bold">
-                                <tr>
-                                    <th className="p-2 border-r border-[#333]">Flag (Pesquisar)</th>
-                                    <th className="p-2 border-r border-[#333] w-16">Valor</th>
-                                    <th className="p-2">Efeito</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[#333] text-gray-300">
-                                <tr>
-                                    <td className="p-2 font-mono text-orange-300 border-r border-[#333]">gfx.webrender.all</td>
-                                    <td className="p-2 text-green-400 font-bold border-r border-[#333]">true</td>
-                                    <td className="p-2">Aceleração GPU total (Fluidez)</td>
-                                </tr>
-                                <tr>
-                                    <td className="p-2 font-mono text-orange-300 border-r border-[#333]">layers.acceleration.force-enabled</td>
-                                    <td className="p-2 text-green-400 font-bold border-r border-[#333]">true</td>
-                                    <td className="p-2">Evita lag em PDFs grandes</td>
-                                </tr>
-                                <tr>
-                                    <td className="p-2 font-mono text-orange-300 border-r border-[#333]">javascript.options.wasm_simd</td>
-                                    <td className="p-2 text-green-400 font-bold border-r border-[#333]">true</td>
-                                    <td className="p-2">Acelera o motor de IA/OCR</td>
-                                </tr>
-                                <tr>
-                                    <td className="p-2 font-mono text-orange-300 border-r border-[#333]">javascript.options.shared_memory</td>
-                                    <td className="p-2 text-green-400 font-bold border-r border-[#333]">true</td>
-                                    <td className="p-2">Multithreading eficiente</td>
-                                </tr>
-                                <tr>
-                                    <td className="p-2 font-mono text-orange-300 border-r border-[#333]">apz.allow_zooming</td>
-                                    <td className="p-2 text-red-400 font-bold border-r border-[#333]">false</td>
-                                    <td className="p-2">Impede conflito de zoom duplo</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+          <div className="space-y-3 mb-3">
+            <p style={{ ...bodyText, fontSize: '12px' }}>
+              Forçam o uso da GPU para renderização de PDF e interface, liberando CPU para IA.
+            </p>
+            <div className="flex gap-2">
+              {[
+                { browser: 'Chrome / Brave / Edge', addr: 'chrome://flags', color: '#60a5fa' },
+                { browser: 'Vivaldi', addr: 'vivaldi://flags', color: '#f87171' },
+              ].map(({ browser, addr, color }) => (
+                <div key={browser} style={{ flex: 1, background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '8px 10px' }}>
+                  <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '10px', marginBottom: '4px' }}>{browser}</p>
+                  <code style={{ ...mono, color }}>{addr}</code>
                 </div>
-
-                <div className="flex gap-2">
-                    <div className="flex-1 bg-[#252525] p-3 rounded-lg border border-[#333]">
-                        <div className="flex items-center gap-2 mb-1 text-purple-400 text-xs font-bold">
-                            <Layers size={14} /> Extensões
-                        </div>
-                        <p className="text-[10px] text-gray-400">
-                            Use <strong>uBlock Origin</strong> para limpar scripts de fundo.
-                            <br/>
-                            <span className="text-red-400">NÃO USE Dark Reader</span> (causa lag severo).
-                        </p>
-                    </div>
-                    <div className="flex-1 bg-[#252525] p-3 rounded-lg border border-[#333]">
-                        <div className="flex items-center gap-2 mb-1 text-green-400 text-xs font-bold">
-                            <Battery size={14} /> Android
-                        </div>
-                        <p className="text-[10px] text-gray-400">
-                            Configure a bateria do App para <strong>"Não Restrito"</strong>.
-                            Vital para o OCR não morrer em segundo plano.
-                        </p>
-                    </div>
-                </div>
+              ))}
             </div>
+          </div>
+
+          <FlagTable
+            accentColor="#93c5fd"
+            rows={[
+              { flag: 'gpu-rasterization', value: 'Enabled', enabled: true, note: 'Renderiza PDF com a GPU. Em hardware moderno pode já estar ativo — force para garantir consistência.' },
+              { flag: 'enable-zero-copy', value: 'Enabled', enabled: true, note: 'Escreve direto na memória GPU (menos RAM). Risco: aumenta chance de crash em drivers instáveis.' },
+              { flag: 'enable-parallel-downloading', value: 'Enabled', enabled: true, note: 'Divide downloads em 3 jobs simultâneos. Acelera PDFs grandes do Drive.' },
+              { flag: 'override-software-rendering-list', value: 'Enabled', enabled: true, note: 'Ativa GPU mesmo em dispositivos na blocklist do Chrome. Útil em tablets mid-range.', isNew: true },
+              { flag: 'back-forward-cache', value: 'Enabled', enabled: true, note: 'Preserva páginas em memória ao usar voltar/avançar. Elimina recarregamento entre abas.', isNew: true },
+              { flag: '#enable-experimental-webassembly-features', value: 'Enabled', enabled: true, note: 'Habilita features Wasm experimentais. Pode acelerar o engine do pdfjs. Testar com cuidado.', isNew: true },
+              { flag: 'smooth-scrolling', value: 'Enabled', enabled: true, note: 'Manter ativo em tablet touch. Desativar só se preferir resposta tátil completamente direta.' },
+            ]}
+          />
         </div>
 
+        {/* Firefox */}
+        <div style={{ ...card, border: '1px solid rgba(249,115,22,0.2)' }}>
+          <div className="flex items-center gap-2 mb-3" style={{ paddingBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <Icon name="Flame" size={16} className="text-orange-500" />
+            <span style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 700, fontSize: '13px' }}>Firefox Android</span>
+          </div>
+
+          <div className="space-y-3 mb-3">
+            <p style={{ ...bodyText, fontSize: '12px' }}>
+              Firefox padrão bloqueia configurações avançadas. Para melhor performance com PDF e OCR, use o{' '}
+              <strong style={{ color: 'rgba(255,255,255,0.75)' }}>Firefox Nightly</strong>.
+            </p>
+            <div style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>Endereço de configuração</span>
+              <code style={{ ...mono, color: '#86efac' }}>about:config</code>
+            </div>
+          </div>
+
+          <FlagTable
+            accentColor="#fdba74"
+            rows={[
+              { flag: 'gfx.webrender.all', value: 'true', enabled: true, note: 'Aceleração GPU total via WebRender. Fluidez máxima no scroll de PDF.' },
+              { flag: 'layers.acceleration.force-enabled', value: 'true', enabled: true, note: 'Evita lag em PDFs grandes mesmo sem WebRender ativo.' },
+              { flag: 'javascript.options.shared_memory', value: 'true', enabled: true, note: 'Multithreading eficiente para workers do pdfjs.' },
+              { flag: 'apz.allow_zooming', value: 'false', enabled: false, note: 'Impede conflito de zoom duplo entre Firefox e o zoom do Lectorium.' },
+              { flag: 'javascript.options.wasm_simd', value: '—', enabled: false, note: 'Não tem mais efeito. SIMD está ativo por padrão no Firefox 125+.', deprecated: true },
+            ]}
+          />
+
+          <div className="flex gap-2 mt-3">
+            <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px' }}>
+              <p style={{ color: '#c084fc', fontSize: '11px', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Layers size={12} /> Extensões recomendadas
+              </p>
+              <p style={{ ...bodyText, fontSize: '11px' }}>uBlock Origin · LocalCDN</p>
+            </div>
+            <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '10px 12px' }}>
+              <p style={{ color: '#fbbf24', fontSize: '11px', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <AlertTriangle size={12} /> Sem File System Access
+              </p>
+              <p style={{ ...bodyText, fontSize: '11px' }}>Firefox não suporta a API de arquivos locais. Use "Salvar como Cópia".</p>
+            </div>
+          </div>
+        </div>
       </div>
-    )
+    ),
   },
   {
     id: 'troubleshoot',
     title: 'Solução de Problemas',
     icon: Wrench,
     content: (
-      <div className="space-y-6">
-        <h3 className="text-lg font-bold text-white mb-4">Diagnóstico e Correção Rápida</h3>
-        
-        <div className="space-y-4">
-          
-          {/* ERRO 1: Auth */}
-          <div className="bg-[#2c2c2c] p-4 rounded-xl border border-gray-700">
-            <div className="flex items-center gap-2 text-yellow-500 font-bold text-sm mb-2">
-              <AlertCircle size={16} /> Erro "Não foi possível salvar" ou "403 Forbidden"
+      <div className="space-y-4">
+        <h3 style={sectionTitle}>Diagnóstico e Correção Rápida</h3>
+
+        {[
+          {
+            color: '#fbbf24',
+            icon: <AlertCircle size={14} style={{ color: '#fbbf24' }} />,
+            title: 'Erro "Não foi possível salvar" ou 403 Forbidden',
+            body: 'O Lectorium perdeu permissão de escrita no Drive. Ocorre quando a sessão expirou ou as caixas de permissão não foram marcadas no login.',
+            fix: 'Faça Logout e Login novamente, marcando TODAS as caixas do Google.',
+            fixIcon: <RefreshCw size={11} />,
+          },
+          {
+            color: '#60a5fa',
+            icon: <FileText size={14} style={{ color: '#60a5fa' }} />,
+            title: 'Arquivos locais não salvam no Drive',
+            body: 'Por segurança, o navegador isola arquivos abertos do disco. Eles vivem apenas na memória da aba.',
+            fix: 'Use "Salvar como Cópia" ou "Salvar no Drive" dentro do menu do editor.',
+            fixIcon: <Upload size={11} />,
+          },
+          {
+            color: '#c084fc',
+            icon: <Workflow size={14} style={{ color: '#c084fc' }} />,
+            title: 'A IA parou de responder (Erro 429)',
+            body: 'O modelo Gemini possui limites por minuto na camada gratuita. Processamento intenso de páginas aciona o throttle.',
+            fix: 'Aguarde 1–2 minutos. Para uso pesado, adicione sua API Key nas configurações.',
+            fixIcon: <Key size={11} />,
+          },
+          {
+            color: '#f87171',
+            icon: <AlertTriangle size={14} style={{ color: '#f87171' }} />,
+            title: 'Interface travada ou tela branca',
+            body: 'Atualizações do app podem conflitar com dados antigos no cache.',
+            fix: 'Menu Lateral → Configurações → Armazenamento → Redefinir Aplicação.',
+            fixIcon: <RotateCcw size={11} />,
+          },
+        ].map(({ color, icon, title, body, fix, fixIcon }) => (
+          <div key={title} style={card}>
+            <div className="flex items-center gap-2 mb-2">
+              {icon}
+              <strong style={{ color: 'rgba(255,255,255,0.85)', fontSize: '13px' }}>{title}</strong>
             </div>
-            <p className="text-xs text-gray-300 mb-3">
-              Isso acontece quando o Lectorium perde a permissão de escrever no seu Google Drive. Geralmente ocorre se a sessão expirou ou se você desmarcou as caixas de permissão no login.
-            </p>
-            <div className="bg-black/30 p-2 rounded border border-gray-600 text-xs text-green-400 font-mono flex items-center gap-2">
-              <RefreshCw size={12} /> Solução: Faça Logout e Login novamente, marcando TODAS as caixas do Google.
+            <p style={{ ...bodyText, fontSize: '12px', marginBottom: '10px' }}>{body}</p>
+            <div className="flex items-center gap-2" style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '8px', padding: '8px 12px' }}>
+              <span style={{ color: color, flexShrink: 0 }}>{fixIcon}</span>
+              <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px' }}><strong style={{ color: 'rgba(255,255,255,0.85)' }}>Solução:</strong> {fix}</span>
             </div>
           </div>
-
-          {/* ERRO 2: Local Files */}
-          <div className="bg-[#2c2c2c] p-4 rounded-xl border border-gray-700">
-            <div className="flex items-center gap-2 text-blue-400 font-bold text-sm mb-2">
-              <FileText size={16} /> Arquivos Locais não salvam no Drive
-            </div>
-            <p className="text-xs text-gray-300 mb-3">
-              Por segurança, o navegador isola arquivos abertos do disco ("Abrir Local"). Eles vivem apenas na memória temporária da aba.
-            </p>
-            <div className="bg-black/30 p-2 rounded border border-gray-600 text-xs text-white">
-              <strong>Solução:</strong> Use a opção "Salvar como Cópia" ou "Salvar no Drive" dentro do menu do editor para fazer o upload definitivo.
-            </div>
-          </div>
-
-          {/* ERRO 3: AI Quota */}
-          <div className="bg-[#2c2c2c] p-4 rounded-xl border border-gray-700">
-            <div className="flex items-center gap-2 text-purple-400 font-bold text-sm mb-2">
-              <Workflow size={16} /> A IA parou de responder (Erro 429)
-            </div>
-            <p className="text-xs text-gray-300 mb-3">
-              O modelo Gemini possui limites de requisições por minuto na camada gratuita. Se você processou muitas páginas rapidamente, o Google bloqueia temporariamente.
-            </p>
-            <div className="bg-black/30 p-2 rounded border border-gray-600 text-xs text-white">
-              <strong>Solução:</strong> Aguarde 1 ou 2 minutos e tente novamente. Para uso pesado, adicione sua própria API Key nas configurações.
-            </div>
-          </div>
-
-          {/* ERRO 4: Cache */}
-          <div className="bg-[#2c2c2c] p-4 rounded-xl border border-gray-700">
-            <div className="flex items-center gap-2 text-red-400 font-bold text-sm mb-2">
-              <AlertTriangle size={16} /> Interface travada ou branca
-            </div>
-            <p className="text-xs text-gray-300 mb-3">
-              Atualizações do aplicativo podem conflitar com dados antigos no cache do navegador.
-            </p>
-            <div className="bg-black/30 p-2 rounded border border-gray-600 text-xs text-white">
-              <strong>Solução:</strong> Vá em Configurações (Menu Lateral) {'>'} Armazenamento {'>'} Redefinir Aplicação.
-            </div>
-          </div>
-
-        </div>
+        ))}
       </div>
-    )
+    ),
   },
   {
     id: 'pdf',
     title: 'Dominando o PDF',
     icon: FileText,
     content: (
-      <div className="space-y-6">
-        <h3 className="text-lg font-bold text-white">Ferramentas de Leitura</h3>
-        
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-[#2c2c2c] p-4 rounded-xl border border-gray-700">
-            <div className="flex items-center gap-2 text-brand mb-2">
-              <Highlighter size={18} /> <strong>Marca-texto</strong>
+      <div className="space-y-4">
+        <h3 style={sectionTitle}>Ferramentas de Leitura</h3>
+
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { icon: <Highlighter size={16} style={{ color: 'var(--brand)' }} />, title: 'Marca-texto', desc: 'Selecione o texto e clique no ícone de destaque.' },
+            { icon: <Pen size={16} style={{ color: '#c084fc' }} />, title: 'Caneta', desc: 'Use a barra inferior para desenhar livremente sobre o PDF.' },
+            { icon: <StickyNote size={16} style={{ color: '#fbbf24' }} />, title: 'Nota', desc: 'Adiciona um marcador âncora com texto na posição clicada.' },
+            { icon: <Eraser size={16} style={{ color: '#f87171' }} />, title: 'Borracha', desc: 'Remove anotações não burned diretamente no canvas.' },
+          ].map(({ icon, title, desc }) => (
+            <div key={title} style={card}>
+              <div className="flex items-center gap-2 mb-1.5">{icon}<strong style={{ color: 'rgba(255,255,255,0.85)', fontSize: '13px' }}>{title}</strong></div>
+              <p style={{ ...bodyText, fontSize: '11px' }}>{desc}</p>
             </div>
-            <p className="text-xs text-gray-400">
-              Selecione o texto e clique no botão de destaque.
-            </p>
-          </div>
-          <div className="bg-[#2c2c2c] p-4 rounded-xl border border-gray-700">
-            <div className="flex items-center gap-2 text-purple-400 mb-2">
-              <Pen size={18} /> <strong>Caneta</strong>
-            </div>
-            <p className="text-xs text-gray-400">
-              Use a barra de ferramentas inferior para desenhar livremente sobre o PDF.
-            </p>
-          </div>
+          ))}
         </div>
 
-        <div className="bg-brand/5 border border-brand/20 p-5 rounded-2xl">
-          <h4 className="text-brand font-bold flex items-center gap-2 mb-3">
-            <Touchpad size={18} /> Smart Tap (Seleção Rápida)
+        <div style={cardHighlight('var(--brand)')}>
+          <h4 className="flex items-center gap-2 mb-3" style={{ color: 'var(--brand)', fontWeight: 700, fontSize: '13px' }}>
+            <Touchpad size={16} /> Smart Tap — Seleção Rápida
           </h4>
-          <p className="text-sm text-gray-300 mb-4">
-            Selecionar texto em PDFs no celular ou trackpad pode ser difícil. O Lectorium resolve isso com o <strong>toque em dois pontos</strong>:
+          <p style={{ ...bodyText, fontSize: '12px', marginBottom: '12px' }}>
+            Selecionar texto em PDFs no tablet pode ser difícil. O Lectorium resolve isso com{' '}
+            <strong style={{ color: 'rgba(255,255,255,0.8)' }}>toque em dois pontos</strong>:
           </p>
-          
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <span className="w-6 h-6 rounded-full bg-brand text-black flex items-center justify-center font-bold text-xs">1</span>
-              <p className="text-xs text-gray-300">Toque na <strong>primeira palavra</strong> que deseja selecionar.</p>
+          {[
+            'Toque na primeira palavra que deseja selecionar.',
+            'Toque na última palavra.',
+          ].map((text, i) => (
+            <div key={i} className="flex items-center gap-3 mb-2">
+              <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'var(--brand)', color: '#0b141a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '11px', flexShrink: 0 }}>{i + 1}</span>
+              <p style={{ ...bodyText, fontSize: '12px' }}>{text}</p>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="w-6 h-6 rounded-full bg-brand text-black flex items-center justify-center font-bold text-xs">2</span>
-              <p className="text-xs text-gray-300">Toque na <strong>última palavra</strong>.</p>
-            </div>
-            <div className="flex items-center gap-3 mt-2">
-              <CheckCircle2 size={16} className="text-green-500 ml-1" />
-              <p className="text-xs text-white font-bold">Pronto! O sistema preenche tudo no meio.</p>
-            </div>
+          ))}
+          <div className="flex items-center gap-2 mt-2">
+            <CheckCircle2 size={14} style={{ color: '#4ade80' }} />
+            <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px', fontWeight: 600 }}>Pronto — o sistema preenche tudo no meio.</p>
           </div>
         </div>
       </div>
-    )
+    ),
   },
   {
     id: 'ai',
     title: 'Kalaki (IA)',
-    icon: Workflow,
+    icon: Sparkles,
     content: (
       <div className="space-y-4">
-        <h3 className="text-lg font-bold text-white">Sua Assistente de Pesquisa</h3>
-        <p className="text-sm text-gray-300">
-          A "Kalaki" é a inteligência artificial integrada. Ela lê o que você está vendo.
-        </p>
+        <h3 style={sectionTitle}>Sua Assistente de Pesquisa</h3>
+        <p style={bodyText}>Kalaki é a IA integrada. Ela lê o que você está vendo no documento.</p>
 
-        <div className="space-y-3">
-          <div className="bg-[#2c2c2c] p-3 rounded-xl border border-gray-700 flex items-center gap-3">
-            <div className="bg-purple-500/20 p-2 rounded-lg text-purple-400"><MousePointerClick size={18} /></div>
-            <div className="text-xs text-gray-300">
-              <strong>Selecione e Pergunte:</strong> Ao selecionar um texto, clique no botão "IA" para pedir uma explicação específica daquele trecho.
+        <div className="space-y-2">
+          {[
+            { icon: <MousePointerClick size={16} style={{ color: '#c084fc' }} />, title: 'Selecione e Pergunte', desc: 'Selecione um trecho e clique no botão "IA" para explicação imediata.' },
+            { icon: <FileText size={16} style={{ color: '#60a5fa' }} />, title: 'Resumo do Documento', desc: 'Abra a barra lateral da IA e peça um resumo ou faça perguntas sobre o arquivo completo.' },
+          ].map(({ icon, title, desc }) => (
+            <div key={title} className="flex items-start gap-3" style={card}>
+              <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '8px', flexShrink: 0 }}>{icon}</div>
+              <div>
+                <strong style={{ color: 'rgba(255,255,255,0.85)', display: 'block', marginBottom: '3px', fontSize: '13px' }}>{title}</strong>
+                <p style={{ ...bodyText, fontSize: '12px' }}>{desc}</p>
+              </div>
             </div>
-          </div>
-
-          <div className="bg-[#2c2c2c] p-3 rounded-xl border border-gray-700 flex items-center gap-3">
-            <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><FileText size={18} /></div>
-            <div className="text-xs text-gray-300">
-              <strong>Resumo do Documento:</strong> Abra a barra lateral da IA e peça um resumo geral ou faça perguntas sobre o arquivo todo.
-            </div>
-          </div>
+          ))}
         </div>
-        
-        <p className="text-[10px] text-gray-500 italic mt-2">
-          Nota: A IA usa o modelo Gemini do Google. Respostas podem variar.
+
+        <p style={{ color: 'rgba(255,255,255,0.2)', fontSize: '10px', fontStyle: 'italic' }}>
+          A IA usa o modelo Gemini do Google. Respostas podem variar.
         </p>
       </div>
-    )
+    ),
   },
   {
     id: 'offline',
@@ -467,20 +515,29 @@ const SECTIONS = [
     icon: WifiOff,
     content: (
       <div className="space-y-4">
-        <h3 className="text-lg font-bold text-white">Sem Internet? Sem Problema.</h3>
-        <p className="text-sm text-gray-300">
-          O Lectorium salva automaticamente os arquivos que você abre no seu dispositivo.
-        </p>
-        <ul className="list-disc list-inside text-xs text-gray-400 space-y-2 ml-2">
-          <li>Você pode fechar a aba e abrir de novo sem internet.</li>
-          <li>Suas edições offline são salvas localmente.</li>
-          <li>Assim que a internet voltar, tudo é enviado para o Google Drive.</li>
-        </ul>
-        <div className="bg-green-500/10 border border-green-500/30 p-3 rounded-xl text-xs text-green-300">
-          <strong>Dica:</strong> Instale o app (Adicionar à Tela de Início) para a melhor experiência offline.
+        <h3 style={sectionTitle}>Sem Internet? Sem Problema.</h3>
+        <p style={bodyText}>O Lectorium salva automaticamente os arquivos abertos no seu dispositivo.</p>
+
+        <div className="space-y-2">
+          {[
+            'Você pode fechar a aba e reabrir sem internet.',
+            'Edições offline são salvas localmente.',
+            'Ao voltar online, tudo é enviado automaticamente para o Drive.',
+          ].map((text) => (
+            <div key={text} className="flex items-center gap-3" style={card}>
+              <CheckCircle2 size={14} style={{ color: '#4ade80', flexShrink: 0 }} />
+              <p style={{ ...bodyText, fontSize: '12px' }}>{text}</p>
+            </div>
+          ))}
+        </div>
+
+        <div style={cardHighlight('#4ade80')}>
+          <p style={{ color: '#86efac', fontSize: '12px' }}>
+            <strong>Dica:</strong> Instale o app (Adicionar à Tela de Início) para a melhor experiência offline.
+          </p>
         </div>
       </div>
-    )
+    ),
   },
   {
     id: 'privacy',
@@ -488,20 +545,33 @@ const SECTIONS = [
     icon: ShieldCheck,
     content: (
       <div className="space-y-4">
-        <h3 className="text-lg font-bold text-white">Seus Dados são Seus</h3>
-        <p className="text-sm text-gray-300">
-          Diferente de outros sites, nós <strong>não copiamos seus arquivos</strong> para nossos servidores.
+        <h3 style={sectionTitle}>Seus Dados são Seus</h3>
+        <p style={bodyText}>
+          Diferente de outros serviços, o Lectorium{' '}
+          <strong style={{ color: 'rgba(255,255,255,0.85)' }}>não copia seus arquivos</strong> para servidores próprios.
         </p>
-        <p className="text-sm text-gray-300">
-          O Lectorium funciona como um óculos: ele apenas visualiza e edita o que já está no seu Google Drive ou no seu computador.
+        <p style={bodyText}>
+          Funciona como um óculos: visualiza e edita o que já está no seu Google Drive ou no seu dispositivo.
         </p>
-        <p className="text-xs text-gray-500 mt-4">
-          Nós não vemos seus PDFs, não lemos seus mapas mentais e não vendemos suas informações.
-        </p>
+
+        <div className="space-y-2">
+          {[
+            { icon: <EyeOff size={14} style={{ color: '#4ade80' }} />, text: 'Não vemos seus PDFs nem seus mapas mentais.' },
+            { icon: <Shield size={14} style={{ color: '#4ade80' }} />, text: 'Não vendemos suas informações.' },
+            { icon: <Server size={14} style={{ color: '#4ade80' }} />, text: 'Zero servidores proprietários armazenando dados.' },
+          ].map(({ icon, text }) => (
+            <div key={text} className="flex items-center gap-3" style={card}>
+              {icon}
+              <p style={{ ...bodyText, fontSize: '12px' }}>{text}</p>
+            </div>
+          ))}
+        </div>
       </div>
-    )
-  }
+    ),
+  },
 ];
+
+// ─── Componente principal ──────────────────────────────────────────────────────
 
 export const GlobalHelpModal: React.FC<Props> = ({ isOpen, onClose, isMandatory = false }) => {
   const [activeSection, setActiveSection] = useState('intro');
@@ -518,84 +588,128 @@ export const GlobalHelpModal: React.FC<Props> = ({ isOpen, onClose, isMandatory 
 
   if (!isOpen) return null;
 
-  const currentContent = SECTIONS.find(s => s.id === activeSection)?.content;
+  const currentContent = SECTIONS.find((s) => s.id === activeSection)?.content;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-[#1e1e1e] text-[#e3e3e3] rounded-3xl shadow-2xl w-full max-w-4xl h-[80vh] flex overflow-hidden border border-[#444746] animate-in zoom-in-95">
-        
-        {/* Sidebar Navigation */}
-        <div className={`w-full md:w-64 bg-[#141414] border-r border-[#333] flex-col ${showMobileContent ? 'hidden md:flex' : 'flex'}`}>
-          <div className="p-6 border-b border-[#333]">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <BookOpen className="text-brand" size={20}/>
+    <div
+      className="fixed inset-0 z-[120] flex items-center justify-center p-4 animate-in fade-in duration-200"
+      style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(8px)' }}
+    >
+      <div
+        className="w-full max-w-4xl animate-in zoom-in-95 duration-200 flex overflow-hidden"
+        style={{
+          background: 'linear-gradient(160deg, #0e0e0e 0%, #0a0a0a 100%)',
+          border: '1px solid rgba(255,255,255,0.07)',
+          borderTop: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: '16px',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.95), 0 0 0 1px rgba(255,255,255,0.03)',
+          height: '82vh',
+        }}
+      >
+        {/* Sidebar */}
+        <div
+          className={`flex-col w-full md:w-60 ${showMobileContent ? 'hidden md:flex' : 'flex'}`}
+          style={{ borderRight: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.3)', flexShrink: 0 }}
+        >
+          <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <h2 className="flex items-center gap-2" style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 700, fontSize: '14px' }}>
+              <BookOpen size={16} style={{ color: 'var(--brand)' }} />
               Guia Central
             </h2>
           </div>
-          
-          <div className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
-            {SECTIONS.map((section) => (
-              <button
-                key={section.id}
-                onClick={() => handleSectionClick(section.id)}
-                className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all ${
-                  activeSection === section.id 
-                    ? 'bg-brand text-[#0b141a] font-bold shadow-lg shadow-brand/20 scale-[1.02]' 
-                    : 'text-gray-400 hover:bg-[#2c2c2c] hover:text-white'
-                }`}
-              >
-                <section.icon size={18} />
-                <span className="text-sm">{section.title}</span>
-                <ArrowRight size={14} className="ml-auto md:hidden opacity-50" />
-              </button>
-            ))}
+
+          <div className="flex-1 overflow-y-auto p-2 space-y-0.5 custom-scrollbar">
+            {SECTIONS.map((section) => {
+              const active = activeSection === section.id;
+              return (
+                <button
+                  key={section.id}
+                  onClick={() => handleSectionClick(section.id)}
+                  className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all"
+                  style={{
+                    background: active ? 'var(--brand)' : 'transparent',
+                    color: active ? '#0b141a' : 'rgba(255,255,255,0.45)',
+                    fontWeight: active ? 700 : 400,
+                    fontSize: '13px',
+                  }}
+                  onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; if (!active) e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; }}
+                  onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = 'transparent'; if (!active) e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; }}
+                >
+                  <section.icon size={15} style={{ flexShrink: 0 }} />
+                  <span>{section.title}</span>
+                  <ArrowRight size={12} className="ml-auto md:hidden" style={{ opacity: 0.4 }} />
+                </button>
+              );
+            })}
           </div>
 
           {!isMandatory && (
-            <div className="p-4 border-t border-[#333]">
-                <button onClick={onClose} className="w-full py-2 bg-[#2c2c2c] hover:bg-[#3c3c3c] rounded-lg text-sm font-medium transition-colors">
+            <div className="p-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <button
+                onClick={onClose}
+                className="w-full py-2 rounded-lg text-sm font-medium transition-colors"
+                style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.07)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; }}
+              >
                 Fechar Guia
-                </button>
+              </button>
             </div>
           )}
         </div>
 
-        {/* Content Area */}
-        <div className={`flex-1 flex-col relative bg-[#1e1e1e] ${!showMobileContent ? 'hidden md:flex' : 'flex'}`}>
-          {/* Mobile Back Button */}
-          <div className="md:hidden flex items-center p-4 border-b border-[#333] bg-[#141414]">
-             <button onClick={() => setShowMobileContent(false)} className="flex items-center gap-2 text-gray-300 font-bold text-sm">
-                 <ArrowLeft size={18} /> Voltar
-             </button>
+        {/* Content */}
+        <div
+          className={`flex-1 flex-col relative ${!showMobileContent ? 'hidden md:flex' : 'flex'}`}
+          style={{ minWidth: 0 }}
+        >
+          {/* Mobile back */}
+          <div
+            className="md:hidden flex items-center px-4 py-3"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.2)' }}
+          >
+            <button
+              onClick={() => setShowMobileContent(false)}
+              className="flex items-center gap-2 text-sm font-bold"
+              style={{ color: 'rgba(255,255,255,0.6)' }}
+            >
+              <ArrowLeft size={16} /> Voltar
+            </button>
           </div>
 
           {!isMandatory && (
-            <button 
-                onClick={onClose} 
-                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full hidden md:block"
+            <button
+              onClick={onClose}
+              className="absolute top-3 right-3 p-1.5 rounded-lg transition-colors hidden md:flex items-center justify-center"
+              style={{ color: 'rgba(255,255,255,0.25)', zIndex: 10 }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.8)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(255,255,255,0.25)')}
             >
-                <X size={24} />
+              <X size={16} />
             </button>
           )}
 
-          <div className="flex-1 overflow-y-auto p-8 md:p-12 custom-scrollbar">
-            <div className="max-w-2xl mx-auto animate-in slide-in-from-right-4 duration-300 key={activeSection}">
+          <div className="flex-1 overflow-y-auto p-6 md:p-10 custom-scrollbar">
+            <div className="max-w-2xl mx-auto">
               {currentContent}
             </div>
           </div>
 
           {isMandatory && (
-            <div className="p-6 border-t border-[#333] flex justify-end bg-[#1e1e1e]">
-                <button 
-                    onClick={onClose} 
-                    className="bg-brand text-[#0b141a] px-8 py-3 rounded-xl font-bold hover:brightness-110 transition-all flex items-center gap-2 shadow-lg"
-                >
-                    Entendi, ir para o Workspace <ArrowRight size={18} />
-                </button>
+            <div
+              className="px-6 py-4 flex justify-end"
+              style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.2)' }}
+            >
+              <button
+                onClick={onClose}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95"
+                style={{ background: 'var(--brand)', color: '#0b141a', boxShadow: '0 4px 16px rgba(8,252,114,0.25)' }}
+              >
+                Entendi, ir para o Workspace <ArrowRight size={16} />
+              </button>
             </div>
           )}
         </div>
-
       </div>
     </div>
   );
