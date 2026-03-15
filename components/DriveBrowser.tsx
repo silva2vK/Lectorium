@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { Icon } from './shared/Icon';
 import { DriveFile, MIME_TYPES } from '../types';
@@ -7,6 +6,7 @@ import { saveOfflineFile, toggleFilePin } from '../services/storageService';
 import { MoveFileModal } from './MoveFileModal';
 import { MindMapGeneratorModal } from './modals/MindMapGeneratorModal';
 import { DriveFolderPickerModal } from './pdf/modals/DriveFolderPickerModal';
+import { RenameFileModal } from './modals/RenameFileModal';
 import { FileItem } from './drive/FileItem';
 import { useDriveFiles } from '../hooks/useDriveFiles';
 import { AiChatPanel } from './shared/AiChatPanel';
@@ -61,6 +61,10 @@ export const DriveBrowser: React.FC<Props> = ({
   const [moveFileModalOpen, setMoveFileModalOpen] = useState(false);
   const [fileToMove, setFileToMove] = useState<DriveFile | null>(null);
   const [showGeneratorModal, setShowGeneratorModal] = useState(false);
+
+  // Rename modal (substitui window.prompt — proibido BLACKBOX §18)
+  const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [fileToRename, setFileToRename] = useState<DriveFile | null>(null);
   
   const [showUploadPicker, setShowUploadPicker] = useState(false);
   const [filesToUpload, setFilesToUpload] = useState<FileList | null>(null);
@@ -133,25 +137,33 @@ export const DriveBrowser: React.FC<Props> = ({
       }
   }, [accessToken, offlineFileIds, pinnedFileIds, updateCacheStatus, addNotification]);
 
-  const handleRename = useCallback(async (file: DriveFile) => {
+  // Abre o RenameFileModal em vez de window.prompt
+  const handleRename = useCallback((file: DriveFile) => {
       setActiveMenuId(null);
-      const newName = window.prompt("Novo nome:", file.name);
-      if (newName && newName !== file.name) {
-          try {
-              await renameFile({ fileId: file.id, newName });
-          } catch (e: any) {
-              addNotification("Erro ao renomear arquivo: " + e.message, "error");
-          }
-      }
-  }, [renameFile, addNotification]);
+      setFileToRename(file);
+      setRenameModalOpen(true);
+  }, []);
 
+  const handleRenameConfirm = useCallback(async (newBaseName: string) => {
+      if (!fileToRename) return;
+      const ext = fileToRename.name.includes('.')
+          ? '.' + fileToRename.name.split('.').pop()
+          : '';
+      const newName = newBaseName.endsWith(ext) ? newBaseName : `${newBaseName}${ext}`;
+      try {
+          await renameFile({ fileId: fileToRename.id, newName });
+      } catch (e: any) {
+          addNotification("Erro ao renomear: " + e.message, "error");
+      }
+      setFileToRename(null);
+  }, [fileToRename, renameFile, addNotification]);
+
+  // Exclusão sem confirm() — confirmação inline implementada no ContextMenu do FileItem
   const handleDelete = useCallback(async (file: DriveFile) => { 
-      if (confirm(`Tem certeza que deseja excluir "${file.name}"?`)) {
-          try {
-              await deleteFile(file.id);
-          } catch (e: any) {
-              addNotification("Erro ao excluir: " + e.message, "error");
-          }
+      try {
+          await deleteFile(file.id);
+      } catch (e: any) {
+          addNotification("Erro ao excluir: " + e.message, "error");
       }
   }, [deleteFile, addNotification]);
   
@@ -198,6 +210,42 @@ export const DriveBrowser: React.FC<Props> = ({
           setLocalActionLoading(false);
       }
   }, [accessToken]);
+
+  // Baixar arquivo para o dispositivo (sem abrir no viewer)
+  const handleDownload = useCallback(async (file: DriveFile) => {
+      setActiveMenuId(null);
+      setLocalActionLoading(true);
+      try {
+          let blob = file.blob;
+          if (!blob && !file.id.startsWith('local-') && !file.id.startsWith('native-')) {
+              blob = await downloadDriveFile(accessToken, file.id, file.mimeType);
+          }
+          if (!blob) { addNotification("Arquivo não disponível para download.", "error"); return; }
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = file.name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          addNotification(`"${file.name}" baixado.`, 'success');
+      } catch (e: any) {
+          addNotification("Erro ao baixar: " + e.message, "error");
+      } finally {
+          setLocalActionLoading(false);
+      }
+  }, [accessToken, addNotification]);
+
+  // Abre o arquivo diretamente no Google Drive web
+  const handleOpenInDrive = useCallback((file: DriveFile) => {
+      setActiveMenuId(null);
+      const isFolder = file.mimeType === MIME_TYPES.FOLDER;
+      const url = isFolder
+          ? `https://drive.google.com/drive/folders/${file.id}`
+          : `https://drive.google.com/file/d/${file.id}/view`;
+      window.open(url, '_blank');
+  }, []);
 
   const handleMove = useCallback((file: DriveFile) => { 
       setActiveMenuId(null); setFileToMove(file); setMoveFileModalOpen(true); 
@@ -310,7 +358,6 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
 
   const isLoading = loading || isMutating || localActionLoading;
 
-  // Helper para renderizar um FileItem com props comuns
   const renderFileItem = (file: DriveFile) => (
     <FileItem 
       key={file.id} 
@@ -320,7 +367,9 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
       onDelete={handleDelete} 
       onShare={handleShare} 
       onMove={handleMove} 
-      onRename={handleRename} 
+      onRename={handleRename}
+      onDownload={handleDownload}
+      onOpenInDrive={handleOpenInDrive}
       isOffline={offlineFileIds.has(file.id)} 
       isPinned={pinnedFileIds.has(file.id)} 
       isActiveMenu={activeMenuId === file.id} 
@@ -441,7 +490,6 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
              </div>
          ) : (
              <>
-               {/* Seção: Pastas */}
                {folders.length > 0 && (
                  <div className="mb-6">
                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -450,7 +498,6 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
                  </div>
                )}
 
-               {/* Divisor — só aparece quando há pastas E arquivos */}
                {folders.length > 0 && fileItems.length > 0 && (
                  <div className="flex items-center gap-3 mb-4">
                    <div className="h-px flex-1 bg-white/5" />
@@ -459,7 +506,6 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
                  </div>
                )}
 
-               {/* Seção: Arquivos */}
                {fileItems.length > 0 && (
                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                    {fileItems.map(renderFileItem)}
@@ -513,6 +559,15 @@ O usuário pode pedir para organizar, encontrar arquivos ou criar novos conteúd
       
       <MoveFileModal isOpen={moveFileModalOpen} onClose={() => setMoveFileModalOpen(false)} fileToMove={fileToMove} accessToken={accessToken} onMoveSuccess={() => { loadFiles(); setFileToMove(null); }} />
       <MindMapGeneratorModal isOpen={showGeneratorModal} onClose={() => setShowGeneratorModal(false)} onGenerate={handleAiGenerateConfirm} />
+
+      {/* Rename modal — substitui window.prompt proibido */}
+      <RenameFileModal
+        isOpen={renameModalOpen}
+        onClose={() => { setRenameModalOpen(false); setFileToRename(null); }}
+        currentName={fileToRename?.name || ''}
+        onRename={handleRenameConfirm}
+        fileExtension={fileToRename?.name.includes('.') ? '.' + fileToRename.name.split('.').pop() : ''}
+      />
       
       <input 
           type="file" 
