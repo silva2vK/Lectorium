@@ -82,7 +82,7 @@ export const PdfToolbar: React.FC<Props> = ({ onFitWidth, onToggleSplitView }) =
 
   return (
     <div 
-        className="maker-pdf-toolbar fixed left-1/2 z-[70] isolation-isolate animate-in slide-in-from-bottom-10 fade-in duration-500 origin-bottom ease-out"
+        className="maker-pdf-toolbar fixed left-1/2 z-[50] isolation-isolate animate-in slide-in-from-bottom-10 fade-in duration-500 origin-bottom ease-out"
         style={{
             bottom: `${32 + settings.toolbarYOffset}px`,
             transform: `translateX(-50%) scale(${settings.toolbarScale})`
