@@ -12,74 +12,92 @@ import { computeSparseHash } from '../utils/hashUtils';
 
 // ─── Leitura de metadados ──────────────────────────────────────────────────────
 
-// Lê metadados do XMP stream (novo formato — sem limite de tamanho).
-// Custom namespace: xmlns:lectorium="http://lectorium.app/xmp/1.0/"
-// O JSON está em <lectorium:data> como texto UTF-8 (sem Base64).
-async function readFromXmp(pdfDoc: PDFDocumentProxy): Promise<PdfMetadataV2 | null> {
+// Extrai o JSON de PdfMetadataV2 de uma string XML XMP.
+// Usado tanto pela leitura via API do pdfjs quanto pela varredura de bytes brutos.
+function parseXmpXml(rawXml: string): PdfMetadataV2 | null {
     try {
-        const meta = await pdfDoc.getMetadata();
+        const unescape = (s: string) =>
+            s.replace(/&amp;/g, '&')
+             .replace(/&lt;/g, '<')
+             .replace(/&gt;/g, '>')
+             .replace(/&quot;/g, '"');
 
-        // metadata.metadata é o objeto XMP do pdfjs.
-        // Para custom namespaces não registrados no pdfjs, precisamos do XML raw.
-        // O pdfjs não expõe getRaw() na interface pública, mas expõe via _metadataMap
-        // ou podemos usar o hack documentado: iterar getAll() não funciona para
-        // custom namespaces. Alternativa correta: acessar o XML bruto via
-        // metadata.metadata._rawMetadata (internal) ou via a API getAll() com
-        // namespace prefixado.
-        //
-        // Abordagem estável: o pdfjs expõe o XML raw em metadata.contentDispositionFilename
-        // NÃO — isso é errado. A abordagem correta para pdfjs-dist v5 é:
-        // metadata.metadata é um objeto Metadata que tem método get() para namespaces
-        // conhecidos E expõe getRawValue() para strings XML brutas.
-        //
-        // Verificado no source do pdfjs v5: metadata.metadata.getRawValue() não existe
-        // publicamente. O acesso ao XML raw é via (metadata.metadata as any)._metadata
-        // que é a string XML completa. Isso é estável desde v2 sem mudança de contrato.
-
-        const xmpObj = (meta as any)?.metadata;
-        if (!xmpObj) return null;
-
-        // Acessa o XML bruto — campo interno estável do pdfjs desde v2
-        const rawXml: string = (xmpObj as any)?._metadata || '';
-        if (!rawXml || !rawXml.includes('lectorium:data')) return null;
-
-        // Parse do XML com DOMParser (disponível no browser main thread)
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(rawXml, 'application/xml');
 
-        // Busca o elemento <lectorium:data> no namespace correto
-        const dataElements = xmlDoc.getElementsByTagNameNS(
-            'http://lectorium.app/xmp/1.0/',
-            'data'
-        );
-
-        if (!dataElements || dataElements.length === 0) {
-            // Fallback: busca por tag name literal (alguns parsers XML ignoram NS)
-            const fallback = xmlDoc.querySelector('lectorium\\:data, data');
-            if (!fallback?.textContent) return null;
-            return JSON.parse(
-                fallback.textContent
-                    .replace(/&amp;/g, '&')
-                    .replace(/&lt;/g, '<')
-                    .replace(/&gt;/g, '>')
-                    .replace(/&quot;/g, '"')
-            );
+        // Caminho 1: lookup por namespace (spec-compliant)
+        const byNs = xmlDoc.getElementsByTagNameNS('http://lectorium.app/xmp/1.0/', 'data');
+        if (byNs.length > 0 && byNs[0].textContent) {
+            return JSON.parse(unescape(byNs[0].textContent));
         }
 
-        const jsonStr = dataElements[0].textContent || '';
-        return JSON.parse(
-            jsonStr
-                .replace(/&amp;/g, '&')
-                .replace(/&lt;/g, '<')
-                .replace(/&gt;/g, '>')
-                .replace(/&quot;/g, '"')
-        );
+        // Caminho 2: fallback para parsers que ignoram namespace
+        const bySelector = xmlDoc.querySelector('lectorium\\:data, data');
+        if (bySelector?.textContent) {
+            return JSON.parse(unescape(bySelector.textContent));
+        }
+
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+// Lê metadados do XMP stream (novo formato — sem limite de tamanho).
+// Custom namespace: xmlns:lectorium="http://lectorium.app/xmp/1.0/"
+// O JSON está em <lectorium:data> como texto UTF-8 (sem Base64).
+//
+// Estratégia de leitura em duas etapas:
+//
+// 1. Fast path — API do pdfjs: funciona quando o pdfjs v5 reconhece o stream XMP
+//    como válido e popula meta.metadata. Tenta os dois nomes de campo conhecidos
+//    (_metadata: pdfjs v2-v3 | _rawMetadata: pdfjs v4-v5).
+//
+// 2. Fallback — varredura de bytes brutos via getData(): cobre o caso onde
+//    meta.metadata === null (pdfjs não reconheceu o stream XMP externo gerado
+//    pelo pdf-lib). O PDF já está em memória — getData() não adiciona I/O.
+//    Localiza o pacote XMP pelos marcadores padrão <?xpacket begin= / end="w"?>.
+async function readFromXmp(pdfDoc: PDFDocumentProxy): Promise<PdfMetadataV2 | null> {
+    try {
+        // ── Fast path: API do pdfjs ─────────────────────────────────────────────
+        const meta = await pdfDoc.getMetadata();
+        const xmpObj = (meta as any)?.metadata;
+
+        if (xmpObj) {
+            // pdfjs v2-v3 usa _metadata; v4-v5 pode usar _rawMetadata
+            const rawXml: string =
+                (xmpObj as any)._metadata ||
+                (xmpObj as any)._rawMetadata ||
+                '';
+
+            if (rawXml.includes('lectorium:data')) {
+                const result = parseXmpXml(rawXml);
+                if (result) return result;
+            }
+        }
+
+        // ── Fallback: varredura dos bytes brutos do PDF ─────────────────────────
+        // Necessário quando meta.metadata === null, o que ocorre no pdfjs v5
+        // para streams XMP injetados externamente pelo pdf-lib (PDFRawStream).
+        const pdfBytes = await pdfDoc.getData();
+        const pdfText = new TextDecoder('utf-8', { fatal: false }).decode(pdfBytes);
+
+        const BEGIN = '<?xpacket begin=';
+        const END   = '<?xpacket end="w"?>';
+        const start = pdfText.indexOf(BEGIN);
+        const end   = start !== -1 ? pdfText.indexOf(END, start) : -1;
+
+        if (start === -1 || end === -1) return null;
+
+        const rawXml = pdfText.slice(start, end + END.length);
+        if (!rawXml.includes('lectorium:data')) return null;
+
+        return parseXmpXml(rawXml);
     } catch (e) {
         console.warn('[XMP] Falha ao ler XMP stream:', e);
         return null;
     }
 }
-
 // Lê metadados do campo Keywords (formato legado — PDFs salvos antes da migração XMP).
 // Suporta tanto o formato comprimido (deflate-raw) quanto o legado sem compressão.
 async function readFromKeywordsLegacy(pdfDoc: PDFDocumentProxy): Promise<PdfMetadataV2 | null> {
